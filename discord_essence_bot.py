@@ -653,8 +653,8 @@ def create_result_embed(result, tag1, tag2, interaction):
     embed.set_footer(text=f"Discovered by {interaction.user.name}")
     embed.timestamp = interaction.created_at
     
-    # Add promotional message every 10 commands
-    if command_counter % 10 == 0:
+    # Add promotional message every 3 commands
+    if command_counter % 3 == 0:
         promo_messages = [
             {
                 "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
