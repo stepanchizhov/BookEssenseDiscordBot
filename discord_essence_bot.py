@@ -360,6 +360,10 @@ command_counter = 0
 
 def normalize_tag(tag: str) -> str:
     """Normalize any tag input to its canonical display name"""
+    # Handle None or empty input
+    if not tag:
+        return None
+        
     # First try exact match
     if tag in TAG_MAPPING:
         return TAG_MAPPING[tag]
@@ -625,8 +629,8 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     # Enhanced books found with total and percentage
     book_count = result.get('book_count', 0)
-    total_books = result.get('total_books', 0)
-    percentage = result.get('percentage', 0)
+    total_books = int(result.get('total_books', 0)) if result.get('total_books') else 0
+    percentage = float(result.get('percentage', 0)) if result.get('percentage') else 0
     
     books_display = f"📚 {book_count:,}"
     if total_books > 0:
