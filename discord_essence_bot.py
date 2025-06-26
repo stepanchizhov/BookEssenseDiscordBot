@@ -1,6 +1,3 @@
-import sys
-sys.modules['discord.opus'] = None
-
 import discord
 from discord.ext import commands
 import aiohttp
