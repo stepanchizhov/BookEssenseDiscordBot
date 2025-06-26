@@ -1,59 +1,115 @@
-import os
-import json
-import aiohttp
-from typing import Optional
-
-# We'll use discord.py's minimal components
 import discord
-from discord import app_commands
+from discord.ext import commands
+import aiohttp
+import json
+import os
+from typing import Optional
 
 # Bot configuration
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 WP_API_URL = os.getenv('WP_API_URL', 'https://your-wordpress-site.com')
 WP_BOT_TOKEN = os.getenv('WP_BOT_TOKEN')
 
-# Create bot with minimal intents
+# Initialize bot with command prefix (even though we'll use slash commands)
 intents = discord.Intents.default()
 intents.message_content = True
 
-class EssenceBot(discord.Client):
-    def __init__(self):
-        super().__init__(intents=intents)
-        self.session: Optional[aiohttp.ClientSession] = None
-    
-    async def setup_hook(self):
-        # Create aiohttp session
-        self.session = aiohttp.ClientSession()
-        # Sync the command tree
-        await self.tree.sync()
-        print(f"Synced commands for {self.user}")
-    
-    async def close(self):
-        if self.session:
-            await self.session.close()
-        await super().close()
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Create bot instance
-bot = EssenceBot()
-
-# Tag mapping (keep your existing mapping)
+# Tag mapping
 TAG_MAP = {
+    # Genres
     'Fantasy': 'fantasy',
-    'Magic': 'magic',
-    'LitRPG': 'litrpg',
-    'Progression': 'progression',
-    'Portal Fantasy': 'summoned_hero',
-    'Male Lead': 'male_lead',
+    'Action': 'action',
+    'Adventure': 'adventure',
+    'Comedy': 'comedy',
+    'Drama': 'drama',
+    'Horror': 'horror',
+    'Mystery': 'mystery',
+    'Psychological': 'psychological',
+    'Romance': 'romance',
+    'Satire': 'satire',
+    'Sci-fi': 'sci_fi',
+    'Short Story': 'one_shot',
+    'Tragedy': 'tragedy',
+    'Contemporary': 'contemporary',
+    'Historical': 'historical',
+    
+    # Content Tags
+    'Anti-Hero Lead': 'anti-hero_lead',
+    'Artificial Intelligence': 'artificial_intelligence',
+    'Attractive Lead': 'attractive_lead',
+    'Cyberpunk': 'cyberpunk',
+    'Dungeon': 'dungeon',
+    'Dystopia': 'dystopia',
     'Female Lead': 'female_lead',
-    # ... add all your other tags
+    'First Contact': 'first_contact',
+    'GameLit': 'gamelit',
+    'Gender Bender': 'gender_bender',
+    'Genetically Engineered': 'genetically_engineered',
+    'Grimdark': 'grimdark',
+    'Hard Sci-fi': 'hard_sci-fi',
+    'Harem': 'harem',
+    'High Fantasy': 'high_fantasy',
+    'LitRPG': 'litrpg',
+    'Low Fantasy': 'low_fantasy',
+    'Magic': 'magic',
+    'Male Lead': 'male_lead',
+    'Martial Arts': 'martial_arts',
+    'Multiple Lead': 'multiple_lead',
+    'Mythos': 'mythos',
+    'Non-Human Lead': 'non-human_lead',
+    'Portal Fantasy': 'summoned_hero',
+    'Post Apocalyptic': 'post_apocalyptic',
+    'Progression': 'progression',
+    'Reader Interactive': 'reader_interactive',
+    'Reincarnation': 'reincarnation',
+    'Ruling Class': 'ruling_class',
+    'School Life': 'school_life',
+    'Secret Identity': 'secret_identity',
+    'Slice of Life': 'slice_of_life',
+    'Soft Sci-fi': 'soft_sci-fi',
+    'Space Opera': 'space_opera',
+    'Sports': 'sports',
+    'Steampunk': 'steampunk',
+    'Strategy': 'strategy',
+    'Strong Lead': 'strong_lead',
+    'Super Heroes': 'super_heroes',
+    'Supernatural': 'supernatural',
+    'Time Loop': 'loop',
+    'Time Travel': 'time_travel',
+    'Urban Fantasy': 'urban_fantasy',
+    'Villainous Lead': 'villainous_lead',
+    'Virtual Reality': 'virtual_reality',
+    'War and Military': 'war_and_military',
+    'Wuxia': 'wuxia',
+    'Xianxia': 'xianxia',
+    'Cultivation': 'cultivation'
 }
+
+# Global aiohttp session
+session: Optional[aiohttp.ClientSession] = None
 
 @bot.event
 async def on_ready():
+    global session
+    session = aiohttp.ClientSession()
     print(f'{bot.user} has connected to Discord!')
     print(f'Bot is in {len(bot.guilds)} guilds')
+    
+    # Sync slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s)")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
-# Slash command for essence combination
+@bot.event
+async def on_disconnect():
+    global session
+    if session:
+        await session.close()
+
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     """Combine two essence tags"""
@@ -86,7 +142,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     }
     
     try:
-        async with bot.session.post(
+        async with session.post(
             f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination", 
             json=data
         ) as response:
@@ -94,9 +150,11 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
                 result = await response.json()
                 
                 # Create embed response
-                embed = create_result_embed(result, tag1, tag2)
+                embed = create_result_embed(result, tag1, tag2, interaction)
                 await interaction.followup.send(embed=embed)
             else:
+                error_text = await response.text()
+                print(f"API Error {response.status}: {error_text}")
                 await interaction.followup.send(
                     "Error connecting to the essence database!",
                     ephemeral=True
@@ -109,7 +167,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
             ephemeral=True
         )
 
-def create_result_embed(result, tag1, tag2):
+def create_result_embed(result, tag1, tag2, interaction):
     # Color based on rarity
     colors = {
         'undiscovered': 0xFFFFFF,
@@ -153,6 +211,12 @@ def create_result_embed(result, tag1, tag2):
     )
     
     embed.add_field(
+        name="\u200b",
+        value="\u200b",
+        inline=True
+    )
+    
+    embed.add_field(
         name="✦ Lore ✦",
         value=f"*{result['flavor_text']}*",
         inline=False
@@ -163,7 +227,6 @@ def create_result_embed(result, tag1, tag2):
     
     return embed
 
-# Slash command for listing tags
 @bot.tree.command(name="tags", description="List all available essence tags")
 async def tags(interaction: discord.Interaction):
     """Show all available tags"""
@@ -171,7 +234,7 @@ async def tags(interaction: discord.Interaction):
     
     embed = discord.Embed(
         title="📚 Available Essence Tags",
-        description=tag_list[:4096],  # Discord limit
+        description=f"Use `/essence [tag1] [tag2]` to combine essences!\n\n{tag_list[:4000]}",  # Discord limit
         color=0x5468ff
     )
     
