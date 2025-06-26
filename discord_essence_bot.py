@@ -355,6 +355,9 @@ TAG_CHOICES = [
 # Global aiohttp session
 session: Optional[aiohttp.ClientSession] = None
 
+# Track command usage for promotional messages
+command_counter = 0
+
 def normalize_tag(tag: str) -> str:
     """Normalize any tag input to its canonical display name"""
     # First try exact match
@@ -480,12 +483,13 @@ async def on_disconnect():
 
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 @discord.app_commands.describe(
-    tag1="First tag - choose from list or type your own (e.g., 'Fantasy', 'female_lead')",
-    tag2="Second tag - choose from list or type your own (e.g., 'Magic', 'litrpg')"
+    tags="Enter two tags separated by space (e.g., 'Fantasy Magic') OR use the separate fields below",
+    tag1="(Optional) First tag - choose from list or type your own",
+    tag2="(Optional) Second tag - choose from list or type your own"
 )
 @discord.app_commands.autocomplete(tag1=tag_autocomplete)
 @discord.app_commands.autocomplete(tag2=tag_autocomplete)
-async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
+async def essence(interaction: discord.Interaction, tags: str = None, tag1: str = None, tag2: str = None):
     """Combine two essence tags - accepts both URL format and display names"""
     
     print(f"\n[COMMAND] Essence command called")
@@ -580,6 +584,9 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
             print("[ERROR] Failed to send error message to user")
 
 def create_result_embed(result, tag1, tag2, interaction):
+    global command_counter
+    command_counter += 1
+    
     # Color based on rarity
     colors = {
         'undiscovered': 0xFFFFFF,
@@ -616,9 +623,18 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
+    # Enhanced books found with total and percentage
+    book_count = result.get('book_count', 0)
+    total_books = result.get('total_books', 0)
+    percentage = result.get('percentage', 0)
+    
+    books_display = f"📚 {book_count:,}"
+    if total_books > 0:
+        books_display += f"\n📊 {percentage}% of {total_books:,} total"
+    
     embed.add_field(
         name="Books Found",
-        value=f"📚 {result['book_count']}",
+        value=books_display,
         inline=True
     )
     
@@ -637,6 +653,36 @@ def create_result_embed(result, tag1, tag2, interaction):
     embed.set_footer(text=f"Discovered by {interaction.user.name}")
     embed.timestamp = interaction.created_at
     
+    # Add promotional message every 10 commands
+    if command_counter % 10 == 0:
+        promo_messages = [
+            {
+                "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+                "url": "https://stepan.chizhov.com",
+                "link_text": "Visit StepanChizhov.com"
+            },
+            {
+                "text": "💬 Need help or have suggestions?",
+                "url": "https://discord.gg/xvw9vbvrwj",
+                "link_text": "Join our Support Discord"
+            },
+            {
+                "text": "📚 Join discussions about Royal Road and analytics!",
+                "url": "https://discord.gg/7Xrrf3Q5zp",
+                "link_text": "RoyalRoad Community Discord"
+            }
+        ]
+        
+        # Rotate through promotional messages
+        promo = promo_messages[(command_counter // 10 - 1) % len(promo_messages)]
+        
+        # Add promotional field with hyperlink
+        embed.add_field(
+            name="━━━━━━━━━━━━━━━━━━━━━",
+            value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+            inline=False
+        )
+    
     return embed
 
 @bot.tree.command(name="tags", description="List all available essence tags")
@@ -645,7 +691,14 @@ async def tags(interaction: discord.Interaction):
     
     embed = discord.Embed(
         title="📚 Available Essence Tags",
-        description="You can use any of these formats:\n• Display name: `Female Lead`\n• URL format: `female_lead`\n• Lowercase: `female lead`\n• Shortcuts: `FL`, `ML`, `AI`, `VR`, `SOL`",
+        description=(
+            "You can use any of these formats:\n"
+            "• Display name: `Female Lead`\n"
+            "• URL format: `female_lead`\n"
+            "• Lowercase: `female lead`\n"
+            "• Shortcuts: `FL`, `ML`, `AI`, `VR`, `SOL`\n\n"
+            "**Need help?** Use `/help` for detailed instructions!"
+        ),
         color=0x5468ff
     )
     
@@ -669,12 +722,21 @@ async def tags(interaction: discord.Interaction):
             inline=True
         )
     
-    # Add examples
+    # Add quick start
     embed.add_field(
-        name="Example Usage",
-        value="`/essence fantasy magic`\n`/essence female_lead strong_lead`\n`/essence LitRPG progression`\n`/essence Portal Fantasy Reincarnation`",
+        name="🚀 Quick Start",
+        value=(
+            "**Try these commands:**\n"
+            "`/e Fantasy Magic`\n"
+            "`/e female_lead strong_lead`\n"
+            "`/e LitRPG progression`\n"
+            "`/e Portal Fantasy Reincarnation`\n\n"
+            "Use `/help` for more examples!"
+        ),
         inline=False
     )
+    
+    embed.set_footer(text="Tip: Use /e for quick combinations or /essence for autocomplete")
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -882,6 +944,126 @@ async def quick_essence(interaction: discord.Interaction, tags: str):
             )
         except:
             pass
+
+# Add another alias for convenience
+@bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
+@discord.app_commands.describe(
+    tags="Enter two tags separated by space"
+)
+async def combine_alias(interaction: discord.Interaction, tags: str):
+    """Alias for quick essence command"""
+    await quick_essence(interaction, tags)
+
+# Add another alias for convenience
+@bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
+@discord.app_commands.describe(
+    tags="Enter two tags separated by space"
+)
+async def combine_alias(interaction: discord.Interaction, tags: str):
+    """Alias for quick essence command"""
+    await quick_essence(interaction, tags)
+
+# Help command
+@bot.tree.command(name="help", description="Learn how to use the Essence Bot")
+async def help_command(interaction: discord.Interaction):
+    """Show detailed help information"""
+    
+    embed = discord.Embed(
+        title="📖 Essence Bot Help",
+        description="Discover rare book combinations by combining Royal Road tags!",
+        color=0x5468ff
+    )
+    
+    # Commands section
+    embed.add_field(
+        name="🎮 Commands",
+        value=(
+            "**`/essence`** - Combine tags with autocomplete\n"
+            "• Use Tab to navigate between fields\n"
+            "• Type to see suggestions\n\n"
+            "**`/e`** - Quick combination\n"
+            "• Example: `/e Fantasy Magic`\n"
+            "• Example: `/e female_lead litrpg`\n\n"
+            "**`/tags`** - List all available tags\n"
+            "**`/help`** - Show this help message\n"
+            "**`/ping`** - Check if bot is online"
+        ),
+        inline=False
+    )
+    
+    # How to use section
+    embed.add_field(
+        name="🎯 How to Use",
+        value=(
+            "**Method 1: Quick Command**\n"
+            "Type `/e Fantasy Magic` and press Enter\n\n"
+            "**Method 2: Autocomplete**\n"
+            "1. Type `/essence`\n"
+            "2. Press Tab or click the command\n"
+            "3. Fill in both tag fields\n"
+            "4. Press Enter"
+        ),
+        inline=True
+    )
+    
+    # Tag formats section
+    embed.add_field(
+        name="📝 Tag Formats",
+        value=(
+            "**Accepted formats:**\n"
+            "• Display: `Fantasy`, `Female Lead`\n"
+            "• URL: `fantasy`, `female_lead`\n"
+            "• Mixed: `FANTASY`, `magic`\n"
+            "• Short: `FL`, `ML`, `SOL`\n\n"
+            "**Multi-word tags:**\n"
+            "• `/e Female Lead Magic` ✓\n"
+            "• `/e portal fantasy litrpg` ✓"
+        ),
+        inline=True
+    )
+    
+    # Rarity tiers
+    embed.add_field(
+        name="💎 Rarity Tiers",
+        value=(
+            "🌟 **Mythic** (0-5 books)\n"
+            "⭐ **Legendary** (6-20 books)\n"
+            "💜 **Epic** (21-50 books)\n"
+            "💙 **Rare** (51-100 books)\n"
+            "💚 **Uncommon** (101-500 books)\n"
+            "⚪ **Common** (500+ books)"
+        ),
+        inline=False
+    )
+    
+    # Examples
+    embed.add_field(
+        name="📚 Example Combinations",
+        value=(
+            "`/e Fantasy Magic` - The Arcane Weave\n"
+            "`/e LitRPG Progression` - The Ascending Interface\n"
+            "`/e Female Lead Strong Lead` - The Valkyrie's Bond\n"
+            "`/e Portal Fantasy Reincarnation` - The Eternal Gateway"
+        ),
+        inline=False
+    )
+    
+    # Tips
+    embed.add_field(
+        name="💡 Pro Tips",
+        value=(
+            "• Try unusual combinations for rare discoveries!\n"
+            "• Use `/tags` to see all 65+ available tags\n"
+            "• Some combinations have special names\n"
+            "• The rarer the combination, the more prestigious!"
+        ),
+        inline=False
+    )
+    
+    embed.set_footer(text="Created by Stepan Chizhov • Powered by Royal Road Analytics")
+    embed.timestamp = interaction.created_at
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # Error handler
 @bot.tree.error
