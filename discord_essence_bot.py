@@ -387,6 +387,19 @@ async def on_ready():
     for guild in bot.guilds:
         print(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
     
+    # Test WordPress connection immediately
+    print('[TEST] Testing WordPress connection...')
+    try:
+        test_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/health"
+        async with session.get(test_url) as response:
+            print(f'[TEST] WordPress health check: Status {response.status}')
+            if response.status == 200:
+                print('[TEST] ✅ WordPress API is reachable!')
+            else:
+                print('[TEST] ❌ WordPress API returned error status')
+    except Exception as e:
+        print(f'[TEST] ❌ Failed to reach WordPress: {e}')
+    
     # Sync slash commands
     try:
         print('[SYNC] Starting command sync...')
@@ -603,6 +616,80 @@ async def tags(interaction: discord.Interaction):
 async def ping(interaction: discord.Interaction):
     print(f"[COMMAND] Ping command called by {interaction.user}")
     await interaction.response.send_message("Pong! The bot is online.", ephemeral=True)
+
+# Test WordPress connection command
+@bot.tree.command(name="test", description="Test WordPress API connection")
+async def test(interaction: discord.Interaction):
+    print(f"[COMMAND] Test command called by {interaction.user}")
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        # Test health endpoint
+        health_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/health"
+        async with session.get(health_url) as response:
+            health_status = response.status
+            health_text = await response.text()
+            print(f"[TEST] Health check: {health_status}")
+        
+        # Test essence endpoint
+        test_data = {
+            'tags': ['Fantasy', 'Magic'],
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        essence_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
+        async with session.post(
+            essence_url,
+            json=test_data,
+            headers={'Content-Type': 'application/json'}
+        ) as response:
+            essence_status = response.status
+            essence_text = await response.text()
+            print(f"[TEST] Essence endpoint: {essence_status}")
+        
+        # Create response embed
+        embed = discord.Embed(
+            title="🔧 WordPress API Test Results",
+            color=0x00ff00 if health_status == 200 and essence_status == 200 else 0xff0000
+        )
+        
+        embed.add_field(
+            name="Health Check",
+            value=f"{'✅' if health_status == 200 else '❌'} Status: {health_status}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="Essence Endpoint",
+            value=f"{'✅' if essence_status == 200 else '❌'} Status: {essence_status}",
+            inline=False
+        )
+        
+        if essence_status == 200:
+            try:
+                result = json.loads(essence_text)
+                embed.add_field(
+                    name="Test Result",
+                    value=f"Fantasy + Magic = {result.get('combination_name', 'Unknown')} ({result.get('book_count', 0)} books)",
+                    inline=False
+                )
+            except:
+                pass
+        
+        embed.add_field(
+            name="API URL",
+            value=f"`{WP_API_URL}`",
+            inline=False
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        print(f"[ERROR] Test command failed: {e}")
+        await interaction.followup.send(
+            f"❌ Test failed: {str(e)}",
+            ephemeral=True
+        )
 
 # Error handler
 @bot.tree.error
