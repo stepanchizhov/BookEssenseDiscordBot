@@ -392,12 +392,16 @@ async def on_ready():
     print('[TEST] Testing WordPress connection...')
     try:
         test_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/health"
-        async with session.get(test_url) as response:
+        headers = {
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)'
+        }
+        async with session.get(test_url, headers=headers) as response:
             print(f'[TEST] WordPress health check: Status {response.status}')
             if response.status == 200:
                 print('[TEST] ✅ WordPress API is reachable!')
             else:
-                print('[TEST] ❌ WordPress API returned error status')
+                response_text = await response.text()
+                print(f'[TEST] ❌ WordPress API returned error status: {response_text[:200]}')
     except Exception as e:
         print(f'[TEST] ❌ Failed to reach WordPress: {e}')
     
@@ -477,10 +481,16 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         print(f"[API] Payload: {json.dumps(data)}")
         
         # Make API request
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
         async with session.post(
             url,
             json=data,
-            headers={'Content-Type': 'application/json'}
+            headers=headers
         ) as response:
             response_text = await response.text()
             print(f"[API] Status: {response.status}")
@@ -627,7 +637,10 @@ async def test(interaction: discord.Interaction):
     try:
         # Test health endpoint
         health_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/health"
-        async with session.get(health_url) as response:
+        headers = {
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)'
+        }
+        async with session.get(health_url, headers=headers) as response:
             health_status = response.status
             health_text = await response.text()
             print(f"[TEST] Health check: {health_status}")
@@ -638,11 +651,17 @@ async def test(interaction: discord.Interaction):
             'bot_token': WP_BOT_TOKEN
         }
         
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
         essence_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
         async with session.post(
             essence_url,
             json=test_data,
-            headers={'Content-Type': 'application/json'}
+            headers=headers
         ) as response:
             essence_status = response.status
             essence_text = await response.text()
