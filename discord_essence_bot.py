@@ -873,7 +873,7 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
             print(f"[COMMAND] Interpreted as: '{tag1_orig}' + '{tag2_orig}'")
         else:
             await interaction.response.send_message(
-                f"Could not interpret '{tags}' as two valid tags.\nTry: `/e Fantasy Magic` or `/e female_lead strong_lead`",
+                f"Could not interpret '{tags}' as two valid tags.\nTry: `/e Fantasy Magic` or `/e female_lead strong_lead. Triads, Tetrads, and Pentads (or Trios, Quartets, and Quintets, I don't know what you like more) will become available in the future!`",
                 ephemeral=True
             )
             return
