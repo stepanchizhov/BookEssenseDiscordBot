@@ -352,9 +352,6 @@ TAG_CHOICES = [
     for tag in UNIQUE_TAGS[:25]
 ]
 
-# Global aiohttp session
-session: Optional[aiohttp.ClientSession] = None
-
 # Track command usage for promotional messages
 command_counter = 0
 
@@ -439,10 +436,17 @@ async def tag_autocomplete(
         for tag in matching_tags[:25]
     ]
 
+async def get_session():
+    """Get or create the aiohttp session"""
+    global session
+    if session is None or session.closed:
+        session = aiohttp.ClientSession()
+    return session
+
 @bot.event
 async def on_ready():
     global session
-    session = aiohttp.ClientSession()
+    session = await get_session()
     print(f'[READY] {bot.user} has connected to Discord!')
     print(f'[READY] Bot is in {len(bot.guilds)} guilds')
     
@@ -481,10 +485,22 @@ async def on_ready():
 
 @bot.event
 async def on_disconnect():
+    print('[DISCONNECT] Bot disconnected')
+    # Don't close the session here - let it persist
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    """Handle errors gracefully"""
+    print(f'[ERROR] Error in {event}')
+    import traceback
+    traceback.print_exc()
+
+# Close session only when bot is shutting down
+async def cleanup():
     global session
-    if session:
+    if session and not session.closed:
         await session.close()
-        print('[DISCONNECT] Session closed')
+        print('[CLEANUP] Session closed')
 
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 @discord.app_commands.describe(
@@ -506,6 +522,9 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     print("[COMMAND] Response deferred")
     
     try:
+        # Get the session
+        session = await get_session()
+        
         # Normalize tags
         normalized_tag1 = normalize_tag(tag1)
         normalized_tag2 = normalize_tag(tag2)
@@ -630,7 +649,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     books_display = f"📚 {book_count:,}"
     if total_books > 0:
-        books_display += f"\n📊 {percentage}% of {total_books:,} total Royal Road books in \nStepan Chizhov\'s database"
+        books_display += f"\n📊 {percentage}% of {total_books:,} total \nRoyal Road books in \nStepan Chizhov\'s database"
     
     embed.add_field(
         name="Books Found",
@@ -649,9 +668,6 @@ def create_result_embed(result, tag1, tag2, interaction):
         value=f"*{result['flavor_text']}*",
         inline=False
     )
-    
-    # embed.set_footer(text=f"Discovered by {interaction.user.name}")
-    # embed.timestamp = interaction.created_at
     
     # Add promotional message every 3 commands
     if command_counter % 3 == 0:
@@ -755,6 +771,8 @@ async def ping(interaction: discord.Interaction):
 async def test(interaction: discord.Interaction):
     print(f"[COMMAND] Test command called by {interaction.user}")
     await interaction.response.defer(ephemeral=True)
+    
+    session = await get_session()
     
     try:
         # Test health endpoint
@@ -885,6 +903,8 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
     # Now process as normal essence command
     try:
         await interaction.response.defer()
+        
+        session = await get_session()
         
         if not tag1_norm:
             await interaction.followup.send(
@@ -1077,6 +1097,30 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
         await interaction.followup.send("An error occurred!", ephemeral=True)
     else:
         await interaction.response.send_message("An error occurred!", ephemeral=True)
+
+# Add cleanup handler
+import atexit
+import signal
+
+def cleanup_handler():
+    """Cleanup handler for shutdown"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(cleanup())
+        else:
+            loop.run_until_complete(cleanup())
+    except:
+        pass
+
+# Register cleanup handlers
+atexit.register(cleanup_handler)
+signal.signal(signal.SIGTERM, lambda s, f: cleanup_handler())
+signal.signal(signal.SIGINT, lambda s, f: cleanup_handler())
+
+# Global session variable
+session = None
 
 # Run the bot
 if __name__ == "__main__":
