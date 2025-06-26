@@ -630,7 +630,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     books_display = f"📚 {book_count:,}"
     if total_books > 0:
-        books_display += f"\n📊 {percentage}% of {total_books:,} total Royal Road books in Stepan Chizhov's database"
+        books_display += f"\n📊 {percentage}% of {total_books:,} total Royal Road books in Stepan Chizhov\'s database"
     
     embed.add_field(
         name="Books Found",
