@@ -657,6 +657,11 @@ def create_result_embed(result, tag1, tag2, interaction):
     if command_counter % 3 == 0:
         promo_messages = [
             {
+                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+                "url": "https://www.patreon.com/stepanchizhov",
+                "link_text": "Support his work on Patreon!"
+            },
+            {
                 "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
                 "url": "https://stepan.chizhov.com",
                 "link_text": "Visit stepan.chizhov.com"
