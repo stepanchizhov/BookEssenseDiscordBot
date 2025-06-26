@@ -945,14 +945,7 @@ async def quick_essence(interaction: discord.Interaction, tags: str):
         except:
             pass
 
-# Add another alias for convenience
-@bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
-@discord.app_commands.describe(
-    tags="Enter two tags separated by space"
-)
-async def combine_alias(interaction: discord.Interaction, tags: str):
-    """Alias for quick essence command"""
-    await quick_essence(interaction, tags)
+
 
 # Add another alias for convenience
 @bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
