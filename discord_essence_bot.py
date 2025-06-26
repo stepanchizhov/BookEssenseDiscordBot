@@ -5,7 +5,6 @@ import json
 import os
 from typing import Optional
 import logging
-import asyncio
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -359,9 +358,6 @@ session: Optional[aiohttp.ClientSession] = None
 # Track command usage for promotional messages
 command_counter = 0
 
-# Track recent interactions to prevent duplicates
-recent_interactions = set()
-
 def normalize_tag(tag: str) -> str:
     """Normalize any tag input to its canonical display name"""
     # Handle None or empty input
@@ -387,9 +383,6 @@ def normalize_tag(tag: str) -> str:
     
     # If no match found, return None
     return None
-
-# Global aiohttp session
-session: Optional[aiohttp.ClientSession] = None
 
 async def tag_autocomplete(
     interaction: discord.Interaction,
@@ -495,13 +488,12 @@ async def on_disconnect():
 
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 @discord.app_commands.describe(
-    tags="Enter two tags separated by space (e.g., 'Fantasy Magic') OR use the separate fields below",
-    tag1="(Optional) First tag - choose from list or type your own",
-    tag2="(Optional) Second tag - choose from list or type your own"
+    tag1="First tag - choose from list or type your own",
+    tag2="Second tag - choose from list or type your own"
 )
 @discord.app_commands.autocomplete(tag1=tag_autocomplete)
 @discord.app_commands.autocomplete(tag2=tag_autocomplete)
-async def essence(interaction: discord.Interaction, tags: str = None, tag1: str = None, tag2: str = None):
+async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     """Combine two essence tags - accepts both URL format and display names"""
     
     print(f"\n[COMMAND] Essence command called")
@@ -509,11 +501,11 @@ async def essence(interaction: discord.Interaction, tags: str = None, tag1: str 
     print(f"[COMMAND] Guild: {interaction.guild.name if interaction.guild else 'DM'}")
     print(f"[COMMAND] Raw input: '{tag1}' + '{tag2}'")
     
+    # Defer the response FIRST before any processing
+    await interaction.response.defer()
+    print("[COMMAND] Response deferred")
+    
     try:
-        # Defer the response first
-        await interaction.response.defer()
-        print("[COMMAND] Response deferred")
-        
         # Normalize tags
         normalized_tag1 = normalize_tag(tag1)
         normalized_tag2 = normalize_tag(tag2)
@@ -559,11 +551,7 @@ async def essence(interaction: discord.Interaction, tags: str = None, tag1: str 
             'X-Requested-With': 'XMLHttpRequest'
         }
         
-        async with session.post(
-            url,
-            json=data,
-            headers=headers
-        ) as response:
+        async with session.post(url, json=data, headers=headers) as response:
             response_text = await response.text()
             print(f"[API] Status: {response.status}")
             print(f"[API] Response: {response_text[:500]}...")  # First 500 chars
@@ -671,7 +659,7 @@ def create_result_embed(result, tag1, tag2, interaction):
             {
                 "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
                 "url": "https://stepan.chizhov.com",
-                "link_text": "Visit stepan.chizhov.com"
+                "link_text": "Visit StepanChizhov.com"
             },
             {
                 "text": "💬 Need help or have suggestions?",
@@ -849,18 +837,6 @@ async def test(interaction: discord.Interaction):
 async def quick_essence(interaction: discord.Interaction, tags: str):
     """Quick essence command that accepts two tags in one input"""
     
-    # Prevent duplicate processing
-    interaction_id = interaction.id
-    if interaction_id in recent_interactions:
-        return
-    recent_interactions.add(interaction_id)
-    
-    # Clean up old interactions after 5 seconds
-    async def cleanup():
-        await asyncio.sleep(5)
-        recent_interactions.discard(interaction_id)
-    asyncio.create_task(cleanup())
-    
     print(f"\n[COMMAND] Quick essence command called")
     print(f"[COMMAND] User: {interaction.user}")
     print(f"[COMMAND] Input: '{tags}'")
@@ -969,7 +945,14 @@ async def quick_essence(interaction: discord.Interaction, tags: str):
         except:
             pass
 
-
+# Add another alias for convenience
+@bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
+@discord.app_commands.describe(
+    tags="Enter two tags separated by space"
+)
+async def combine_alias(interaction: discord.Interaction, tags: str):
+    """Alias for quick essence command"""
+    await quick_essence(interaction, tags)
 
 # Help command
 @bot.tree.command(name="help", description="Learn how to use the Essence Bot")
