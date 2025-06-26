@@ -659,7 +659,7 @@ def create_result_embed(result, tag1, tag2, interaction):
             {
                 "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
                 "url": "https://stepan.chizhov.com",
-                "link_text": "Visit StepanChizhov.com"
+                "link_text": "Visit stepan.chizhov.com"
             },
             {
                 "text": "💬 Need help or have suggestions?",
