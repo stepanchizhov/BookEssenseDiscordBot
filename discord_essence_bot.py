@@ -829,13 +829,9 @@ async def test(interaction: discord.Interaction):
             ephemeral=True
         )
 
-# Simple essence command that takes both tags as one input
-@bot.tree.command(name="e", description="Quick essence combination: /e Fantasy Magic")
-@discord.app_commands.describe(
-    tags="Enter two tags separated by space (e.g., 'Fantasy Magic' or 'female_lead strong_lead')"
-)
-async def quick_essence(interaction: discord.Interaction, tags: str):
-    """Quick essence command that accepts two tags in one input"""
+# Process tags for the quick essence commands
+async def process_quick_essence(interaction: discord.Interaction, tags: str):
+    """Process quick essence command with two tags in one input"""
     
     print(f"\n[COMMAND] Quick essence command called")
     print(f"[COMMAND] User: {interaction.user}")
@@ -945,14 +941,23 @@ async def quick_essence(interaction: discord.Interaction, tags: str):
         except:
             pass
 
-# Add another alias for convenience
+# Simple essence command that takes both tags as one input
+@bot.tree.command(name="e", description="Quick essence combination: /e Fantasy Magic")
+@discord.app_commands.describe(
+    tags="Enter two tags separated by space (e.g., 'Fantasy Magic' or 'female_lead strong_lead')"
+)
+async def quick_essence(interaction: discord.Interaction, tags: str):
+    """Quick essence command that accepts two tags in one input"""
+    await process_quick_essence(interaction, tags)
+
+# Add alias for convenience
 @bot.tree.command(name="combine", description="Combine two essence tags: /combine Fantasy Magic")
 @discord.app_commands.describe(
     tags="Enter two tags separated by space"
 )
 async def combine_alias(interaction: discord.Interaction, tags: str):
     """Alias for quick essence command"""
-    await quick_essence(interaction, tags)
+    await process_quick_essence(interaction, tags)
 
 # Help command
 @bot.tree.command(name="help", description="Learn how to use the Essence Bot")
@@ -975,6 +980,8 @@ async def help_command(interaction: discord.Interaction):
             "**`/e`** - Quick combination\n"
             "• Example: `/e Fantasy Magic`\n"
             "• Example: `/e female_lead litrpg`\n\n"
+            "**`/combine`** - Another quick combination\n"
+            "• Same as `/e`\n\n"
             "**`/tags`** - List all available tags\n"
             "**`/help`** - Show this help message\n"
             "**`/ping`** - Check if bot is online"
