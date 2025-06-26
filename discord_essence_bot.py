@@ -18,6 +18,7 @@ WP_BOT_TOKEN = os.getenv('WP_BOT_TOKEN')
 print(f"[STARTUP] Bot Token exists: {'Yes' if BOT_TOKEN else 'No'}")
 print(f"[STARTUP] WP URL: {WP_API_URL}")
 print(f"[STARTUP] WP Bot Token exists: {'Yes' if WP_BOT_TOKEN else 'No'}")
+print(f"[STARTUP] WP Bot Token value: {WP_BOT_TOKEN[:10]}..." if WP_BOT_TOKEN else "[STARTUP] WP Bot Token is EMPTY!")
 
 # Initialize bot with command prefix (even though we'll use slash commands)
 intents = discord.Intents.default()
