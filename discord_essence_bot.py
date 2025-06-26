@@ -112,6 +112,13 @@ async def on_disconnect():
 
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
+    await interaction.response.defer()
+    
+    # Debug: Log the attempt
+    print(f"[DEBUG] Essence command called with: {tag1}, {tag2}")
+    print(f"[DEBUG] WP_API_URL: {WP_API_URL}")
+    print(f"[DEBUG] WP_BOT_TOKEN exists: {'Yes' if WP_BOT_TOKEN else 'No'}")
+    
     """Combine two essence tags"""
     
     # Convert display names to database slugs
@@ -160,6 +167,15 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
                     ephemeral=True
                 )
                 
+        result = await essence_combination_endpoint([tag1, tag2])
+        
+        if result:
+            print(f"[DEBUG] Got result from API: {result}")
+            # Create embed...
+        else:
+            print("[DEBUG] No result from API")
+            await interaction.followup.send("Failed to get combination data")
+    
     except Exception as e:
         print(f"Error in essence command: {e}")
         await interaction.followup.send(
