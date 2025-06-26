@@ -12,7 +12,7 @@ WP_BOT_TOKEN = os.getenv('WP_BOT_TOKEN')
 
 # Initialize bot with command prefix (even though we'll use slash commands)
 intents = discord.Intents.default()
-intents.message_content = True
+# intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
