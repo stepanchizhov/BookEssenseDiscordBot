@@ -7,7 +7,7 @@ from typing import Optional
 
 # Bot configuration
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-WP_API_URL = os.getenv('WP_API_URL', 'https://your-wordpress-site.com')
+WP_API_URL = os.getenv('WP_API_URL', 'https://stepan.chizhov.com')
 WP_BOT_TOKEN = os.getenv('WP_BOT_TOKEN')
 
 # Initialize bot with command prefix (even though we'll use slash commands)
