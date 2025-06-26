@@ -650,8 +650,8 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=False
     )
     
-    embed.set_footer(text=f"Discovered by {interaction.user.name}")
-    embed.timestamp = interaction.created_at
+    # embed.set_footer(text=f"Discovered by {interaction.user.name}")
+    # embed.timestamp = interaction.created_at
     
     # Add promotional message every 3 commands
     if command_counter % 3 == 0:
