@@ -674,7 +674,7 @@ def create_result_embed(result, tag1, tag2, interaction):
             {
                 "text": "📚 Join discussions about Royal Road and analytics!",
                 "url": "https://discord.gg/7Xrrf3Q5zp",
-                "link_text": "RoyalRoad Community Discord"
+                "link_text": "Immersive Ink Community Discord"
             }
         ]
         
