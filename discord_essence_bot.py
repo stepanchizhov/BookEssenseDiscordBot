@@ -377,6 +377,60 @@ def normalize_tag(tag: str) -> str:
     # If no match found, return None
     return None
 
+# Global aiohttp session
+session: Optional[aiohttp.ClientSession] = None
+
+async def tag_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[discord.app_commands.Choice[str]]:
+    """Autocomplete function for tag selection that allows free input"""
+    # Get all unique tags
+    all_tags = UNIQUE_TAGS
+    
+    # If user hasn't typed anything, show popular tags
+    if not current:
+        popular_tags = [
+            'Fantasy', 'Magic', 'LitRPG', 'Progression', 'Action', 
+            'Adventure', 'Romance', 'Female Lead', 'Male Lead', 'Dungeon',
+            'High Fantasy', 'Urban Fantasy', 'Sci-fi', 'Horror', 'Comedy'
+        ]
+        return [
+            discord.app_commands.Choice(name=tag, value=tag)
+            for tag in popular_tags[:25]  # Discord limits to 25
+        ]
+    
+    # Filter tags based on what user typed
+    current_lower = current.lower()
+    matching_tags = []
+    
+    # First, add exact matches and starts-with matches
+    for tag in all_tags:
+        if tag.lower().startswith(current_lower):
+            matching_tags.append(tag)
+    
+    # Then add contains matches
+    for tag in all_tags:
+        if current_lower in tag.lower() and tag not in matching_tags:
+            matching_tags.append(tag)
+    
+    # Also check against URL format
+    for key, value in TAG_MAPPING.items():
+        if current_lower in key.lower() and value not in matching_tags:
+            matching_tags.append(value)
+    
+    # If user typed something that doesn't match any known tags,
+    # still show it as an option (free-form input)
+    normalized = normalize_tag(current)
+    if not normalized and current not in matching_tags:
+        matching_tags.insert(0, current)  # User's input at the top
+    
+    # Return up to 25 choices
+    return [
+        discord.app_commands.Choice(name=tag, value=tag)
+        for tag in matching_tags[:25]
+    ]
+
 @bot.event
 async def on_ready():
     global session
@@ -426,9 +480,11 @@ async def on_disconnect():
 
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 @discord.app_commands.describe(
-    tag1="First tag (e.g., 'Fantasy', 'fantasy', 'female_lead', 'Female Lead')",
-    tag2="Second tag (e.g., 'Magic', 'magic', 'litrpg', 'LitRPG')"
+    tag1="First tag - choose from list or type your own (e.g., 'Fantasy', 'female_lead')",
+    tag2="Second tag - choose from list or type your own (e.g., 'Magic', 'litrpg')"
 )
+@discord.app_commands.autocomplete(tag1=tag_autocomplete)
+@discord.app_commands.autocomplete(tag2=tag_autocomplete)
 async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     """Combine two essence tags - accepts both URL format and display names"""
     
@@ -710,6 +766,122 @@ async def test(interaction: discord.Interaction):
             f"❌ Test failed: {str(e)}",
             ephemeral=True
         )
+
+# Simple essence command that takes both tags as one input
+@bot.tree.command(name="e", description="Quick essence combination: /e Fantasy Magic")
+@discord.app_commands.describe(
+    tags="Enter two tags separated by space (e.g., 'Fantasy Magic' or 'female_lead strong_lead')"
+)
+async def quick_essence(interaction: discord.Interaction, tags: str):
+    """Quick essence command that accepts two tags in one input"""
+    
+    print(f"\n[COMMAND] Quick essence command called")
+    print(f"[COMMAND] User: {interaction.user}")
+    print(f"[COMMAND] Input: '{tags}'")
+    
+    # Split the input
+    tag_list = tags.strip().split()
+    
+    if len(tag_list) < 2:
+        await interaction.response.send_message(
+            "Please provide two tags separated by space.\nExample: `/e Fantasy Magic`",
+            ephemeral=True
+        )
+        return
+    
+    if len(tag_list) > 2:
+        # If more than 2 words, try to intelligently combine them
+        # e.g., "Female Lead Magic" -> ["Female Lead", "Magic"]
+        possible_tags = []
+        
+        # Try different combinations
+        for i in range(1, len(tag_list)):
+            tag1_candidate = ' '.join(tag_list[:i])
+            tag2_candidate = ' '.join(tag_list[i:])
+            
+            norm1 = normalize_tag(tag1_candidate)
+            norm2 = normalize_tag(tag2_candidate)
+            
+            if norm1 and norm2:
+                possible_tags.append((norm1, norm2, tag1_candidate, tag2_candidate))
+        
+        if possible_tags:
+            # Use the first valid combination
+            tag1_norm, tag2_norm, tag1_orig, tag2_orig = possible_tags[0]
+            print(f"[COMMAND] Interpreted as: '{tag1_orig}' + '{tag2_orig}'")
+        else:
+            await interaction.response.send_message(
+                f"Could not interpret '{tags}' as two valid tags.\nTry: `/e Fantasy Magic` or `/e female_lead strong_lead`",
+                ephemeral=True
+            )
+            return
+    else:
+        tag1_orig, tag2_orig = tag_list[0], tag_list[1]
+        tag1_norm = normalize_tag(tag1_orig)
+        tag2_norm = normalize_tag(tag2_orig)
+    
+    # Now process as normal essence command
+    try:
+        await interaction.response.defer()
+        
+        if not tag1_norm:
+            await interaction.followup.send(
+                f"Unknown tag: **{tag1_orig}**\nUse `/tags` to see available tags.",
+                ephemeral=True
+            )
+            return
+            
+        if not tag2_norm:
+            await interaction.followup.send(
+                f"Unknown tag: **{tag2_orig}**\nUse `/tags` to see available tags.",
+                ephemeral=True
+            )
+            return
+        
+        if tag1_norm == tag2_norm:
+            await interaction.followup.send(
+                "You cannot combine an essence with itself!",
+                ephemeral=True
+            )
+            return
+        
+        # Make API request
+        data = {
+            'tags': [tag1_norm, tag2_norm],
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            if response.status == 200:
+                result = json.loads(await response.text())
+                embed = create_result_embed(result, tag1_norm, tag2_norm, interaction)
+                await interaction.followup.send(embed=embed)
+                print("[COMMAND] Quick essence completed successfully")
+            else:
+                await interaction.followup.send(
+                    f"Error {response.status} from the essence database!",
+                    ephemeral=True
+                )
+                
+    except Exception as e:
+        print(f"[ERROR] Exception in quick essence: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "An error occurred while weaving essences!",
+                ephemeral=True
+            )
+        except:
+            pass
 
 # Error handler
 @bot.tree.error
