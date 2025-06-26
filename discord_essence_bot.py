@@ -696,7 +696,6 @@ async def tags(interaction: discord.Interaction):
             "• Display name: `Female Lead`\n"
             "• URL format: `female_lead`\n"
             "• Lowercase: `female lead`\n"
-            "• Shortcuts: `FL`, `ML`, `AI`, `VR`, `SOL`\n\n"
             "**Need help?** Use `/help` for detailed instructions!"
         ),
         color=0x5468ff
@@ -946,7 +945,7 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
 @discord.app_commands.describe(
     tags="Enter two tags separated by space (e.g., 'Fantasy Magic' or 'female_lead strong_lead')"
 )
-async def quick_essence(interaction: discord.Interaction, tags: str):
+async def e_command(interaction: discord.Interaction, tags: str):
     """Quick essence command that accepts two tags in one input"""
     await process_quick_essence(interaction, tags)
 
@@ -1012,7 +1011,6 @@ async def help_command(interaction: discord.Interaction):
             "• Display: `Fantasy`, `Female Lead`\n"
             "• URL: `fantasy`, `female_lead`\n"
             "• Mixed: `FANTASY`, `magic`\n"
-            "• Short: `FL`, `ML`, `SOL`\n\n"
             "**Multi-word tags:**\n"
             "• `/e Female Lead Magic` ✓\n"
             "• `/e portal fantasy litrpg` ✓"
