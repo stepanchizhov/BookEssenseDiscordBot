@@ -696,6 +696,11 @@ def create_result_embed(result, tag1, tag2, interaction):
     if command_counter % 3 == 0:
         promo_messages = [
             {
+                "text": "📖 You can also read Stepan Chizhov\'s",
+                "url": "https://www.royalroad.com/fiction/105229/",
+                "link_text": "The Dark Lady\'s Guide to Villainy!"
+            },
+            {
                 "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
                 "url": "https://www.patreon.com/stepanchizhov",
                 "link_text": "Support his work on Patreon!"
