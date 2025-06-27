@@ -655,18 +655,18 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
-    # Lore
-    embed.add_field(
-        name="✦ Lore ✦",
-        value=f"*{result['flavor_text']}*",
-        inline=True
-    )
-    
     # Database Statistics
     stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
     embed.add_field(
         name="Database Statistics",
         value=stats_display,
+        inline=True
+    )
+    
+    # Lore
+    embed.add_field(
+        name="✦ Lore ✦",
+        value=f"*{result['flavor_text']}*",
         inline=True
     )
     
