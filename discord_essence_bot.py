@@ -557,6 +557,12 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         data = {
             'tags': [normalized_tag1, normalized_tag2],
             'bot_token': WP_BOT_TOKEN
+            'discord_user': {
+                'id': str(interaction.user.id),
+                'username': interaction.user.name,
+                'discriminator': interaction.user.discriminator,
+                'display_name': interaction.user.display_name
+            }
         }
         
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
