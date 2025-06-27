@@ -681,19 +681,38 @@ def create_result_embed(result, tag1, tag2, interaction):
             book_value += f" • 📄 {book['pages']:,} pages"
         
         embed.add_field(
-            name="🏆 Most Popular Book with This Combination",
+            name="👑 Most Popular Example",
             value=book_value,
             inline=False
         )
+    
+    # Add random book section if available
+    if 'random_book' in result and result['random_book']:
+        book = result['random_book']
+        book_value = f"**[{book['title']}]({book['url']})**\n"
+        book_value += f"*by {book['author']}*\n"
+        book_value += f"👥 {book['followers']:,} followers"
+        if book.get('rating'):
+            book_value += f" • ⭐ {book['rating']:.2f}/5.00"
+        if book.get('pages'):
+            book_value += f" • 📄 {book['pages']:,} pages"
         
         embed.add_field(
-            name="💡 Get Inspired",
-            value="Check out this successful example to see how these tags work together!",
+            name="🎲 Random Discovery",
+            value=book_value,
             inline=False
         )
     
-    # Add promotional message every 3 commands
-    if command_counter % 3 == 0:
+    # Add inspiration message if we have at least one book
+    if ('popular_book' in result and result['popular_book']) or ('random_book' in result and result['random_book']):
+        embed.add_field(
+            name="💡 Get Inspired",
+            value="Explore these examples to see how authors blend these essences!",
+            inline=False
+        )
+    
+    # Add promotional message every 2 commands
+    if command_counter % 2 == 0:
         promo_messages = [
             {
                 "text": "📖 You can also read Stepan Chizhov\'s",
