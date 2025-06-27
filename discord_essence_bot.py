@@ -624,16 +624,17 @@ def create_result_embed(result, tag1, tag2, interaction):
         color=colors.get(rarity_tier, 0x808080)
     )
     
+    # Row 1: Three inline fields
     embed.add_field(
         name="Essences Combined",
         value=f"**{tag1}** + **{tag2}**",
-        inline=False
+        inline=True
     )
     
     embed.add_field(
         name="Creates",
         value=f"***{result['combination_name']}***",
-        inline=False
+        inline=True
     )
     
     embed.add_field(
@@ -642,68 +643,83 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
-    # Enhanced books found with total and percentage
+    # Row 2: Three inline fields
     book_count = result.get('book_count', 0)
     total_books = int(result.get('total_books', 0)) if result.get('total_books') else 0
     percentage = float(result.get('percentage', 0)) if result.get('percentage') else 0
     
-    books_display = f"📚 {book_count:,}"
-    if total_books > 0:
-        books_display += f"\n📊 {percentage}% of {total_books:,} Royal Road books\n analyzed in Stepan Chizhov\'s database"
-    
+    # Books Found (just the count)
     embed.add_field(
         name="Books Found",
-        value=books_display,
+        value=f"📚 **{book_count:,}**",
         inline=True
     )
     
+    # Database Statistics
+    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
     embed.add_field(
-        name="\u200b",
-        value="\u200b",
+        name="Database Statistics",
+        value=stats_display,
         inline=True
     )
     
+    # Lore
     embed.add_field(
         name="✦ Lore ✦",
         value=f"*{result['flavor_text']}*",
-        inline=False
+        inline=True
     )
-    
-    # Add popular book section if available
+        
+    # Row 3: Book examples (two inline fields)
+    # Popular book
     if 'popular_book' in result and result['popular_book']:
         book = result['popular_book']
         book_value = f"**[{book['title']}]({book['url']})**\n"
         book_value += f"*by {book['author']}*\n"
-        book_value += f"👥 {book['followers']:,} followers"
-        if book.get('rating'):
-            book_value += f" • ⭐ {book['rating']:.2f}/5.00"
-        if book.get('pages'):
-            book_value += f" • 📄 {book['pages']:,} pages"
+        book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00 • 📄 {book['pages']:,} pages"
         
         embed.add_field(
             name="👑 Most Popular Example",
             value=book_value,
-            inline=False
+            inline=True
+        )
+    else:
+        # Empty field if no popular book
+        embed.add_field(
+            name="👑 Most Popular Example",
+            value="*No data available*",
+            inline=True
         )
     
-    # Add random book section if available
+    # Random book
     if 'random_book' in result and result['random_book']:
         book = result['random_book']
         book_value = f"**[{book['title']}]({book['url']})**\n"
         book_value += f"*by {book['author']}*\n"
-        book_value += f"👥 {book['followers']:,} followers"
-        if book.get('rating'):
-            book_value += f" • ⭐ {book['rating']:.2f}/5.00"
-        if book.get('pages'):
-            book_value += f" • 📄 {book['pages']:,} pages"
+        book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00 • 📄 {book['pages']:,} pages"
         
         embed.add_field(
             name="🎲 Random Discovery",
             value=book_value,
-            inline=False
+            inline=True
+        )
+    else:
+        # Empty field if no random book
+        embed.add_field(
+            name="🎲 Random Discovery",
+            value="*No books with 20k+ words found*",
+            inline=True
         )
     
-    # Add inspiration message if we have at least one book
+    # Add empty field to complete the row if needed
+    if ('popular_book' in result and result['popular_book']) or ('random_book' in result and result['random_book']):
+        embed.add_field(
+            name="\u200b",
+            value="\u200b",
+            inline=True
+        )
+    
+    # Inspiration message (full width)
     if ('popular_book' in result and result['popular_book']) or ('random_book' in result and result['random_book']):
         embed.add_field(
             name="💡 Get Inspired",
@@ -715,9 +731,9 @@ def create_result_embed(result, tag1, tag2, interaction):
     if command_counter % 2 == 0:
         promo_messages = [
             {
-                "text": "📖 You can also read Stepan Chizhov\'s",
+                "text": "📖 You can also read Stepan Chizhov's",
                 "url": "https://www.royalroad.com/fiction/105229/",
-                "link_text": "The Dark Lady\'s Guide to Villainy!"
+                "link_text": "The Dark Lady's Guide to Villainy!"
             },
             {
                 "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
