@@ -655,6 +655,13 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
+    # Lore
+    embed.add_field(
+        name="✦ Lore ✦",
+        value=f"*{result['flavor_text']}*",
+        inline=True
+    )
+    
     # Database Statistics
     stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
     embed.add_field(
@@ -663,14 +670,7 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
-    # Lore
-    embed.add_field(
-        name="✦ Lore ✦",
-        value=f"*{result['flavor_text']}*",
-        inline=True
-    )
-        
-    # Row 3: Book examples (two inline fields)
+    # Book examples - NOT inline to span full width
     # Popular book
     if 'popular_book' in result and result['popular_book']:
         book = result['popular_book']
@@ -681,14 +681,14 @@ def create_result_embed(result, tag1, tag2, interaction):
         embed.add_field(
             name="👑 Most Popular Example",
             value=book_value,
-            inline=True
+            inline=False  # Changed to False
         )
     else:
         # Empty field if no popular book
         embed.add_field(
             name="👑 Most Popular Example",
             value="*No data available*",
-            inline=True
+            inline=False
         )
     
     # Random book
@@ -701,22 +701,14 @@ def create_result_embed(result, tag1, tag2, interaction):
         embed.add_field(
             name="🎲 Random Discovery",
             value=book_value,
-            inline=True
+            inline=False  # Changed to False
         )
     else:
         # Empty field if no random book
         embed.add_field(
             name="🎲 Random Discovery",
             value="*No books with 20k+ words found*",
-            inline=True
-        )
-    
-    # Add empty field to complete the row if needed
-    if ('popular_book' in result and result['popular_book']) or ('random_book' in result and result['random_book']):
-        embed.add_field(
-            name="\u200b",
-            value="\u200b",
-            inline=True
+            inline=False
         )
     
     # Inspiration message (full width)
