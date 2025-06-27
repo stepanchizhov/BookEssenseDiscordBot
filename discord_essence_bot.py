@@ -755,8 +755,9 @@ def create_result_embed(result, tag1, tag2, interaction):
             }
         ]
         
-        # Rotate through promotional messages
-        promo = promo_messages[(command_counter // 10 - 1) % len(promo_messages)]
+        # Rotate through promotional messages based on how many promos have been shown
+        promo_index = (command_counter // 2 - 1) % len(promo_messages)
+        promo = promo_messages[promo_index]
         
         # Add promotional field with hyperlink
         embed.add_field(
