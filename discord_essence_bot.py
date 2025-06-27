@@ -556,7 +556,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         # Prepare API request with normalized tags
         data = {
             'tags': [normalized_tag1, normalized_tag2],
-            'bot_token': WP_BOT_TOKEN
+            'bot_token': WP_BOT_TOKEN,
             'discord_user': {
                 'id': str(interaction.user.id),
                 'username': interaction.user.name,
