@@ -1211,7 +1211,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
                 inline=False
             )
         
-        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics")
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics (starting with 12th of June 2025)")
         
         await interaction.followup.send(embed=embed, file=file)
         print(f"[RR-FOLLOWERS] Successfully sent chart for book {book_id}")
@@ -1360,7 +1360,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
                 inline=False
             )
         
-        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics")
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics (starting with 12th of June 2025)")
         
         await interaction.followup.send(embed=embed, file=file)
         print(f"[RR-VIEWS] Successfully sent chart for book {book_id}")
