@@ -449,8 +449,8 @@ def parse_days_parameter(days_str):
     except ValueError:
         return 30  # Default to 30 days for invalid input
 
-async def get_book_chart_data(book_input, session):
-    """Fetch chart data for a book from WordPress API"""
+async def get_book_chart_data(book_input, days_param, session):
+    """Fetch chart data for a book from WordPress API with date filtering"""
     try:
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/book-chart-data"
         headers = {
@@ -458,13 +458,27 @@ async def get_book_chart_data(book_input, session):
             'Content-Type': 'application/json'
         }
         
+        # Base data
         data = {
-            'book_input': str(book_input),  # ✅ CORRECT PARAMETER NAME
+            'book_input': str(book_input),
             'bot_token': WP_BOT_TOKEN
         }
         
+        # Add date filtering parameters based on the parsed days_param
+        if days_param == 'all':
+            data['all_data'] = True
+        elif isinstance(days_param, dict):
+            if days_param['type'] == 'date_range':
+                data['start_date'] = days_param['start_date']
+                data['end_date'] = days_param['end_date']
+            elif days_param['type'] == 'from_date':
+                data['start_date'] = days_param['start_date']
+        elif isinstance(days_param, int):
+            data['days'] = days_param
+        
         print(f"[CHART] Fetching chart data for book input: {book_input}")
-        print(f"[CHART] Request data: {data}")
+        print(f"[CHART] Days parameter: {days_param}")
+        print(f"[CHART] API request data: {data}")
         print(f"[CHART] Request URL: {url}")
         
         async with session.post(url, json=data, headers=headers) as response:
@@ -472,6 +486,9 @@ async def get_book_chart_data(book_input, session):
                 result = await response.json()
                 print(f"[CHART] Successfully fetched chart data")
                 print(f"[CHART] Response keys: {list(result.keys())}")
+                if 'data_info' in result:
+                    print(f"[CHART] Total snapshots: {result['data_info'].get('total_snapshots', 'unknown')}")
+                    print(f"[CHART] Filter applied: {result['data_info'].get('filter_applied', 'unknown')}")
                 return result
             else:
                 error_text = await response.text()
@@ -1076,7 +1093,60 @@ async def tags(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# Updated rr_followers command with promotional messages
+# Update the get_book_chart_data function in your Discord bot:
+
+async def get_book_chart_data(book_input, days_param, session):
+    """Fetch chart data for a book from WordPress API with date filtering"""
+    try:
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/book-chart-data"
+        headers = {
+            'User-Agent': 'RR-Analytics-Discord-Bot/1.0',
+            'Content-Type': 'application/json'
+        }
+        
+        # Base data
+        data = {
+            'book_input': str(book_input),
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        # Add date filtering parameters based on the parsed days_param
+        if days_param == 'all':
+            data['all_data'] = True
+        elif isinstance(days_param, dict):
+            if days_param['type'] == 'date_range':
+                data['start_date'] = days_param['start_date']
+                data['end_date'] = days_param['end_date']
+            elif days_param['type'] == 'from_date':
+                data['start_date'] = days_param['start_date']
+        elif isinstance(days_param, int):
+            data['days'] = days_param
+        
+        print(f"[CHART] Fetching chart data for book input: {book_input}")
+        print(f"[CHART] Days parameter: {days_param}")
+        print(f"[CHART] API request data: {data}")
+        print(f"[CHART] Request URL: {url}")
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            if response.status == 200:
+                result = await response.json()
+                print(f"[CHART] Successfully fetched chart data")
+                print(f"[CHART] Response keys: {list(result.keys())}")
+                if 'data_info' in result:
+                    print(f"[CHART] Total snapshots: {result['data_info'].get('total_snapshots', 'unknown')}")
+                    print(f"[CHART] Filter applied: {result['data_info'].get('filter_applied', 'unknown')}")
+                return result
+            else:
+                error_text = await response.text()
+                print(f"[CHART] Failed to fetch chart data: {response.status} - {error_text}")
+                return None
+                
+    except Exception as e:
+        print(f"[CHART] Exception fetching chart data: {e}")
+        return None
+
+# Update both chart commands to pass the days_param:
+
 @bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
@@ -1097,9 +1167,9 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         days_param = parse_days_parameter(days)
         print(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
         
-        # Fetch chart data (API will handle book ID extraction)
+        # Fetch chart data with date filtering (API will handle book ID extraction AND date filtering)
         global session
-        chart_response = await get_book_chart_data(book_input.strip(), session)
+        chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
         
         if not chart_response or not chart_response.get('success'):
             error_msg = "❌ Could not fetch data for the specified book."
@@ -1113,16 +1183,17 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         
         chart_data = chart_response.get('chart_data', {})
         book_info = chart_response.get('book_info', {})
+        data_info = chart_response.get('data_info', {})
+        
         book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-FOLLOWERS] Original data points: {len(chart_data.get('followers', []))}")
+        print(f"[RR-FOLLOWERS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        print(f"[RR-FOLLOWERS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
-        # Filter data by days/date range
-        filtered_data = filter_chart_data_by_days(chart_data, days_param)
-        
-        print(f"[RR-FOLLOWERS] Filtered data points: {len(filtered_data.get('followers', []))}")
+        # NO MORE CLIENT-SIDE FILTERING - API handles everything
+        filtered_data = chart_data  # Use data as-is from API
         
         # Create chart image
         chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_param)
@@ -1155,22 +1226,13 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
                 change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
                 embed.add_field(name="Change", value=change_text, inline=True)
         
-        # Better period description
-        if isinstance(days_param, dict):
-            if days_param['type'] == 'date_range':
-                period_text = f"{days_param['start_date']} to {days_param['end_date']}"
-            elif days_param['type'] == 'from_date':
-                period_text = f"From {days_param['start_date']}"
-        elif days_param == 'all':
-            period_text = "All available data"
-        else:
-            period_text = f"Last {days_param} days"
-            
+        # Use the filter description from the API
+        period_text = data_info.get('filter_applied', 'Unknown period')
         embed.add_field(name="Period", value=period_text, inline=True)
         
         # Add data request message
         embed.add_field(
-            name="📊 Want to Add Your Historical Data?",
+            name="📊 Want Historical Data?",
             value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
             inline=False
         )
@@ -1254,9 +1316,9 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         days_param = parse_days_parameter(days)
         print(f"[RR-VIEWS] Parsed days parameter: {days_param}")
         
-        # Fetch chart data (API will handle book ID extraction)
+        # Fetch chart data with date filtering (API will handle book ID extraction AND date filtering)
         global session
-        chart_response = await get_book_chart_data(book_input.strip(), session)
+        chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
         
         if not chart_response or not chart_response.get('success'):
             error_msg = "❌ Could not fetch data for the specified book."
@@ -1270,16 +1332,17 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         
         chart_data = chart_response.get('chart_data', {})
         book_info = chart_response.get('book_info', {})
+        data_info = chart_response.get('data_info', {})
+        
         book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-VIEWS] Original data points: {len(chart_data.get('total_views', []))}")
+        print(f"[RR-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        print(f"[RR-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
-        # Filter data by days/date range
-        filtered_data = filter_chart_data_by_days(chart_data, days_param)
-        
-        print(f"[RR-VIEWS] Filtered data points: {len(filtered_data.get('total_views', []))}")
+        # NO MORE CLIENT-SIDE FILTERING - API handles everything
+        filtered_data = chart_data  # Use data as-is from API
         
         # Create chart image
         chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_param)
@@ -1312,17 +1375,8 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
                 change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
                 embed.add_field(name="Change", value=change_text, inline=True)
         
-        # Better period description
-        if isinstance(days_param, dict):
-            if days_param['type'] == 'date_range':
-                period_text = f"{days_param['start_date']} to {days_param['end_date']}"
-            elif days_param['type'] == 'from_date':
-                period_text = f"From {days_param['start_date']}"
-        elif days_param == 'all':
-            period_text = "All available data"
-        else:
-            period_text = f"Last {days_param} days"
-            
+        # Use the filter description from the API
+        period_text = data_info.get('filter_applied', 'Unknown period')
         embed.add_field(name="Period", value=period_text, inline=True)
         
         # Add data request message
