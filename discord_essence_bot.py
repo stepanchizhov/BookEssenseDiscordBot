@@ -499,82 +499,15 @@ async def get_book_chart_data(book_input, days_param, session):
         print(f"[CHART] Exception fetching chart data: {e}")
         return None
 
-# Updated filter_chart_data_by_days function to handle date ranges and fix filtering
-def filter_chart_data_by_days(chart_data, days_param):
-    """Filter chart data by the specified parameter (days, date range, or 'all')"""
-    if days_param == 'all' or not chart_data.get('timestamps'):
-        return chart_data
-    
-    # Handle date range filtering
-    if isinstance(days_param, dict):
-        if days_param['type'] == 'date_range':
-            start_timestamp = datetime.strptime(days_param['start_date'], '%Y-%m-%d').timestamp()
-            end_timestamp = datetime.strptime(days_param['end_date'], '%Y-%m-%d').timestamp() + 86400  # End of day
-        elif days_param['type'] == 'from_date':
-            start_timestamp = datetime.strptime(days_param['start_date'], '%Y-%m-%d').timestamp()
-            end_timestamp = datetime.now().timestamp()
-        
-        # Filter by date range
-        filtered_indices = []
-        for i, timestamp in enumerate(chart_data['timestamps']):
-            if start_timestamp <= timestamp <= end_timestamp:
-                filtered_indices.append(i)
-        
-        if not filtered_indices:
-            # No data in range, return empty but valid structure
-            return {key: [] if isinstance(values, list) else values for key, values in chart_data.items()}
-        
-        # Filter all arrays using the indices
-        filtered_data = {}
-        for key, values in chart_data.items():
-            if isinstance(values, list):
-                filtered_data[key] = [values[i] for i in filtered_indices]
-            else:
-                filtered_data[key] = values
-        
-        return filtered_data
-    
-    # Handle days-based filtering (existing logic but fixed)
-    if isinstance(days_param, int):
-        # Calculate cutoff timestamp
-        cutoff_timestamp = datetime.now().timestamp() - (days_param * 24 * 60 * 60)
-        
-        # Find all indices that fall within our time period
-        valid_indices = []
-        for i, timestamp in enumerate(chart_data['timestamps']):
-            if timestamp >= cutoff_timestamp:
-                valid_indices.append(i)
-        
-        # If no data within the time period, take the last N points or all data if less than N
-        if not valid_indices:
-            data_length = len(chart_data['timestamps'])
-            points_to_take = min(days_param, data_length)
-            valid_indices = list(range(data_length - points_to_take, data_length))
-        
-        # Filter all data arrays using the valid indices
-        filtered_data = {}
-        for key, values in chart_data.items():
-            if isinstance(values, list) and valid_indices:
-                filtered_data[key] = [values[i] for i in valid_indices]
-            elif isinstance(values, list):
-                filtered_data[key] = []
-            else:
-                filtered_data[key] = values
-        
-        return filtered_data
-    
-    # Fallback
-    return chart_data
-
 # Updated create_chart_image function to handle date ranges in period text
 def create_chart_image(chart_data, chart_type, book_title, days_param):
-    """Create a chart image using matplotlib"""
+    """Create a chart image using matplotlib - NO CLIENT-SIDE FILTERING"""
     try:
         # Set up the plot
         plt.style.use('default')
         fig, ax = plt.subplots(figsize=(12, 6))
         
-        # Prepare data
+        # Prepare data - USE AS-IS from API (already filtered)
         labels = chart_data.get('labels', [])
         
         if chart_type == 'followers':
@@ -1163,11 +1096,11 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter (now supports date ranges)
+        # Parse days parameter (supports date ranges)
         days_param = parse_days_parameter(days)
         print(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
         
-        # Fetch chart data with date filtering (API will handle book ID extraction AND date filtering)
+        # Fetch chart data - API handles ALL filtering
         global session
         chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
         
@@ -1192,8 +1125,8 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         print(f"[RR-FOLLOWERS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
         print(f"[RR-FOLLOWERS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
-        # NO MORE CLIENT-SIDE FILTERING - API handles everything
-        filtered_data = chart_data  # Use data as-is from API
+        # CRITICAL: Use data exactly as returned from API - NO FILTERING
+        filtered_data = chart_data  # API already filtered everything
         
         # Create chart image
         chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_param)
@@ -1312,11 +1245,11 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter (now supports date ranges)
+        # Parse days parameter (supports date ranges)
         days_param = parse_days_parameter(days)
         print(f"[RR-VIEWS] Parsed days parameter: {days_param}")
         
-        # Fetch chart data with date filtering (API will handle book ID extraction AND date filtering)
+        # Fetch chart data - API handles ALL filtering
         global session
         chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
         
@@ -1341,8 +1274,8 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         print(f"[RR-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
         print(f"[RR-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
-        # NO MORE CLIENT-SIDE FILTERING - API handles everything
-        filtered_data = chart_data  # Use data as-is from API
+        # CRITICAL: Use data exactly as returned from API - NO FILTERING
+        filtered_data = chart_data  # API already filtered everything
         
         # Create chart image
         chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_param)
