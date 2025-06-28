@@ -5,6 +5,12 @@ import json
 import os
 from typing import Optional
 import logging
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime, timedelta
+import io
+import re
+from urllib.parse import urlparse, parse_qs
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -380,6 +386,174 @@ def normalize_tag(tag: str) -> str:
     
     # If no match found, return None
     return None
+
+def extract_book_id_from_url(url):
+    """Extract book ID from Royal Road URL"""
+    try:
+        # Handle various URL formats:
+        # https://www.royalroad.com/fiction/12345/book-title
+        # https://royalroad.com/fiction/12345
+        # 12345 (just the ID)
+        
+        if url.isdigit():
+            return int(url)
+            
+        parsed = urlparse(url)
+        if 'royalroad.com' in parsed.netloc:
+            path_parts = parsed.path.strip('/').split('/')
+            if len(path_parts) >= 2 and path_parts[0] == 'fiction':
+                return int(path_parts[1])
+                
+        return None
+    except (ValueError, IndexError):
+        return None
+
+def parse_days_parameter(days_str):
+    """Parse the days parameter"""
+    if days_str.lower() == 'all':
+        return 'all'
+    try:
+        days = int(days_str)
+        if days <= 0:
+            return 30  # Default to 30 days for invalid input
+        return days
+    except ValueError:
+        return 30  # Default to 30 days for invalid input
+
+async def get_book_chart_data(book_id, session):
+    """Fetch chart data for a book from WordPress API"""
+    try:
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/book-chart-data"
+        headers = {
+            'User-Agent': 'RR-Analytics-Discord-Bot/1.0',
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'book_id': book_id,
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        print(f"[CHART] Fetching chart data for book ID: {book_id}")
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            if response.status == 200:
+                result = await response.json()
+                print(f"[CHART] Successfully fetched chart data")
+                return result
+            else:
+                error_text = await response.text()
+                print(f"[CHART] Failed to fetch chart data: {response.status} - {error_text}")
+                return None
+                
+    except Exception as e:
+        print(f"[CHART] Exception fetching chart data: {e}")
+        return None
+
+def filter_chart_data_by_days(chart_data, days):
+    """Filter chart data by the specified number of days"""
+    if days == 'all' or not chart_data.get('timestamps'):
+        return chart_data
+    
+    # Calculate cutoff timestamp
+    cutoff_timestamp = datetime.now().timestamp() - (days * 24 * 60 * 60)
+    
+    # Find the starting index
+    start_index = 0
+    for i, timestamp in enumerate(chart_data['timestamps']):
+        if timestamp >= cutoff_timestamp:
+            start_index = i
+            break
+    
+    # If no data within the time period, take the last portion
+    if start_index == 0 and chart_data['timestamps'][0] < cutoff_timestamp:
+        start_index = max(0, len(chart_data['timestamps']) - min(days, 50))
+    
+    # Filter all data arrays
+    filtered_data = {}
+    for key, values in chart_data.items():
+        if isinstance(values, list):
+            filtered_data[key] = values[start_index:]
+        else:
+            filtered_data[key] = values
+    
+    return filtered_data
+
+def create_chart_image(chart_data, chart_type, book_title, days):
+    """Create a chart image using matplotlib"""
+    try:
+        # Set up the plot
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        # Prepare data
+        labels = chart_data.get('labels', [])
+        
+        if chart_type == 'followers':
+            data = chart_data.get('followers', [])
+            title = f'Followers Over Time - {book_title}'
+            ylabel = 'Followers'
+            color = '#4BC0C0'
+        else:  # views
+            data = chart_data.get('total_views', [])
+            title = f'Views Over Time - {book_title}'
+            ylabel = 'Total Views'
+            color = '#FF6384'
+        
+        if not data or not labels:
+            # Create a "no data" chart
+            ax.text(0.5, 0.5, 'No data available for this time period', 
+                   horizontalalignment='center', verticalalignment='center',
+                   transform=ax.transAxes, fontsize=16, color='gray')
+            ax.set_title(title)
+        else:
+            # Create the actual chart
+            x_indices = range(len(labels))
+            ax.plot(x_indices, data, color=color, linewidth=2, marker='o', markersize=4)
+            ax.fill_between(x_indices, data, alpha=0.3, color=color)
+            
+            # Format axes
+            ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+            ax.set_ylabel(ylabel, fontsize=12)
+            ax.set_xlabel('Date', fontsize=12)
+            
+            # Format y-axis with commas
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+            
+            # Set x-axis labels
+            if len(labels) > 15:
+                # Show every nth label to avoid crowding
+                step = len(labels) // 10
+                ax.set_xticks(x_indices[::step])
+                ax.set_xticklabels(labels[::step], rotation=45)
+            else:
+                ax.set_xticks(x_indices)
+                ax.set_xticklabels(labels, rotation=45)
+        
+        # Add grid and styling
+        ax.grid(True, alpha=0.3)
+        ax.set_facecolor('#f8f9fa')
+        
+        # Add time period info
+        period_text = f"Last {days} days" if days != 'all' else "All time"
+        ax.text(0.02, 0.98, period_text, transform=ax.transAxes, 
+               fontsize=10, verticalalignment='top', 
+               bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+        
+        plt.tight_layout()
+        
+        # Save to bytes buffer
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+        buffer.seek(0)
+        plt.close()  # Free memory
+        
+        return buffer
+        
+    except Exception as e:
+        print(f"[CHART] Error creating chart image: {e}")
+        plt.close()  # Ensure we clean up even on error
+        return None
 
 async def tag_autocomplete(
     interaction: discord.Interaction,
@@ -822,6 +996,200 @@ async def tags(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    days="Number of days to show (or 'all' for all data)"
+)
+async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "30"):
+    """Generate and send a followers over time chart"""
+    print(f"\n[RR-FOLLOWERS] Command called by {interaction.user}")
+    print(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Extract book ID
+        book_id = extract_book_id_from_url(book_input.strip())
+        if not book_id:
+            await interaction.followup.send(
+                "❌ Invalid book ID or URL. Please provide either:\n"
+                "• A book ID (e.g., `12345`)\n"
+                "• A Royal Road URL (e.g., `https://www.royalroad.com/fiction/12345/book-title`)",
+                ephemeral=True
+            )
+            return
+        
+        # Parse days parameter
+        days_num = parse_days_parameter(days)
+        
+        # Fetch chart data
+        global session
+        chart_response = await get_book_chart_data(book_id, session)
+        
+        if not chart_response or not chart_response.get('success'):
+            await interaction.followup.send(
+                f"❌ Could not fetch data for book ID {book_id}. The book might not exist or have no tracking data.",
+                ephemeral=True
+            )
+            return
+        
+        chart_data = chart_response.get('chart_data', {})
+        book_info = chart_response.get('book_info', {})
+        book_title = book_info.get('title', f'Book {book_id}')
+        
+        # Filter data by days
+        filtered_data = filter_chart_data_by_days(chart_data, days_num)
+        
+        # Create chart image
+        chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_num)
+        
+        if not chart_buffer:
+            await interaction.followup.send(
+                "❌ Failed to generate chart image. Please try again later.",
+                ephemeral=True
+            )
+            return
+        
+        # Create Discord file and embed
+        file = discord.File(chart_buffer, filename=f"followers_chart_{book_id}.png")
+        
+        embed = discord.Embed(
+            title="📈 Followers Over Time",
+            description=f"**{book_title}**\nBook ID: {book_id}",
+            color=0x4BC0C0
+        )
+        embed.set_image(url=f"attachment://followers_chart_{book_id}.png")
+        
+        # Add stats if available
+        if filtered_data.get('followers'):
+            latest_followers = filtered_data['followers'][-1] if filtered_data['followers'] else 0
+            embed.add_field(name="Current Followers", value=f"{latest_followers:,}", inline=True)
+            
+            if len(filtered_data['followers']) > 1:
+                first_followers = filtered_data['followers'][0]
+                change = latest_followers - first_followers
+                change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
+                embed.add_field(name="Change", value=change_text, inline=True)
+        
+        period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
+        embed.add_field(name="Period", value=period_text, inline=True)
+        
+        embed.set_footer(text="Data from Royal Road Analytics")
+        
+        await interaction.followup.send(embed=embed, file=file)
+        print(f"[RR-FOLLOWERS] Successfully sent chart for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-FOLLOWERS] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while generating the followers chart.",
+                ephemeral=True
+            )
+        except:
+            pass
+
+@bot.tree.command(name="rr-views", description="Show views over time chart for a Royal Road book")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    days="Number of days to show (or 'all' for all data)"
+)
+async def rr_views(interaction: discord.Interaction, book_input: str, days: str = "30"):
+    """Generate and send a views over time chart"""
+    print(f"\n[RR-VIEWS] Command called by {interaction.user}")
+    print(f"[RR-VIEWS] Book input: '{book_input}', Days: '{days}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Extract book ID
+        book_id = extract_book_id_from_url(book_input.strip())
+        if not book_id:
+            await interaction.followup.send(
+                "❌ Invalid book ID or URL. Please provide either:\n"
+                "• A book ID (e.g., `12345`)\n"
+                "• A Royal Road URL (e.g., `https://www.royalroad.com/fiction/12345/book-title`)",
+                ephemeral=True
+            )
+            return
+        
+        # Parse days parameter
+        days_num = parse_days_parameter(days)
+        
+        # Fetch chart data
+        global session
+        chart_response = await get_book_chart_data(book_id, session)
+        
+        if not chart_response or not chart_response.get('success'):
+            await interaction.followup.send(
+                f"❌ Could not fetch data for book ID {book_id}. The book might not exist or have no tracking data.",
+                ephemeral=True
+            )
+            return
+        
+        chart_data = chart_response.get('chart_data', {})
+        book_info = chart_response.get('book_info', {})
+        book_title = book_info.get('title', f'Book {book_id}')
+        
+        # Filter data by days
+        filtered_data = filter_chart_data_by_days(chart_data, days_num)
+        
+        # Create chart image
+        chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_num)
+        
+        if not chart_buffer:
+            await interaction.followup.send(
+                "❌ Failed to generate chart image. Please try again later.",
+                ephemeral=True
+            )
+            return
+        
+        # Create Discord file and embed
+        file = discord.File(chart_buffer, filename=f"views_chart_{book_id}.png")
+        
+        embed = discord.Embed(
+            title="📊 Views Over Time",
+            description=f"**{book_title}**\nBook ID: {book_id}",
+            color=0xFF6384
+        )
+        embed.set_image(url=f"attachment://views_chart_{book_id}.png")
+        
+        # Add stats if available
+        if filtered_data.get('total_views'):
+            latest_views = filtered_data['total_views'][-1] if filtered_data['total_views'] else 0
+            embed.add_field(name="Current Views", value=f"{latest_views:,}", inline=True)
+            
+            if len(filtered_data['total_views']) > 1:
+                first_views = filtered_data['total_views'][0]
+                change = latest_views - first_views
+                change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
+                embed.add_field(name="Change", value=change_text, inline=True)
+        
+        period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
+        embed.add_field(name="Period", value=period_text, inline=True)
+        
+        embed.set_footer(text="Data from Royal Road Analytics")
+        
+        await interaction.followup.send(embed=embed, file=file)
+        print(f"[RR-VIEWS] Successfully sent chart for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-VIEWS] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while generating the views chart.",
+                ephemeral=True
+            )
+        except:
+            pass
+
 # Test command to verify bot is responding
 @bot.tree.command(name="ping", description="Test if the bot is responsive")
 async def ping(interaction: discord.Interaction):
@@ -1070,7 +1438,13 @@ async def help_command(interaction: discord.Interaction):
             "• Same as `/e`\n\n"
             "**`/tags`** - List all available tags\n"
             "**`/help`** - Show this help message\n"
-            "**`/ping`** - Check if bot is online"
+            "**`/ping`** - Check if bot is online\n"
+            "**`/rr-followers`** - Followers over time chart\n"
+            "• Example: `/rr-followers 12345 30`\n"
+            "• Example: `/rr-followers https://royalroad.com/fiction/12345 all`\n\n"
+            "**`/rr-views`** - Views over time chart\n"
+            "• Example: `/rr-views 12345 7`\n"
+            "• Same format as followers command\n\n"
         ),
         inline=False
     )
