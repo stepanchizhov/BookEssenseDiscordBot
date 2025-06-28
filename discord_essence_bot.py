@@ -408,10 +408,39 @@ def extract_book_id_from_url(url):
     except (ValueError, IndexError):
         return None
 
+# Updated parse_days_parameter function to handle date ranges
 def parse_days_parameter(days_str):
-    """Parse the days parameter"""
+    """Parse the days parameter - supports numbers, 'all', or date ranges"""
     if days_str.lower() == 'all':
         return 'all'
+    
+    # Check if it's a date range (YYYY-MM-DD:YYYY-MM-DD)
+    if ':' in days_str:
+        try:
+            start_date, end_date = days_str.split(':')
+            # Validate date format
+            datetime.strptime(start_date.strip(), '%Y-%m-%d')
+            datetime.strptime(end_date.strip(), '%Y-%m-%d')
+            return {
+                'type': 'date_range',
+                'start_date': start_date.strip(),
+                'end_date': end_date.strip()
+            }
+        except ValueError:
+            return 30  # Default if date range is invalid
+    
+    # Check if it's a single date (from that date to now)
+    if '-' in days_str and len(days_str) == 10:  # YYYY-MM-DD format
+        try:
+            datetime.strptime(days_str.strip(), '%Y-%m-%d')
+            return {
+                'type': 'from_date',
+                'start_date': days_str.strip()
+            }
+        except ValueError:
+            pass  # Fall through to number parsing
+    
+    # Try to parse as number of days
     try:
         days = int(days_str)
         if days <= 0:
@@ -453,36 +482,75 @@ async def get_book_chart_data(book_input, session):
         print(f"[CHART] Exception fetching chart data: {e}")
         return None
 
-def filter_chart_data_by_days(chart_data, days):
-    """Filter chart data by the specified number of days"""
-    if days == 'all' or not chart_data.get('timestamps'):
+# Updated filter_chart_data_by_days function to handle date ranges and fix filtering
+def filter_chart_data_by_days(chart_data, days_param):
+    """Filter chart data by the specified parameter (days, date range, or 'all')"""
+    if days_param == 'all' or not chart_data.get('timestamps'):
         return chart_data
     
-    # Calculate cutoff timestamp
-    cutoff_timestamp = datetime.now().timestamp() - (days * 24 * 60 * 60)
+    # Handle date range filtering
+    if isinstance(days_param, dict):
+        if days_param['type'] == 'date_range':
+            start_timestamp = datetime.strptime(days_param['start_date'], '%Y-%m-%d').timestamp()
+            end_timestamp = datetime.strptime(days_param['end_date'], '%Y-%m-%d').timestamp() + 86400  # End of day
+        elif days_param['type'] == 'from_date':
+            start_timestamp = datetime.strptime(days_param['start_date'], '%Y-%m-%d').timestamp()
+            end_timestamp = datetime.now().timestamp()
+        
+        # Filter by date range
+        filtered_indices = []
+        for i, timestamp in enumerate(chart_data['timestamps']):
+            if start_timestamp <= timestamp <= end_timestamp:
+                filtered_indices.append(i)
+        
+        if not filtered_indices:
+            # No data in range, return empty but valid structure
+            return {key: [] if isinstance(values, list) else values for key, values in chart_data.items()}
+        
+        # Filter all arrays using the indices
+        filtered_data = {}
+        for key, values in chart_data.items():
+            if isinstance(values, list):
+                filtered_data[key] = [values[i] for i in filtered_indices]
+            else:
+                filtered_data[key] = values
+        
+        return filtered_data
     
-    # Find the starting index
-    start_index = 0
-    for i, timestamp in enumerate(chart_data['timestamps']):
-        if timestamp >= cutoff_timestamp:
-            start_index = i
-            break
+    # Handle days-based filtering (existing logic but fixed)
+    if isinstance(days_param, int):
+        # Calculate cutoff timestamp
+        cutoff_timestamp = datetime.now().timestamp() - (days_param * 24 * 60 * 60)
+        
+        # Find all indices that fall within our time period
+        valid_indices = []
+        for i, timestamp in enumerate(chart_data['timestamps']):
+            if timestamp >= cutoff_timestamp:
+                valid_indices.append(i)
+        
+        # If no data within the time period, take the last N points or all data if less than N
+        if not valid_indices:
+            data_length = len(chart_data['timestamps'])
+            points_to_take = min(days_param, data_length)
+            valid_indices = list(range(data_length - points_to_take, data_length))
+        
+        # Filter all data arrays using the valid indices
+        filtered_data = {}
+        for key, values in chart_data.items():
+            if isinstance(values, list) and valid_indices:
+                filtered_data[key] = [values[i] for i in valid_indices]
+            elif isinstance(values, list):
+                filtered_data[key] = []
+            else:
+                filtered_data[key] = values
+        
+        return filtered_data
     
-    # If no data within the time period, take the last portion
-    if start_index == 0 and chart_data['timestamps'][0] < cutoff_timestamp:
-        start_index = max(0, len(chart_data['timestamps']) - min(days, 50))
-    
-    # Filter all data arrays
-    filtered_data = {}
-    for key, values in chart_data.items():
-        if isinstance(values, list):
-            filtered_data[key] = values[start_index:]
-        else:
-            filtered_data[key] = values
-    
-    return filtered_data
+    # Fallback
+    return chart_data
 
-def create_chart_image(chart_data, chart_type, book_title, days):
+# Updated create_chart_image function to handle date ranges in period text
+def create_chart_image(chart_data, chart_type, book_title, days_param):
     """Create a chart image using matplotlib"""
     try:
         # Set up the plot
@@ -537,8 +605,17 @@ def create_chart_image(chart_data, chart_type, book_title, days):
         ax.grid(True, alpha=0.3)
         ax.set_facecolor('#f8f9fa')
         
-        # Add time period info
-        period_text = f"Last {days} days" if days != 'all' else "All time"
+        # Add time period info with better formatting
+        if isinstance(days_param, dict):
+            if days_param['type'] == 'date_range':
+                period_text = f"{days_param['start_date']} to {days_param['end_date']}"
+            elif days_param['type'] == 'from_date':
+                period_text = f"From {days_param['start_date']}"
+        elif days_param == 'all':
+            period_text = "All time"
+        else:
+            period_text = f"Last {days_param} days"
+            
         ax.text(0.02, 0.98, period_text, transform=ax.transAxes, 
                fontsize=10, verticalalignment='top', 
                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -1003,7 +1080,7 @@ async def tags(interaction: discord.Interaction):
 @bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days="Number of days to show (or 'all' for all data)"
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01)"
 )
 async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "30"):
     """Generate and send a followers over time chart"""
@@ -1016,8 +1093,9 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter
-        days_num = parse_days_parameter(days)
+        # Parse days parameter (now supports date ranges)
+        days_param = parse_days_parameter(days)
+        print(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
         
         # Fetch chart data (API will handle book ID extraction)
         global session
@@ -1039,11 +1117,15 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        # Filter data by days
-        filtered_data = filter_chart_data_by_days(chart_data, days_num)
+        print(f"[RR-FOLLOWERS] Original data points: {len(chart_data.get('followers', []))}")
+        
+        # Filter data by days/date range
+        filtered_data = filter_chart_data_by_days(chart_data, days_param)
+        
+        print(f"[RR-FOLLOWERS] Filtered data points: {len(filtered_data.get('followers', []))}")
         
         # Create chart image
-        chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_num)
+        chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_param)
         
         if not chart_buffer:
             await interaction.followup.send(
@@ -1073,12 +1155,22 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
                 change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
                 embed.add_field(name="Change", value=change_text, inline=True)
         
-        period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
+        # Better period description
+        if isinstance(days_param, dict):
+            if days_param['type'] == 'date_range':
+                period_text = f"{days_param['start_date']} to {days_param['end_date']}"
+            elif days_param['type'] == 'from_date':
+                period_text = f"From {days_param['start_date']}"
+        elif days_param == 'all':
+            period_text = "All available data"
+        else:
+            period_text = f"Last {days_param} days"
+            
         embed.add_field(name="Period", value=period_text, inline=True)
         
         # Add data request message
         embed.add_field(
-            name="📊 Want Historical Data?",
+            name="📊 Want to Add Your Historical Data?",
             value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
             inline=False
         )
@@ -1145,7 +1237,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
 @bot.tree.command(name="rr-views", description="Show views over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days="Number of days to show (or 'all' for all data)"
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01)"
 )
 async def rr_views(interaction: discord.Interaction, book_input: str, days: str = "30"):
     """Generate and send a views over time chart"""
@@ -1158,8 +1250,9 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter
-        days_num = parse_days_parameter(days)
+        # Parse days parameter (now supports date ranges)
+        days_param = parse_days_parameter(days)
+        print(f"[RR-VIEWS] Parsed days parameter: {days_param}")
         
         # Fetch chart data (API will handle book ID extraction)
         global session
@@ -1181,11 +1274,15 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        # Filter data by days
-        filtered_data = filter_chart_data_by_days(chart_data, days_num)
+        print(f"[RR-VIEWS] Original data points: {len(chart_data.get('total_views', []))}")
+        
+        # Filter data by days/date range
+        filtered_data = filter_chart_data_by_days(chart_data, days_param)
+        
+        print(f"[RR-VIEWS] Filtered data points: {len(filtered_data.get('total_views', []))}")
         
         # Create chart image
-        chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_num)
+        chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_param)
         
         if not chart_buffer:
             await interaction.followup.send(
@@ -1215,7 +1312,17 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
                 change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
                 embed.add_field(name="Change", value=change_text, inline=True)
         
-        period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
+        # Better period description
+        if isinstance(days_param, dict):
+            if days_param['type'] == 'date_range':
+                period_text = f"{days_param['start_date']} to {days_param['end_date']}"
+            elif days_param['type'] == 'from_date':
+                period_text = f"From {days_param['start_date']}"
+        elif days_param == 'all':
+            period_text = "All available data"
+        else:
+            period_text = f"Last {days_param} days"
+            
         embed.add_field(name="Period", value=period_text, inline=True)
         
         # Add data request message
@@ -1535,6 +1642,7 @@ async def help_command(interaction: discord.Interaction):
             "**`/ping`** - Check if bot is online\n"
             "**`/rr-followers`** - Followers over time chart\n"
             "• Example: `/rr-followers 12345 30`\n"
+            "• Example: `/rr-followers 12345 2025-01-01:2025-02-01`\n"
             "• Example: `/rr-followers https://royalroad.com/fiction/12345 all`\n\n"
             "**`/rr-views`** - Views over time chart\n"
             "• Example: `/rr-views 12345 7`\n"
