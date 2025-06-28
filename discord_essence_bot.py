@@ -420,7 +420,7 @@ def parse_days_parameter(days_str):
     except ValueError:
         return 30  # Default to 30 days for invalid input
 
-async def get_book_chart_data(book_id, session):
+async def get_book_chart_data(book_input, session):
     """Fetch chart data for a book from WordPress API"""
     try:
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/book-chart-data"
@@ -430,16 +430,19 @@ async def get_book_chart_data(book_id, session):
         }
         
         data = {
-            'book_id': book_id,
+            'book_input': str(book_input),  # ✅ CORRECT PARAMETER NAME
             'bot_token': WP_BOT_TOKEN
         }
         
-        print(f"[CHART] Fetching chart data for book ID: {book_id}")
+        print(f"[CHART] Fetching chart data for book input: {book_input}")
+        print(f"[CHART] Request data: {data}")
+        print(f"[CHART] Request URL: {url}")
         
         async with session.post(url, json=data, headers=headers) as response:
             if response.status == 200:
                 result = await response.json()
                 print(f"[CHART] Successfully fetched chart data")
+                print(f"[CHART] Response keys: {list(result.keys())}")
                 return result
             else:
                 error_text = await response.text()
@@ -1009,34 +1012,27 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
     await interaction.response.defer()
     
     try:
-        # Extract book ID
-        book_id = extract_book_id_from_url(book_input.strip())
-        if not book_id:
-            await interaction.followup.send(
-                "❌ Invalid book ID or URL. Please provide either:\n"
-                "• A book ID (e.g., `12345`)\n"
-                "• A Royal Road URL (e.g., `https://www.royalroad.com/fiction/12345/book-title`)",
-                ephemeral=True
-            )
-            return
-        
         # Parse days parameter
         days_num = parse_days_parameter(days)
         
         # Fetch chart data
         global session
-        chart_response = await get_book_chart_data(book_id, session)
+        chart_response = await get_book_chart_data(book_input.strip(), session)
         
         if not chart_response or not chart_response.get('success'):
-            await interaction.followup.send(
-                f"❌ Could not fetch data for book ID {book_id}. The book might not exist or have no tracking data.",
-                ephemeral=True
-            )
+            error_msg = "❌ Could not fetch data for the specified book."
+            if chart_response and 'message' in chart_response:
+                error_msg += f"\n{chart_response['message']}"
+            else:
+                error_msg += " The book might not exist or have no tracking data."
+            
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
         
         chart_data = chart_response.get('chart_data', {})
         book_info = chart_response.get('book_info', {})
-        book_title = book_info.get('title', f'Book {book_id}')
+        book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
+        book_id = book_info.get('id', 'Unknown')
         
         # Filter data by days
         filtered_data = filter_chart_data_by_days(chart_data, days_num)
@@ -1106,34 +1102,27 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
     await interaction.response.defer()
     
     try:
-        # Extract book ID
-        book_id = extract_book_id_from_url(book_input.strip())
-        if not book_id:
-            await interaction.followup.send(
-                "❌ Invalid book ID or URL. Please provide either:\n"
-                "• A book ID (e.g., `12345`)\n"
-                "• A Royal Road URL (e.g., `https://www.royalroad.com/fiction/12345/book-title`)",
-                ephemeral=True
-            )
-            return
-        
         # Parse days parameter
         days_num = parse_days_parameter(days)
         
         # Fetch chart data
         global session
-        chart_response = await get_book_chart_data(book_id, session)
+        chart_response = await get_book_chart_data(book_input.strip(), session)
         
         if not chart_response or not chart_response.get('success'):
-            await interaction.followup.send(
-                f"❌ Could not fetch data for book ID {book_id}. The book might not exist or have no tracking data.",
-                ephemeral=True
-            )
+            error_msg = "❌ Could not fetch data for the specified book."
+            if chart_response and 'message' in chart_response:
+                error_msg += f"\n{chart_response['message']}"
+            else:
+                error_msg += " The book might not exist or have no tracking data."
+            
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
         
         chart_data = chart_response.get('chart_data', {})
         book_info = chart_response.get('book_info', {})
-        book_title = book_info.get('title', f'Book {book_id}')
+        book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
+        book_id = book_info.get('id', 'Unknown')
         
         # Filter data by days
         filtered_data = filter_chart_data_by_days(chart_data, days_num)
