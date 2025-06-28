@@ -999,6 +999,7 @@ async def tags(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+# Updated rr_followers command with promotional messages
 @bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
@@ -1006,6 +1007,9 @@ async def tags(interaction: discord.Interaction):
 )
 async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "30"):
     """Generate and send a followers over time chart"""
+    global command_counter
+    command_counter += 1
+    
     print(f"\n[RR-FOLLOWERS] Command called by {interaction.user}")
     print(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}'")
     
@@ -1015,7 +1019,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         # Parse days parameter
         days_num = parse_days_parameter(days)
         
-        # Fetch chart data
+        # Fetch chart data (API will handle book ID extraction)
         global session
         chart_response = await get_book_chart_data(book_input.strip(), session)
         
@@ -1033,6 +1037,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         book_info = chart_response.get('book_info', {})
         book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
         book_id = book_info.get('id', 'Unknown')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
         # Filter data by days
         filtered_data = filter_chart_data_by_days(chart_data, days_num)
@@ -1052,7 +1057,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         
         embed = discord.Embed(
             title="📈 Followers Over Time",
-            description=f"**{book_title}**\nBook ID: {book_id}",
+            description=f"**[{book_title}]({book_url})**\nBook ID: {book_id}",
             color=0x4BC0C0
         )
         embed.set_image(url=f"attachment://followers_chart_{book_id}.png")
@@ -1071,7 +1076,55 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
         embed.add_field(name="Period", value=period_text, inline=True)
         
-        embed.set_footer(text="Data from Royal Road Analytics")
+        # Add data request message
+        embed.add_field(
+            name="📊 Want Historical Data?",
+            value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
+            inline=False
+        )
+        
+        # Add promotional message every 2 commands
+        if command_counter % 2 == 0:
+            promo_messages = [
+                {
+                    "text": "📖 You can also read Stepan Chizhov's",
+                    "url": "https://www.royalroad.com/fiction/105229/",
+                    "link_text": "The Dark Lady's Guide to Villainy!"
+                },
+                {
+                    "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+                    "url": "https://www.patreon.com/stepanchizhov",
+                    "link_text": "Support his work on Patreon!"
+                },
+                {
+                    "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+                    "url": "https://stepan.chizhov.com",
+                    "link_text": "Visit stepan.chizhov.com"
+                },
+                {
+                    "text": "💬 Need help or have suggestions?",
+                    "url": "https://discord.gg/xvw9vbvrwj",
+                    "link_text": "Join our Support Discord"
+                },
+                {
+                    "text": "📚 Join discussions about Royal Road and analytics!",
+                    "url": "https://discord.gg/7Xrrf3Q5zp",
+                    "link_text": "Immersive Ink Community Discord"
+                }
+            ]
+            
+            # Rotate through promotional messages based on how many promos have been shown
+            promo_index = (command_counter // 2 - 1) % len(promo_messages)
+            promo = promo_messages[promo_index]
+            
+            # Add promotional field with hyperlink
+            embed.add_field(
+                name="━━━━━━━━━━━━━━━━━━━━━",
+                value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+                inline=False
+            )
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics")
         
         await interaction.followup.send(embed=embed, file=file)
         print(f"[RR-FOLLOWERS] Successfully sent chart for book {book_id}")
@@ -1096,6 +1149,9 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
 )
 async def rr_views(interaction: discord.Interaction, book_input: str, days: str = "30"):
     """Generate and send a views over time chart"""
+    global command_counter
+    command_counter += 1
+    
     print(f"\n[RR-VIEWS] Command called by {interaction.user}")
     print(f"[RR-VIEWS] Book input: '{book_input}', Days: '{days}'")
     
@@ -1105,7 +1161,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         # Parse days parameter
         days_num = parse_days_parameter(days)
         
-        # Fetch chart data
+        # Fetch chart data (API will handle book ID extraction)
         global session
         chart_response = await get_book_chart_data(book_input.strip(), session)
         
@@ -1123,6 +1179,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         book_info = chart_response.get('book_info', {})
         book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
         book_id = book_info.get('id', 'Unknown')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
         # Filter data by days
         filtered_data = filter_chart_data_by_days(chart_data, days_num)
@@ -1142,7 +1199,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         
         embed = discord.Embed(
             title="📊 Views Over Time",
-            description=f"**{book_title}**\nBook ID: {book_id}",
+            description=f"**[{book_title}]({book_url})**\nBook ID: {book_id}",
             color=0xFF6384
         )
         embed.set_image(url=f"attachment://views_chart_{book_id}.png")
@@ -1161,7 +1218,55 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         period_text = f"Last {days_num} days" if days_num != 'all' else "All available data"
         embed.add_field(name="Period", value=period_text, inline=True)
         
-        embed.set_footer(text="Data from Royal Road Analytics")
+        # Add data request message
+        embed.add_field(
+            name="📊 Want Historical Data?",
+            value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
+            inline=False
+        )
+        
+        # Add promotional message every 2 commands
+        if command_counter % 2 == 0:
+            promo_messages = [
+                {
+                    "text": "📖 You can also read Stepan Chizhov's",
+                    "url": "https://www.royalroad.com/fiction/105229/",
+                    "link_text": "The Dark Lady's Guide to Villainy!"
+                },
+                {
+                    "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+                    "url": "https://www.patreon.com/stepanchizhov",
+                    "link_text": "Support his work on Patreon!"
+                },
+                {
+                    "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+                    "url": "https://stepan.chizhov.com",
+                    "link_text": "Visit stepan.chizhov.com"
+                },
+                {
+                    "text": "💬 Need help or have suggestions?",
+                    "url": "https://discord.gg/xvw9vbvrwj",
+                    "link_text": "Join our Support Discord"
+                },
+                {
+                    "text": "📚 Join discussions about Royal Road and analytics!",
+                    "url": "https://discord.gg/7Xrrf3Q5zp",
+                    "link_text": "Immersive Ink Community Discord"
+                }
+            ]
+            
+            # Rotate through promotional messages based on how many promos have been shown
+            promo_index = (command_counter // 2 - 1) % len(promo_messages)
+            promo = promo_messages[promo_index]
+            
+            # Add promotional field with hyperlink
+            embed.add_field(
+                name="━━━━━━━━━━━━━━━━━━━━━",
+                value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+                inline=False
+            )
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics")
         
         await interaction.followup.send(embed=embed, file=file)
         print(f"[RR-VIEWS] Successfully sent chart for book {book_id}")
