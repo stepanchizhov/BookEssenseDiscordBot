@@ -832,41 +832,41 @@ def calculate_relative_rarity(book_count, total_books):
             'tier': 'undiscovered',
             'flavor': 'You are the first to seek this combination. A true pioneer!'
         }
-    elif percentage <= 0.05:  # ≤ 0.05% (≤5 books out of 10k)
+    elif percentage <= 0.15:  # ≤ 0.15% (≤15 books out of 10k)
         return {
             'rarity': '🌟 Mythic',
             'tier': 'mythic',
-            'flavor': 'One of the rarest confluences in all the realms.'
+            'flavor': 'One of the rarest confluences in all the realms'
         }
-    elif percentage <= 0.2:   # ≤ 0.2% (≤20 books out of 10k)
+    elif percentage <= 0.3:   # ≤ 0.3% (≤30 books out of 10k)
         return {
             'rarity': '⭐ Legendary', 
             'tier': 'legendary',
-            'flavor': 'A confluence of legend! Few have walked this path.'
+            'flavor': 'A confluence of legend! Few have walked this path'
         }
     elif percentage <= 0.5:   # ≤ 0.5% (≤50 books out of 10k)
         return {
             'rarity': '💜 Epic',
             'tier': 'epic', 
-            'flavor': 'An epic combination marking you as a true essence weaver.'
+            'flavor': 'An epic combination explored by a true essence weaver'
         }
     elif percentage <= 1.0:   # ≤ 1.0% (≤100 books out of 10k)
         return {
             'rarity': '💙 Rare',
             'tier': 'rare',
-            'flavor': 'A rare find! This confluence holds secrets to explore.'
+            'flavor': 'A rare find! This confluence holds secrets to explore'
         }
     elif percentage <= 5.0:   # ≤ 5.0% (≤500 books out of 10k) 
         return {
             'rarity': '💚 Uncommon',
             'tier': 'uncommon',
-            'flavor': 'An uncommon path showing promise for discerning readers.'
+            'flavor': 'An uncommon path showing promise for discerning readers'
         }
     else:                     # > 5.0% (>500 books out of 10k)
         return {
             'rarity': '⚪ Common',
             'tier': 'common',
-            'flavor': 'A well-established confluence, beloved by many.'
+            'flavor': 'A well-established confluence, beloved by many'
         }
 
 def create_result_embed(result, *tags, interaction):
@@ -897,10 +897,14 @@ def create_result_embed(result, *tags, interaction):
     if len(actual_tags) < 2:
         raise ValueError("At least 2 tags required for essence combination")
     
+    # Row 2: Three inline fields
+    book_count = result.get('book_count', 0)
+    total_books = int(result.get('total_books', 0)) if result.get('total_books') else 0
+    percentage = float(result.get('percentage', 0)) if result.get('percentage') else 0
+    
     # Calculate rarity using relative system if total_books is available
     # This overrides whatever rarity the WordPress API returned
-    if 'total_books' in result and result['total_books']:
-        total_books = int(result['total_books'])
+    if total_books > 0:
         relative_rarity = calculate_relative_rarity(book_count, total_books)
         
         # Override the API rarity with our relative calculation
@@ -913,60 +917,6 @@ def create_result_embed(result, *tags, interaction):
         rarity_display = result.get('rarity', 'Common')
         flavor_text = result.get('flavor_text', 'A combination of essences.')
     
-    # Color based on rarity
-    colors = {
-        'undiscovered': 0xFFFFFF,
-        'mythic': 0xFF0000,
-        'legendary': 0xFF8C00,
-        'epic': 0x9400D3,
-        'rare': 0x0000FF,
-        'uncommon': 0x00FF00,
-        'common': 0x808080,
-        'unknown': 0x808080
-    }
-    
-    embed = discord.Embed(
-        title="🌟 ESSENCE COMBINATION DISCOVERED! 🌟",
-        color=colors.get(rarity_tier, 0x808080)
-    )
-    
-    # Row 1: Three inline fields
-    # Handle variable number of tags for display
-    if len(actual_tags) == 2:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}**"
-    elif len(actual_tags) == 3:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}**"
-    elif len(actual_tags) == 4:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}**"
-    elif len(actual_tags) == 5:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}** + **{actual_tags[4]}**"
-    else:
-        # Fallback for any number of tags
-        essences_text = " + ".join([f"**{tag}**" for tag in actual_tags])
-    
-    embed.add_field(
-        name="Essences Combined",
-        value=essences_text,
-        inline=True
-    )
-    
-    embed.add_field(
-        name="Creates",
-        value=f"***{result['combination_name']}***",
-        inline=True
-    )
-    
-    embed.add_field(
-        name="Rarity",
-        value=rarity_display,
-        inline=True
-    )
-    
-    # Row 2: Three inline fields
-    book_count = result.get('book_count', 0)
-    total_books = int(result.get('total_books', 0)) if result.get('total_books') else 0
-    percentage = float(result.get('percentage', 0)) if result.get('percentage') else 0
-    
     # Books Found (just the count)
     embed.add_field(
         name="Books Found",
@@ -975,7 +925,7 @@ def create_result_embed(result, *tags, interaction):
     )
     
     # Database Statistics
-    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
+    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books analyzed in Stepan Chizhov's database"
     embed.add_field(
         name="Database Statistics",
         value=stats_display,
@@ -1034,9 +984,9 @@ def create_result_embed(result, *tags, interaction):
     if rising_stars_url:
         # Adjust description based on number of tags
         if len(actual_tags) == 2:
-            description = "See which books with these tags\nare trending upward!"
+            description = "See which books with these tags are trending upward!"
         else:
-            description = f"See which books with all {len(actual_tags)} tags\nare trending upward!"
+            description = f"See which books with all {len(actual_tags)} tags are trending upward!"
             
         embed.add_field(
             name="⭐ Rising Stars",
@@ -1101,7 +1051,23 @@ def create_result_embed(result, *tags, interaction):
     
     return embed
 
-def convert_display_to_url_format(display_name):
+# Helper function to build scalable Rising Stars URLs
+def build_rising_stars_url(*tags):
+    """Build Rising Stars URL for any number of tags"""
+    url_tags = []
+    for tag in tags:
+        url_tag = convert_display_to_url_format(tag)
+        if url_tag:
+            url_tags.append(url_tag)
+    
+    if url_tags and len(url_tags) == len(tags):
+        # Join tags with comma for URL
+        tags_param = "%2C".join(url_tags)  # %2C is URL-encoded comma
+        return f"https://stepan.chizhov.com/author-tools/all-rising-stars/?tags={tags_param}"
+    
+    return None
+
+def convert_display_to_url_format(display_name)::
     """Convert a display name back to URL format for Rising Stars links"""
     # Create reverse mapping from display names to URL format
     reverse_mapping = {}
