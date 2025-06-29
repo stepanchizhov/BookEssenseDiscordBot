@@ -869,33 +869,18 @@ def calculate_relative_rarity(book_count, total_books):
             'flavor': 'A well-established confluence, beloved by many'
         }
 
-def create_result_embed(result, *tags, interaction):
+def create_result_embed(result, tag1, tag2, interaction):
     """
-    Create result embed - BACKWARD COMPATIBLE with current 2-tag API
+    Create result embed - CURRENT VERSION (2 tags + interaction)
     
-    Current usage: create_result_embed(result, tag1, tag2, interaction)
-    Future usage: create_result_embed(result, tag1, tag2, tag3, interaction=interaction)
-    
-    The function signature change is backward compatible because:
-    - Python's *args handles both old and new calling patterns
-    - interaction parameter is handled correctly in both cases
+    This version works with current calling pattern:
+    create_result_embed(result, tag1, tag2, interaction)
     """
     global command_counter
     command_counter += 1
     
-    # Handle the interaction parameter - it might be the last positional arg
-    # or a keyword argument in the future
-    if len(tags) >= 2 and hasattr(tags[-1], 'user'):  # Last arg is interaction object
-        interaction_obj = tags[-1]
-        actual_tags = tags[:-1]
-    else:
-        # Assume interaction is passed as keyword argument (future usage)
-        interaction_obj = interaction
-        actual_tags = tags
-    
-    # Validate we have at least 2 tags
-    if len(actual_tags) < 2:
-        raise ValueError("At least 2 tags required for essence combination")
+    # For now, we work with exactly 2 tags as passed
+    actual_tags = [tag1, tag2]
     
     # Get data from result
     book_count = result.get('book_count', 0)
@@ -935,18 +920,7 @@ def create_result_embed(result, *tags, interaction):
     )
     
     # Row 1: Three inline fields
-    # Handle variable number of tags for display
-    if len(actual_tags) == 2:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}**"
-    elif len(actual_tags) == 3:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}**"
-    elif len(actual_tags) == 4:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}**"
-    elif len(actual_tags) == 5:
-        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}** + **{actual_tags[4]}**"
-    else:
-        # Fallback for any number of tags
-        essences_text = " + ".join([f"**{tag}**" for tag in actual_tags])
+    essences_text = f"**{tag1}** + **{tag2}**"
     
     embed.add_field(
         name="Essences Combined",
@@ -1028,19 +1002,13 @@ def create_result_embed(result, *tags, interaction):
             inline=True
         )
     
-    # Rising Stars Link (NEW) - Scalable for any number of tags
-    rising_stars_url = build_rising_stars_url(*actual_tags)
+    # Rising Stars Link (NEW) - Works with 2 tags
+    rising_stars_url = build_rising_stars_url(tag1, tag2)
     
     if rising_stars_url:
-        # Adjust description based on number of tags
-        if len(actual_tags) == 2:
-            description = "See which books with these tags\nare trending upward!"
-        else:
-            description = f"See which books with all {len(actual_tags)} tags\nare trending upward!"
-            
         embed.add_field(
             name="⭐ Rising Stars",
-            value=f"[**View on Rising Stars List**]({rising_stars_url})\n{description}",
+            value=f"[**View on Rising Stars List**]({rising_stars_url})\nSee which books with these tags\nare trending upward!",
             inline=True
         )
     else:
