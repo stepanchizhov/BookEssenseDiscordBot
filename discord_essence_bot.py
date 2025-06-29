@@ -897,7 +897,7 @@ def create_result_embed(result, *tags, interaction):
     if len(actual_tags) < 2:
         raise ValueError("At least 2 tags required for essence combination")
     
-    # Row 2: Three inline fields
+    # Get data from result
     book_count = result.get('book_count', 0)
     total_books = int(result.get('total_books', 0)) if result.get('total_books') else 0
     percentage = float(result.get('percentage', 0)) if result.get('percentage') else 0
@@ -917,6 +917,56 @@ def create_result_embed(result, *tags, interaction):
         rarity_display = result.get('rarity', 'Common')
         flavor_text = result.get('flavor_text', 'A combination of essences.')
     
+    # Color based on rarity
+    colors = {
+        'undiscovered': 0xFFFFFF,
+        'mythic': 0xFF0000,
+        'legendary': 0xFF8C00,
+        'epic': 0x9400D3,
+        'rare': 0x0000FF,
+        'uncommon': 0x00FF00,
+        'common': 0x808080,
+        'unknown': 0x808080
+    }
+    
+    embed = discord.Embed(
+        title="🌟 ESSENCE COMBINATION DISCOVERED! 🌟",
+        color=colors.get(rarity_tier, 0x808080)
+    )
+    
+    # Row 1: Three inline fields
+    # Handle variable number of tags for display
+    if len(actual_tags) == 2:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}**"
+    elif len(actual_tags) == 3:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}**"
+    elif len(actual_tags) == 4:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}**"
+    elif len(actual_tags) == 5:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}** + **{actual_tags[4]}**"
+    else:
+        # Fallback for any number of tags
+        essences_text = " + ".join([f"**{tag}**" for tag in actual_tags])
+    
+    embed.add_field(
+        name="Essences Combined",
+        value=essences_text,
+        inline=True
+    )
+    
+    embed.add_field(
+        name="Creates",
+        value=f"***{result['combination_name']}***",
+        inline=True
+    )
+    
+    embed.add_field(
+        name="Rarity",
+        value=rarity_display,
+        inline=True
+    )
+    
+    # Row 2: Three inline fields
     # Books Found (just the count)
     embed.add_field(
         name="Books Found",
@@ -925,7 +975,7 @@ def create_result_embed(result, *tags, interaction):
     )
     
     # Database Statistics
-    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books analyzed in Stepan Chizhov's database"
+    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
     embed.add_field(
         name="Database Statistics",
         value=stats_display,
@@ -984,9 +1034,9 @@ def create_result_embed(result, *tags, interaction):
     if rising_stars_url:
         # Adjust description based on number of tags
         if len(actual_tags) == 2:
-            description = "See which books with these tags are trending upward!"
+            description = "See which books with these tags\nare trending upward!"
         else:
-            description = f"See which books with all {len(actual_tags)} tags are trending upward!"
+            description = f"See which books with all {len(actual_tags)} tags\nare trending upward!"
             
         embed.add_field(
             name="⭐ Rising Stars",
@@ -1067,7 +1117,7 @@ def build_rising_stars_url(*tags):
     
     return None
 
-def convert_display_to_url_format(display_name)::
+def convert_display_to_url_format(display_name):  # FIXED: Single colon
     """Convert a display name back to URL format for Rising Stars links"""
     # Create reverse mapping from display names to URL format
     reverse_mapping = {}
