@@ -812,9 +812,106 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         except:
             print("[ERROR] Failed to send error message to user")
 
-def create_result_embed(result, tag1, tag2, interaction):
+def calculate_relative_rarity(book_count, total_books):
+    """
+    Calculate rarity based on percentage of total books (relative system)
+    This replaces the old absolute thresholds with scalable percentages
+    """
+    if total_books == 0:
+        return {
+            'rarity': 'Unknown',
+            'tier': 'unknown',
+            'flavor': 'Database currently empty.'
+        }
+    
+    percentage = (book_count / total_books) * 100
+    
+    if book_count == 0:
+        return {
+            'rarity': 'Undiscovered',
+            'tier': 'undiscovered',
+            'flavor': 'You are the first to seek this combination. A true pioneer!'
+        }
+    elif percentage <= 0.05:  # ≤ 0.05% (≤5 books out of 10k)
+        return {
+            'rarity': '🌟 Mythic',
+            'tier': 'mythic',
+            'flavor': 'One of the rarest confluences in all the realms.'
+        }
+    elif percentage <= 0.2:   # ≤ 0.2% (≤20 books out of 10k)
+        return {
+            'rarity': '⭐ Legendary', 
+            'tier': 'legendary',
+            'flavor': 'A confluence of legend! Few have walked this path.'
+        }
+    elif percentage <= 0.5:   # ≤ 0.5% (≤50 books out of 10k)
+        return {
+            'rarity': '💜 Epic',
+            'tier': 'epic', 
+            'flavor': 'An epic combination marking you as a true essence weaver.'
+        }
+    elif percentage <= 1.0:   # ≤ 1.0% (≤100 books out of 10k)
+        return {
+            'rarity': '💙 Rare',
+            'tier': 'rare',
+            'flavor': 'A rare find! This confluence holds secrets to explore.'
+        }
+    elif percentage <= 5.0:   # ≤ 5.0% (≤500 books out of 10k) 
+        return {
+            'rarity': '💚 Uncommon',
+            'tier': 'uncommon',
+            'flavor': 'An uncommon path showing promise for discerning readers.'
+        }
+    else:                     # > 5.0% (>500 books out of 10k)
+        return {
+            'rarity': '⚪ Common',
+            'tier': 'common',
+            'flavor': 'A well-established confluence, beloved by many.'
+        }
+
+def create_result_embed(result, *tags, interaction):
+    """
+    Create result embed - BACKWARD COMPATIBLE with current 2-tag API
+    
+    Current usage: create_result_embed(result, tag1, tag2, interaction)
+    Future usage: create_result_embed(result, tag1, tag2, tag3, interaction=interaction)
+    
+    The function signature change is backward compatible because:
+    - Python's *args handles both old and new calling patterns
+    - interaction parameter is handled correctly in both cases
+    """
     global command_counter
     command_counter += 1
+    
+    # Handle the interaction parameter - it might be the last positional arg
+    # or a keyword argument in the future
+    if len(tags) >= 2 and hasattr(tags[-1], 'user'):  # Last arg is interaction object
+        interaction_obj = tags[-1]
+        actual_tags = tags[:-1]
+    else:
+        # Assume interaction is passed as keyword argument (future usage)
+        interaction_obj = interaction
+        actual_tags = tags
+    
+    # Validate we have at least 2 tags
+    if len(actual_tags) < 2:
+        raise ValueError("At least 2 tags required for essence combination")
+    
+    # Calculate rarity using relative system if total_books is available
+    # This overrides whatever rarity the WordPress API returned
+    if 'total_books' in result and result['total_books']:
+        total_books = int(result['total_books'])
+        relative_rarity = calculate_relative_rarity(book_count, total_books)
+        
+        # Override the API rarity with our relative calculation
+        rarity_tier = relative_rarity['tier']
+        rarity_display = relative_rarity['rarity']
+        flavor_text = relative_rarity['flavor']
+    else:
+        # Fallback to API-provided rarity
+        rarity_tier = result.get('rarity_tier', 'common')
+        rarity_display = result.get('rarity', 'Common')
+        flavor_text = result.get('flavor_text', 'A combination of essences.')
     
     # Color based on rarity
     colors = {
@@ -824,10 +921,9 @@ def create_result_embed(result, tag1, tag2, interaction):
         'epic': 0x9400D3,
         'rare': 0x0000FF,
         'uncommon': 0x00FF00,
-        'common': 0x808080
+        'common': 0x808080,
+        'unknown': 0x808080
     }
-    
-    rarity_tier = result.get('rarity_tier', 'common')
     
     embed = discord.Embed(
         title="🌟 ESSENCE COMBINATION DISCOVERED! 🌟",
@@ -835,9 +931,22 @@ def create_result_embed(result, tag1, tag2, interaction):
     )
     
     # Row 1: Three inline fields
+    # Handle variable number of tags for display
+    if len(actual_tags) == 2:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}**"
+    elif len(actual_tags) == 3:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}**"
+    elif len(actual_tags) == 4:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}**"
+    elif len(actual_tags) == 5:
+        essences_text = f"**{actual_tags[0]}** + **{actual_tags[1]}** + **{actual_tags[2]}** + **{actual_tags[3]}** + **{actual_tags[4]}**"
+    else:
+        # Fallback for any number of tags
+        essences_text = " + ".join([f"**{tag}**" for tag in actual_tags])
+    
     embed.add_field(
         name="Essences Combined",
-        value=f"**{tag1}** + **{tag2}**",
+        value=essences_text,
         inline=True
     )
     
@@ -849,7 +958,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     embed.add_field(
         name="Rarity",
-        value=f"{result['rarity']}",
+        value=rarity_display,
         inline=True
     )
     
@@ -873,15 +982,15 @@ def create_result_embed(result, tag1, tag2, interaction):
         inline=True
     )
     
-    # Lore
+    # Lore (using calculated flavor text)
     embed.add_field(
         name="✦ Lore ✦",
-        value=f"*{result['flavor_text']}*",
+        value=f"*{flavor_text}*",
         inline=True
     )
     
-    # Book examples - NOT inline to span full width
-    # Popular book
+    # Row 3: Three inline fields
+    # Most Popular Example
     if 'popular_book' in result and result['popular_book']:
         book = result['popular_book']
         book_value = f"**[{book['title']}]({book['url']})**\n"
@@ -891,17 +1000,16 @@ def create_result_embed(result, tag1, tag2, interaction):
         embed.add_field(
             name="👑 Most Popular Example",
             value=book_value,
-            inline=False  # Changed to False
+            inline=True
         )
     else:
-        # Empty field if no popular book
         embed.add_field(
             name="👑 Most Popular Example",
             value="*No data available*",
-            inline=False
+            inline=True
         )
     
-    # Random book
+    # Random Discovery
     if 'random_book' in result and result['random_book']:
         book = result['random_book']
         book_value = f"**[{book['title']}]({book['url']})**\n"
@@ -911,14 +1019,35 @@ def create_result_embed(result, tag1, tag2, interaction):
         embed.add_field(
             name="🎲 Random Discovery",
             value=book_value,
-            inline=False  # Changed to False
+            inline=True
         )
     else:
-        # Empty field if no random book
         embed.add_field(
             name="🎲 Random Discovery",
             value="*No books with 20k+ words found*",
-            inline=False
+            inline=True
+        )
+    
+    # Rising Stars Link (NEW) - Scalable for any number of tags
+    rising_stars_url = build_rising_stars_url(*actual_tags)
+    
+    if rising_stars_url:
+        # Adjust description based on number of tags
+        if len(actual_tags) == 2:
+            description = "See which books with these tags\nare trending upward!"
+        else:
+            description = f"See which books with all {len(actual_tags)} tags\nare trending upward!"
+            
+        embed.add_field(
+            name="⭐ Rising Stars",
+            value=f"[**View on Rising Stars List**]({rising_stars_url})\n{description}",
+            inline=True
+        )
+    else:
+        embed.add_field(
+            name="⭐ Rising Stars",
+            value="*Rising Stars link unavailable*",
+            inline=True
         )
     
     # Inspiration message (full width)
@@ -971,6 +1100,67 @@ def create_result_embed(result, tag1, tag2, interaction):
         )
     
     return embed
+
+def convert_display_to_url_format(display_name):
+    """Convert a display name back to URL format for Rising Stars links"""
+    # Create reverse mapping from display names to URL format
+    reverse_mapping = {}
+    for url_format, display_format in TAG_MAPPING.items():
+        if display_format not in reverse_mapping:
+            # Ensure URL format is lowercase
+            reverse_mapping[display_format] = url_format.lower()
+    
+    # Handle special cases where multiple URL formats map to same display name
+    # Prefer the most "standard" URL format (all lowercase)
+    special_cases = {
+        'Sci-fi': 'sci_fi',
+        'Portal Fantasy / Isekai': 'portal_fantasy',
+        'Multiple Lead Characters': 'multiple_lead',
+        'Anti-Hero Lead': 'anti_hero_lead',
+        'Artificial Intelligence': 'artificial_intelligence',
+        'Attractive Lead': 'attractive_lead',
+        'Female Lead': 'female_lead',
+        'First Contact': 'first_contact',
+        'Gender Bender': 'gender_bender',
+        'Genetically Engineered': 'genetically_engineered',
+        'Hard Sci-fi': 'hard_sci_fi',
+        'High Fantasy': 'high_fantasy',
+        'Low Fantasy': 'low_fantasy',
+        'Male Lead': 'male_lead',
+        'Martial Arts': 'martial_arts',
+        'Non-Human Lead': 'non_human_lead',
+        'Post Apocalyptic': 'post_apocalyptic',
+        'Reader Interactive': 'reader_interactive',
+        'Ruling Class': 'ruling_class',
+        'School Life': 'school_life',
+        'Secret Identity': 'secret_identity',
+        'Slice of Life': 'slice_of_life',
+        'Soft Sci-fi': 'soft_sci_fi',
+        'Space Opera': 'space_opera',
+        'Strong Lead': 'strong_lead',
+        'Super Heroes': 'super_heroes',
+        'Time Loop': 'time_loop',
+        'Time Travel': 'time_travel',
+        'Urban Fantasy': 'urban_fantasy',
+        'Villainous Lead': 'villainous_lead',
+        'Virtual Reality': 'virtual_reality',
+        'War and Military': 'war_and_military',
+        'Technologically Engineered': 'technologically_engineered',
+        'Short Story': 'one_shot'
+    }
+    
+    # Check special cases first
+    if display_name in special_cases:
+        return special_cases[display_name].lower()
+    
+    # Fall back to reverse mapping (already lowercase from above)
+    if display_name in reverse_mapping:
+        return reverse_mapping[display_name]
+    
+    # If not found, try to convert display name to URL format
+    # Convert to lowercase and replace spaces with underscores
+    url_format = display_name.lower().replace(' ', '_').replace('-', '_')
+    return url_format
 
 @bot.tree.command(name="tags", description="List all available essence tags")
 async def tags(interaction: discord.Interaction):
