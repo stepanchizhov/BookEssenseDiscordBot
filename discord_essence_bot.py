@@ -930,7 +930,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     embed.add_field(
         name="Creates",
-        value=f"***{result['combination_name']}***",
+        value=f"{result['combination_name']}",
         inline=True
     )
     
@@ -959,7 +959,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     # Lore (using calculated flavor text)
     embed.add_field(
         name="✦ Lore ✦",
-        value=f"*{flavor_text}*",
+        value=f"{flavor_text}",
         inline=True
     )
     
@@ -1008,7 +1008,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     if rising_stars_url:
         embed.add_field(
             name="⭐ Rising Stars",
-            value=f"[**View on Rising Stars List**]({rising_stars_url})\nSee which books with these tags\nare trending upward!",
+            value=f"[**View on Rising Stars List**]({rising_stars_url})\nSee which books with these tags are trending upward!",
             inline=True
         )
     else:
