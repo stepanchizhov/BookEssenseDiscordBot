@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import io
 import re
 from urllib.parse import urlparse, parse_qs
+import numpy as np
+from scipy import interpolate
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -408,9 +410,9 @@ def extract_book_id_from_url(url):
     except (ValueError, IndexError):
         return None
 
-# Updated parse_days_parameter function to handle date ranges
+# Updated parse_days_parameter function to handle date ranges - NOW DEFAULTS TO 'all'
 def parse_days_parameter(days_str):
-    """Parse the days parameter - supports numbers, 'all', or date ranges"""
+    """Parse the days parameter - supports numbers, 'all', or date ranges - DEFAULTS TO 'all'"""
     if days_str.lower() == 'all':
         return 'all'
     
@@ -427,7 +429,7 @@ def parse_days_parameter(days_str):
                 'end_date': end_date.strip()
             }
         except ValueError:
-            return 30  # Default if date range is invalid
+            return 'all'  # Default to 'all' if date range is invalid
     
     # Check if it's a single date (from that date to now)
     if '-' in days_str and len(days_str) == 10:  # YYYY-MM-DD format
@@ -444,10 +446,112 @@ def parse_days_parameter(days_str):
     try:
         days = int(days_str)
         if days <= 0:
-            return 30  # Default to 30 days for invalid input
+            return 'all'  # Default to 'all' for invalid input
         return days
     except ValueError:
-        return 30  # Default to 30 days for invalid input
+        return 'all'  # Default to 'all' for invalid input
+
+def interpolate_missing_data(labels, data, timestamps=None):
+    """
+    Interpolate missing data points to fill gaps in the time series
+    Returns original data, interpolated data, and a mask indicating which points are interpolated
+    """
+    if not labels or not data or len(labels) != len(data):
+        return labels, data, []
+    
+    # Convert labels to datetime objects if they aren't already
+    if timestamps:
+        # Use provided timestamps if available
+        try:
+            date_objects = [datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) else datetime.strptime(str(ts), '%Y-%m-%d %H:%M:%S') for ts in timestamps]
+        except:
+            # Fallback to parsing labels
+            date_objects = []
+            for label in labels:
+                try:
+                    # Try different date formats
+                    if isinstance(label, str):
+                        if len(label.split()) == 2:  # "Jan 15" format
+                            current_year = datetime.now().year
+                            date_objects.append(datetime.strptime(f"{label} {current_year}", '%b %d %Y'))
+                        else:
+                            date_objects.append(datetime.strptime(label, '%Y-%m-%d'))
+                    else:
+                        date_objects.append(label)
+                except:
+                    # If parsing fails, create a sequential date
+                    if date_objects:
+                        last_date = date_objects[-1]
+                        date_objects.append(last_date + timedelta(days=1))
+                    else:
+                        date_objects.append(datetime.now() - timedelta(days=len(labels)-len(date_objects)))
+    else:
+        # Parse from labels
+        date_objects = []
+        for label in labels:
+            try:
+                if isinstance(label, str):
+                    if len(label.split()) == 2:  # "Jan 15" format
+                        current_year = datetime.now().year
+                        date_objects.append(datetime.strptime(f"{label} {current_year}", '%b %d %Y'))
+                    else:
+                        date_objects.append(datetime.strptime(label, '%Y-%m-%d'))
+                else:
+                    date_objects.append(label)
+            except:
+                # If parsing fails, create a sequential date
+                if date_objects:
+                    last_date = date_objects[-1]
+                    date_objects.append(last_date + timedelta(days=1))
+                else:
+                    date_objects.append(datetime.now() - timedelta(days=len(labels)-len(date_objects)))
+    
+    if len(date_objects) < 2:
+        return labels, data, []
+    
+    # Sort by date to ensure proper interpolation
+    combined = list(zip(date_objects, labels, data))
+    combined.sort(key=lambda x: x[0])
+    date_objects, labels, data = zip(*combined)
+    date_objects, labels, data = list(date_objects), list(labels), list(data)
+    
+    # Find gaps larger than 2 days
+    interpolated_mask = []
+    new_dates = []
+    new_labels = []
+    new_data = []
+    
+    for i in range(len(date_objects)):
+        new_dates.append(date_objects[i])
+        new_labels.append(labels[i])
+        new_data.append(data[i])
+        interpolated_mask.append(False)  # Original data point
+        
+        # Check if there's a gap to the next point
+        if i < len(date_objects) - 1:
+            current_date = date_objects[i]
+            next_date = date_objects[i + 1]
+            gap_days = (next_date - current_date).days
+            
+            # If gap is more than 2 days, interpolate
+            if gap_days > 2:
+                current_value = data[i]
+                next_value = data[i + 1]
+                
+                # Create interpolated points for each missing day
+                for day in range(1, gap_days):
+                    interpolated_date = current_date + timedelta(days=day)
+                    
+                    # Linear interpolation
+                    ratio = day / gap_days
+                    interpolated_value = current_value + (next_value - current_value) * ratio
+                    
+                    new_dates.append(interpolated_date)
+                    new_labels.append(interpolated_date.strftime('%b %d'))
+                    new_data.append(interpolated_value)
+                    interpolated_mask.append(True)  # Interpolated data point
+    
+    return new_labels, new_data, interpolated_mask
 
 async def get_book_chart_data(book_input, days_param, session):
     """Fetch chart data for a book from WordPress API with date filtering"""
@@ -499,9 +603,9 @@ async def get_book_chart_data(book_input, days_param, session):
         print(f"[CHART] Exception fetching chart data: {e}")
         return None
 
-# Updated create_chart_image function to handle date ranges in period text
+# Updated create_chart_image function with interpolation and better visualization
 def create_chart_image(chart_data, chart_type, book_title, days_param):
-    """Create a chart image using matplotlib - NO CLIENT-SIDE FILTERING"""
+    """Create a chart image using matplotlib with data interpolation for missing dates"""
     try:
         # Set up the plot
         plt.style.use('default')
@@ -509,17 +613,20 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
         
         # Prepare data - USE AS-IS from API (already filtered)
         labels = chart_data.get('labels', [])
+        timestamps = chart_data.get('timestamps', [])  # If available from API
         
         if chart_type == 'followers':
             data = chart_data.get('followers', [])
             title = f'Followers Over Time - {book_title}'
             ylabel = 'Followers'
             color = '#4BC0C0'
+            interpolated_color = '#B8E6E6'  # Lighter shade for interpolated data
         else:  # views
             data = chart_data.get('total_views', [])
             title = f'Views Over Time - {book_title}'
             ylabel = 'Total Views'
             color = '#FF6384'
+            interpolated_color = '#FFB3C1'  # Lighter shade for interpolated data
         
         if not data or not labels:
             # Create a "no data" chart
@@ -528,28 +635,87 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
                    transform=ax.transAxes, fontsize=16, color='gray')
             ax.set_title(title)
         else:
-            # Create the actual chart
-            x_indices = range(len(labels))
-            ax.plot(x_indices, data, color=color, linewidth=2, marker='o', markersize=4)
-            ax.fill_between(x_indices, data, alpha=0.3, color=color)
+            # Interpolate missing data
+            interpolated_labels, interpolated_data, interpolated_mask = interpolate_missing_data(
+                labels, data, timestamps
+            )
             
-            # Format axes
-            ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
-            ax.set_ylabel(ylabel, fontsize=12)
-            ax.set_xlabel('Date', fontsize=12)
-            
-            # Format y-axis with commas
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
-            
-            # Set x-axis labels
-            if len(labels) > 15:
-                # Show every nth label to avoid crowding
-                step = len(labels) // 10
-                ax.set_xticks(x_indices[::step])
-                ax.set_xticklabels(labels[::step], rotation=45)
+            if interpolated_labels and interpolated_data:
+                x_indices = range(len(interpolated_labels))
+                
+                # Separate original and interpolated data for different styling
+                original_x = []
+                original_y = []
+                interpolated_x = []
+                interpolated_y = []
+                
+                for i, is_interpolated in enumerate(interpolated_mask):
+                    if is_interpolated:
+                        interpolated_x.append(i)
+                        interpolated_y.append(interpolated_data[i])
+                    else:
+                        original_x.append(i)
+                        original_y.append(interpolated_data[i])
+                
+                # Plot original data
+                if original_x:
+                    ax.plot(original_x, original_y, color=color, linewidth=2, marker='o', 
+                           markersize=4, label='Actual Data', zorder=3)
+                    ax.fill_between(original_x, original_y, alpha=0.3, color=color)
+                
+                # Plot interpolated data with different styling
+                if interpolated_x:
+                    ax.plot(interpolated_x, interpolated_y, color=interpolated_color, 
+                           linewidth=1.5, linestyle='--', marker='s', markersize=3, 
+                           label='Interpolated Data', alpha=0.8, zorder=2)
+                    ax.fill_between(interpolated_x, interpolated_y, alpha=0.15, color=interpolated_color)
+                
+                # Connect all points with a subtle line
+                ax.plot(x_indices, interpolated_data, color=color, linewidth=1, alpha=0.5, zorder=1)
+                
+                # Format axes
+                ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+                ax.set_ylabel(ylabel, fontsize=12)
+                ax.set_xlabel('Date', fontsize=12)
+                
+                # Format y-axis with commas
+                ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+                
+                # Set x-axis labels
+                if len(interpolated_labels) > 15:
+                    # Show every nth label to avoid crowding
+                    step = len(interpolated_labels) // 10
+                    ax.set_xticks(x_indices[::step])
+                    ax.set_xticklabels(interpolated_labels[::step], rotation=45)
+                else:
+                    ax.set_xticks(x_indices)
+                    ax.set_xticklabels(interpolated_labels, rotation=45)
+                
+                # Add legend if we have interpolated data
+                if interpolated_x:
+                    ax.legend(loc='upper left', framealpha=0.9)
             else:
-                ax.set_xticks(x_indices)
-                ax.set_xticklabels(labels, rotation=45)
+                # Fallback to original data plotting
+                x_indices = range(len(labels))
+                ax.plot(x_indices, data, color=color, linewidth=2, marker='o', markersize=4)
+                ax.fill_between(x_indices, data, alpha=0.3, color=color)
+                
+                # Format axes
+                ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+                ax.set_ylabel(ylabel, fontsize=12)
+                ax.set_xlabel('Date', fontsize=12)
+                
+                # Format y-axis with commas
+                ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+                
+                # Set x-axis labels
+                if len(labels) > 15:
+                    step = len(labels) // 10
+                    ax.set_xticks(x_indices[::step])
+                    ax.set_xticklabels(labels[::step], rotation=45)
+                else:
+                    ax.set_xticks(x_indices)
+                    ax.set_xticklabels(labels, rotation=45)
         
         # Add grid and styling
         ax.grid(True, alpha=0.3)
@@ -1200,67 +1366,14 @@ async def tags(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# Update the get_book_chart_data function in your Discord bot:
-
-async def get_book_chart_data(book_input, days_param, session):
-    """Fetch chart data for a book from WordPress API with date filtering"""
-    try:
-        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/book-chart-data"
-        headers = {
-            'User-Agent': 'RR-Analytics-Discord-Bot/1.0',
-            'Content-Type': 'application/json'
-        }
-        
-        # Base data
-        data = {
-            'book_input': str(book_input),
-            'bot_token': WP_BOT_TOKEN
-        }
-        
-        # Add date filtering parameters based on the parsed days_param
-        if days_param == 'all':
-            data['all_data'] = True
-        elif isinstance(days_param, dict):
-            if days_param['type'] == 'date_range':
-                data['start_date'] = days_param['start_date']
-                data['end_date'] = days_param['end_date']
-            elif days_param['type'] == 'from_date':
-                data['start_date'] = days_param['start_date']
-        elif isinstance(days_param, int):
-            data['days'] = days_param
-        
-        print(f"[CHART] Fetching chart data for book input: {book_input}")
-        print(f"[CHART] Days parameter: {days_param}")
-        print(f"[CHART] API request data: {data}")
-        print(f"[CHART] Request URL: {url}")
-        
-        async with session.post(url, json=data, headers=headers) as response:
-            if response.status == 200:
-                result = await response.json()
-                print(f"[CHART] Successfully fetched chart data")
-                print(f"[CHART] Response keys: {list(result.keys())}")
-                if 'data_info' in result:
-                    print(f"[CHART] Total snapshots: {result['data_info'].get('total_snapshots', 'unknown')}")
-                    print(f"[CHART] Filter applied: {result['data_info'].get('filter_applied', 'unknown')}")
-                return result
-            else:
-                error_text = await response.text()
-                print(f"[CHART] Failed to fetch chart data: {response.status} - {error_text}")
-                return None
-                
-    except Exception as e:
-        print(f"[CHART] Exception fetching chart data: {e}")
-        return None
-
-# Update both chart commands to pass the days_param:
-
+# Updated chart commands with default 'all' parameter
 @bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01)"
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'"
 )
-async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "30"):
-    """Generate and send a followers over time chart"""
+async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "all"):
+    """Generate and send a followers over time chart - DEFAULT TO 'all' TIME"""
     global command_counter
     command_counter += 1
     
@@ -1270,7 +1383,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter (supports date ranges)
+        # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
         print(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
         
@@ -1302,7 +1415,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
         
-        # Create chart image
+        # Create chart image with interpolation
         chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_param)
         
         if not chart_buffer:
@@ -1337,10 +1450,10 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         period_text = data_info.get('filter_applied', 'Unknown period')
         embed.add_field(name="Period", value=period_text, inline=True)
         
-        # Add data request message
+        # Add data note about interpolation
         embed.add_field(
-            name="📊 Want to Add Your Historical Data?",
-            value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
+            name="📊 Chart Features",
+            value="• Solid lines show actual data\n• Dashed lines show interpolated estimates for missing dates\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
             inline=False
         )
         
@@ -1406,10 +1519,10 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
 @bot.tree.command(name="rr-views", description="Show views over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01)"
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'"
 )
-async def rr_views(interaction: discord.Interaction, book_input: str, days: str = "30"):
-    """Generate and send a views over time chart"""
+async def rr_views(interaction: discord.Interaction, book_input: str, days: str = "all"):
+    """Generate and send a views over time chart - DEFAULT TO 'all' TIME"""
     global command_counter
     command_counter += 1
     
@@ -1419,7 +1532,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
     await interaction.response.defer()
     
     try:
-        # Parse days parameter (supports date ranges)
+        # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
         print(f"[RR-VIEWS] Parsed days parameter: {days_param}")
         
@@ -1451,7 +1564,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
         
-        # Create chart image
+        # Create chart image with interpolation
         chart_buffer = create_chart_image(filtered_data, 'views', book_title, days_param)
         
         if not chart_buffer:
@@ -1486,10 +1599,10 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         period_text = data_info.get('filter_applied', 'Unknown period')
         embed.add_field(name="Period", value=period_text, inline=True)
         
-        # Add data request message
+        # Add data note about interpolation
         embed.add_field(
-            name="📊 Want to Add Your Historical Data?",
-            value="If you want to add historical data, please visit [Stepan Chizhov's Discord Server](https://discord.gg/xvw9vbvrwj)",
+            name="📊 Chart Features",
+            value="• Solid lines show actual data\n• Dashed lines show interpolated estimates for missing dates\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
             inline=False
         )
         
@@ -1802,11 +1915,12 @@ async def help_command(interaction: discord.Interaction):
             "**`/help`** - Show this help message\n"
             "**`/ping`** - Check if bot is online\n"
             "**`/rr-followers`** - Followers over time chart\n"
-            "• Example: `/rr-followers 12345 30`\n"
+            "• Example: `/rr-followers 12345` (shows all time)\n"
+            "• Example: `/rr-followers 12345 30` (last 30 days)\n"
             "• Example: `/rr-followers 12345 2025-01-01:2025-02-01`\n"
-            "• Example: `/rr-followers https://royalroad.com/fiction/12345 all`\n\n"
+            "• Example: `/rr-followers https://royalroad.com/fiction/12345`\n\n"
             "**`/rr-views`** - Views over time chart\n"
-            "• Example: `/rr-views 12345 7`\n"
+            "• Example: `/rr-views 12345` (shows all time)\n"
             "• Same format as followers command\n\n"
         ),
         inline=False
@@ -1842,6 +1956,19 @@ async def help_command(interaction: discord.Interaction):
         inline=True
     )
     
+    # Chart features section
+    embed.add_field(
+        name="📊 Chart Features",
+        value=(
+            "**Default:** Shows all available data\n"
+            "**Interpolation:** Missing dates filled with estimates\n"
+            "• Solid lines = Actual data\n"
+            "• Dashed lines = Interpolated data\n"
+            "**Time ranges:** 30 days, date ranges, or 'all'"
+        ),
+        inline=False
+    )
+    
     # Rarity tiers
     embed.add_field(
         name="💎 Rarity Tiers",
@@ -1853,7 +1980,7 @@ async def help_command(interaction: discord.Interaction):
             "💚 **Uncommon** (101-500 books)\n"
             "⚪ **Common** (500+ books)"
         ),
-        inline=False
+        inline=True
     )
     
     # Examples
@@ -1865,7 +1992,7 @@ async def help_command(interaction: discord.Interaction):
             "`/e Female Lead Strong Lead` - The Valkyrie's Bond\n"
             "`/e Portal Fantasy Reincarnation` - The Eternal Gateway"
         ),
-        inline=False
+        inline=True
     )
     
     # Tips
@@ -1874,7 +2001,8 @@ async def help_command(interaction: discord.Interaction):
         value=(
             "• Try unusual combinations for rare discoveries!\n"
             "• Use `/tags` to see all 65+ available tags\n"
-            "• Some combinations have special names\n"
+            "• Charts now default to showing all time data\n"
+            "• Missing dates are filled with smart estimates\n"
             "• The rarer the combination, the more prestigious!"
         ),
         inline=False
