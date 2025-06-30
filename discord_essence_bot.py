@@ -341,8 +341,8 @@ TAG_MAPPING = {
     'Xianxia': 'Xianxia',
     
     # CULTIVATION (bonus tag not in standard RR)
-    'cultivation': 'Cultivation',
-    'Cultivation': 'Cultivation',
+    # 'cultivation': 'Cultivation',
+    # 'Cultivation': 'Cultivation',
     
     # TECHNOLOGICALLY ENGINEERED
     'technologically_engineered': 'Technologically Engineered',
