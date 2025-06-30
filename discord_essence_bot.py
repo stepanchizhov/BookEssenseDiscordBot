@@ -455,9 +455,28 @@ def interpolate_missing_data(labels, data, timestamps=None):
     """
     Interpolate missing data points to fill gaps in the time series
     Returns original data, interpolated data, and a mask indicating which points are interpolated
+    Also trims leading zeros to start from first meaningful data point
     """
     if not labels or not data or len(labels) != len(data):
         return labels, data, []
+    
+    # Find the first non-zero data point to start from
+    first_nonzero_index = 0
+    for i, value in enumerate(data):
+        if value > 0:
+            first_nonzero_index = i
+            break
+    
+    # Trim the data to start from first meaningful point
+    if first_nonzero_index > 0:
+        labels = labels[first_nonzero_index:]
+        data = data[first_nonzero_index:]
+        if timestamps:
+            timestamps = timestamps[first_nonzero_index:]
+    
+    # If all data is zero or we have less than 2 points, return as-is
+    if len(data) < 2 or all(value == 0 for value in data):
+        return labels, data, [False] * len(data)
     
     # Convert labels to datetime objects if they aren't already
     if timestamps:
@@ -507,7 +526,7 @@ def interpolate_missing_data(labels, data, timestamps=None):
                     date_objects.append(datetime.now() - timedelta(days=len(labels)-len(date_objects)))
     
     if len(date_objects) < 2:
-        return labels, data, []
+        return labels, data, [False] * len(data)
     
     # Sort by date to ensure proper interpolation
     combined = list(zip(date_objects, labels, data))
@@ -515,7 +534,7 @@ def interpolate_missing_data(labels, data, timestamps=None):
     date_objects, labels, data = zip(*combined)
     date_objects, labels, data = list(date_objects), list(labels), list(data)
     
-    # Find gaps larger than 2 days
+    # Find gaps larger than 2 days and interpolate
     interpolated_mask = []
     new_dates = []
     new_labels = []
