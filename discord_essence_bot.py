@@ -474,6 +474,47 @@ def trim_leading_zeros(labels, data, timestamps=None):
     
     return labels, data, timestamps
 
+def parse_dates_from_labels(labels, timestamps=None):
+    """
+    Convert labels to datetime objects for proper date scaling
+    """
+    date_objects = []
+    
+    if timestamps:
+        # Use provided timestamps if available
+        try:
+            for ts in timestamps:
+                if isinstance(ts, (int, float)):
+                    date_objects.append(datetime.fromtimestamp(ts))
+                else:
+                    date_objects.append(datetime.strptime(str(ts), '%Y-%m-%d %H:%M:%S'))
+            return date_objects
+        except:
+            pass  # Fall back to parsing labels
+    
+    # Parse from labels
+    for i, label in enumerate(labels):
+        try:
+            if isinstance(label, str):
+                if len(label.split()) == 2:  # "Jan 15" format
+                    current_year = datetime.now().year
+                    date_objects.append(datetime.strptime(f"{label} {current_year}", '%b %d %Y'))
+                else:
+                    date_objects.append(datetime.strptime(label, '%Y-%m-%d'))
+            else:
+                date_objects.append(label)
+        except:
+            # If parsing fails, create a sequential date based on previous dates
+            if date_objects:
+                last_date = date_objects[-1]
+                date_objects.append(last_date + timedelta(days=1))
+            else:
+                # Start from a reasonable date if we have no context
+                base_date = datetime.now() - timedelta(days=len(labels))
+                date_objects.append(base_date + timedelta(days=i))
+    
+    return date_objects
+
 async def get_book_chart_data(book_input, days_param, session):
     """Fetch chart data for a book from WordPress API with date filtering"""
     try:
@@ -524,9 +565,9 @@ async def get_book_chart_data(book_input, days_param, session):
         print(f"[CHART] Exception fetching chart data: {e}")
         return None
 
-# Updated create_chart_image function with simplified approach
+# Updated create_chart_image function with proper date scaling
 def create_chart_image(chart_data, chart_type, book_title, days_param):
-    """Create a chart image using matplotlib with proper date scaling and leading zero trimming"""
+    """Create a chart image using matplotlib with proper linear date scaling and leading zero trimming"""
     try:
         # Set up the plot
         plt.style.use('default')
@@ -560,12 +601,13 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
             )
             
             if trimmed_labels and trimmed_data:
-                x_indices = range(len(trimmed_labels))
+                # Parse dates for proper linear scaling
+                date_objects = parse_dates_from_labels(trimmed_labels, trimmed_timestamps)
                 
-                # Plot the line connecting all data points
-                ax.plot(x_indices, trimmed_data, color=color, linewidth=2, marker='o', 
+                # Plot the line connecting all data points using actual dates
+                ax.plot(date_objects, trimmed_data, color=color, linewidth=2, marker='o', 
                        markersize=4, label='Data Points', zorder=3)
-                ax.fill_between(x_indices, trimmed_data, alpha=0.3, color=color)
+                ax.fill_between(date_objects, trimmed_data, alpha=0.3, color=color)
                 
                 # Format axes
                 ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
@@ -575,15 +617,28 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
                 # Format y-axis with commas
                 ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
                 
-                # Set x-axis labels
-                if len(trimmed_labels) > 15:
-                    # Show every nth label to avoid crowding
-                    step = len(trimmed_labels) // 10
-                    ax.set_xticks(x_indices[::step])
-                    ax.set_xticklabels(trimmed_labels[::step], rotation=45)
-                else:
-                    ax.set_xticks(x_indices)
-                    ax.set_xticklabels(trimmed_labels, rotation=45)
+                # Format x-axis with proper date formatting
+                if len(date_objects) > 1:
+                    # Calculate span to determine appropriate date formatting
+                    date_span = (date_objects[-1] - date_objects[0]).days
+                    
+                    if date_span > 365:  # More than a year, show months
+                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+                        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+                    elif date_span > 60:  # More than 2 months, show months
+                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+                        ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+                    else:  # Less than 2 months, show days
+                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+                        ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, date_span // 10)))
+                    
+                    # Rotate labels for better readability
+                    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                    
+                    # Set reasonable limits with some padding
+                    date_range = date_objects[-1] - date_objects[0]
+                    padding = timedelta(days=max(1, date_range.days * 0.02))  # 2% padding
+                    ax.set_xlim(date_objects[0] - padding, date_objects[-1] + padding)
             else:
                 # Fallback - shouldn't happen after trimming, but just in case
                 ax.text(0.5, 0.5, 'No meaningful data to display', 
@@ -988,7 +1043,7 @@ def create_result_embed(result, tag1, tag2, interaction):
     )
     
     # Database Statistics
-    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books analyzed in Stepan Chizhov's database"
+    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
     embed.add_field(
         name="Database Statistics",
         value=stats_display,
