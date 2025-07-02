@@ -1816,6 +1816,400 @@ async def combine_alias(interaction: discord.Interaction, tags: str):
     """Alias for quick essence command"""
     await process_quick_essence(interaction, tags)
 
+# NEW: Brag command to show user's essence discoveries
+@bot.tree.command(name="brag", description="Show essence combinations you discovered first!")
+async def brag_command(interaction: discord.Interaction):
+    """Show essence combinations the user discovered first"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[BRAG] Command called by {interaction.user}")
+    print(f"[BRAG] User ID: {interaction.user.id}, Username: {interaction.user.name}#{interaction.user.discriminator}")
+    
+    await interaction.response.defer()
+    
+    try:
+        session = await get_session()
+        
+        # Format Discord user string (same format as stored in database)
+        user_string = f"{interaction.user.name}#{interaction.user.discriminator}"
+        
+        # Make API request to get user's discoveries
+        data = {
+            'user_string': user_string,
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/user-discoveries"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            response_text = await response.text()
+            print(f"[BRAG] API Status: {response.status}")
+            print(f"[BRAG] API Response: {response_text[:300]}...")
+            
+            if response.status == 200:
+                result = json.loads(response_text)
+                
+                if result['success'] and result['discoveries']:
+                    embed = create_brag_embed(result, interaction.user)
+                    await interaction.followup.send(embed=embed)
+                else:
+                    # No discoveries found
+                    embed = discord.Embed(
+                        title="🔍 No Discoveries Yet",
+                        description=f"**{interaction.user.display_name}**, you haven't made any first discoveries yet!\n\nTry combining some unusual essence tags to become the first discoverer of rare combinations!",
+                        color=0x808080
+                    )
+                    embed.add_field(
+                        name="💡 Tips for Discovery",
+                        value=(
+                            "• Try unusual combinations like `/e Mythos Time Loop`\n"
+                            "• Combine niche tags like `/e Reader Interactive Genetically Engineered`\n"
+                            "• Mix unexpected genres like `/e Sports Supernatural`\n"
+                            "• Use `/tags` to see all available options!"
+                        ),
+                        inline=False
+                    )
+                    embed.set_footer(text="Keep exploring to become a legendary essence pioneer!")
+                    await interaction.followup.send(embed=embed)
+                    
+                print("[BRAG] Response sent successfully")
+            else:
+                await interaction.followup.send(
+                    f"❌ Error {response.status} from the discovery database!",
+                    ephemeral=True
+                )
+                print(f"[ERROR] Brag API returned status {response.status}")
+    
+    except Exception as e:
+        print(f"[ERROR] Exception in brag command: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while checking your discoveries!",
+                ephemeral=True
+            )
+        except:
+            print("[ERROR] Failed to send error message to user")
+
+def create_brag_embed(result, user):
+    """Create brag embed showing user's discoveries"""
+    global command_counter
+    
+    discoveries = result['discoveries']
+    stats = result['stats']
+    
+    embed = discord.Embed(
+        title="🏆 ESSENCE PIONEER ACHIEVEMENTS 🏆",
+        description=f"**{user.display_name}** has discovered **{stats['total_discoveries']}** unique essence combinations!",
+        color=0xFFD700  # Gold color for achievements
+    )
+    
+    # Set user avatar as thumbnail if available
+    if user.avatar:
+        embed.set_thumbnail(url=user.avatar.url)
+    
+    # Add discovery statistics
+    embed.add_field(
+        name="📊 Discovery Statistics",
+        value=(
+            f"🥇 **First Discoveries:** {stats['total_discoveries']}\n"
+            f"🔮 **Times Rediscovered:** {stats['total_rediscoveries']}\n"
+            f"📅 **First Discovery:** {stats['first_discovery_date']}\n"
+            f"📅 **Latest Discovery:** {stats['latest_discovery_date']}"
+        ),
+        inline=False
+    )
+    
+    # Show up to 10 most recent discoveries
+    if discoveries:
+        discovery_list = []
+        for i, discovery in enumerate(discoveries[:10]):
+            # Parse tags from JSON
+            tags = json.loads(discovery['tags']) if discovery['tags'] else []
+            tags_display = " + ".join(tags)
+            
+            # Format date nicely
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(discovery['created_at'], '%Y-%m-%d %H:%M:%S')
+                date_display = date_obj.strftime('%b %d, %Y')
+            except:
+                date_display = discovery['created_at'][:10]  # Just the date part
+            
+            # Add rarity emoji based on book count
+            book_count = discovery['current_book_count']
+            if book_count == 0:
+                rarity_emoji = "✨"
+            elif book_count <= 5:
+                rarity_emoji = "🌟"
+            elif book_count <= 15:
+                rarity_emoji = "⭐"
+            elif book_count <= 30:
+                rarity_emoji = "💜"
+            elif book_count <= 100:
+                rarity_emoji = "💙"
+            else:
+                rarity_emoji = "💚"
+            
+            discovery_list.append(
+                f"{rarity_emoji} **{discovery['combination_name']}**\n"
+                f"   └ *{tags_display}* • {date_display} • {book_count} books"
+            )
+        
+        embed.add_field(
+            name=f"🔮 Recent Discoveries ({len(discovery_list)} of {len(discoveries)})",
+            value="\n".join(discovery_list),
+            inline=False
+        )
+        
+        if len(discoveries) > 10:
+            embed.add_field(
+                name="📜 More Discoveries",
+                value=f"*...and {len(discoveries) - 10} more! You're truly an essence pioneer!*",
+                inline=False
+            )
+    
+    # Add achievement badges based on discovery count
+    achievement_text = get_achievement_badges(stats['total_discoveries'])
+    if achievement_text:
+        embed.add_field(
+            name="🎖️ Achievement Badges",
+            value=achievement_text,
+            inline=False
+        )
+    
+    # Add promotional message occasionally
+    if command_counter % 3 == 0:
+        embed.add_field(
+            name="━━━━━━━━━━━━━━━━━━━━━",
+            value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/7Xrrf3Q5zp)",
+            inline=False
+        )
+    
+    embed.set_footer(text="Keep exploring to discover more rare combinations! • Created by Stepan Chizhov")
+    
+    return embed
+
+def get_achievement_badges(discovery_count):
+    """Get achievement badges based on number of discoveries"""
+    badges = []
+    
+    if discovery_count >= 1:
+        badges.append("🌱 **First Steps** - Made your first discovery!")
+    if discovery_count >= 5:
+        badges.append("🔍 **Explorer** - 5+ discoveries")
+    if discovery_count >= 10:
+        badges.append("⭐ **Pioneer** - 10+ discoveries")
+    if discovery_count >= 25:
+        badges.append("🏆 **Legend** - 25+ discoveries")
+    if discovery_count >= 50:
+        badges.append("👑 **Grandmaster** - 50+ discoveries")
+    if discovery_count >= 100:
+        badges.append("🌟 **Mythic Pioneer** - 100+ discoveries!")
+    
+    return "\n".join(badges) if badges else None
+
+# NEW: RR Stats command to show Royal Road database statistics
+@bot.tree.command(name="rr-stats", description="Show Royal Road database statistics")
+async def rr_stats_command(interaction: discord.Interaction):
+    """Show comprehensive Royal Road database statistics"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-STATS] Command called by {interaction.user}")
+    
+    await interaction.response.defer()
+    
+    try:
+        session = await get_session()
+        
+        # Make API request to get database statistics
+        data = {
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/database-stats"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            response_text = await response.text()
+            print(f"[RR-STATS] API Status: {response.status}")
+            print(f"[RR-STATS] API Response: {response_text[:300]}...")
+            
+            if response.status == 200:
+                result = json.loads(response_text)
+                
+                if result['success']:
+                    embed = create_stats_embed(result['stats'])
+                    await interaction.followup.send(embed=embed)
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to retrieve database statistics.",
+                        ephemeral=True
+                    )
+                    
+                print("[RR-STATS] Response sent successfully")
+            else:
+                await interaction.followup.send(
+                    f"❌ Error {response.status} from the statistics database!",
+                    ephemeral=True
+                )
+                print(f"[ERROR] RR-Stats API returned status {response.status}")
+    
+    except Exception as e:
+        print(f"[ERROR] Exception in rr-stats command: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while fetching Royal Road statistics!",
+                ephemeral=True
+            )
+        except:
+            print("[ERROR] Failed to send error message to user")
+
+def create_stats_embed(stats):
+    """Create embed showing Royal Road database statistics"""
+    global command_counter
+    
+    embed = discord.Embed(
+        title="📊 Royal Road Database Statistics",
+        description="*Statistics from Stepan Chizhov's comprehensive Royal Road analytics database*",
+        color=0x5468ff
+    )
+    
+    # Total books section
+    embed.add_field(
+        name="📚 Total Books",
+        value=f"**{stats['total_books']:,}** unique books tracked",
+        inline=True
+    )
+    
+    # Total authors section
+    embed.add_field(
+        name="✍️ Authors",
+        value=f"**{stats['unique_authors']:,}** unique authors",
+        inline=True
+    )
+    
+    # Data collection period
+    if stats.get('data_collection_period'):
+        embed.add_field(
+            name="📅 Data Period",
+            value=f"**{stats['data_collection_period']}** days",
+            inline=True
+        )
+    
+    # Book status breakdown
+    status_text = []
+    if stats.get('status_breakdown'):
+        for status, count in stats['status_breakdown'].items():
+            percentage = (count / stats['total_books'] * 100) if stats['total_books'] > 0 else 0
+            status_emoji = {
+                'ongoing': '🟢',
+                'completed': '✅', 
+                'hiatus': '⏸️',
+                'dropped': '❌',
+                'stub': '📝'
+            }.get(status.lower(), '📖')
+            
+            status_text.append(f"{status_emoji} **{status.title()}:** {count:,} ({percentage:.1f}%)")
+    
+    if status_text:
+        embed.add_field(
+            name="📈 Book Status Breakdown",
+            value="\n".join(status_text),
+            inline=False
+        )
+    
+    # Interesting facts section
+    facts = []
+    if stats.get('oldest_ongoing_book'):
+        book = stats['oldest_ongoing_book']
+        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} ({book['age_days']} days)")
+    
+    if stats.get('youngest_hiatus_book'):
+        book = stats['youngest_hiatus_book']
+        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} ({book['age_days']} days)")
+    
+    if stats.get('most_popular_book'):
+        book = stats['most_popular_book']
+        facts.append(f"👑 **Most Popular:** [{book['title']}]({book['url']}) ({book['followers']:,} followers)")
+    
+    if stats.get('most_prolific_author'):
+        author = stats['most_prolific_author']
+        facts.append(f"✍️ **Most Prolific:** {author['name']} ({author['book_count']} books)")
+    
+    if facts:
+        embed.add_field(
+            name="🎯 Notable Records",
+            value="\n".join(facts),
+            inline=False
+        )
+    
+    # Snapshot statistics
+    if stats.get('snapshot_stats'):
+        snapshot_stats = stats['snapshot_stats']
+        embed.add_field(
+            name="📸 Snapshot Data",
+            value=(
+                f"**{snapshot_stats['total_snapshots']:,}** total snapshots\n"
+                f"**{snapshot_stats['books_with_snapshots']:,}** books with tracking data\n"
+                f"**{snapshot_stats['daily_snapshots']:,}** snapshots today"
+            ),
+            inline=True
+        )
+    
+    # Database freshness
+    if stats.get('last_update'):
+        embed.add_field(
+            name="🔄 Data Freshness",
+            value=f"Last updated: **{stats['last_update']}**",
+            inline=True
+        )
+    
+    # Fun fact
+    if stats.get('total_words'):
+        total_words = stats['total_words']
+        # Convert to more readable format
+        if total_words > 1_000_000_000:
+            words_display = f"{total_words / 1_000_000_000:.1f}B words"
+        elif total_words > 1_000_000:
+            words_display = f"{total_words / 1_000_000:.1f}M words"
+        else:
+            words_display = f"{total_words:,} words"
+        
+        embed.add_field(
+            name="📖 Total Content",
+            value=f"**{words_display}** across all tracked books",
+            inline=True
+        )
+    
+    # Add promotional message occasionally
+    if command_counter % 4 == 0:
+        embed.add_field(
+            name="━━━━━━━━━━━━━━━━━━━━━",
+            value="📊 **Want more analytics?** Visit [stepan.chizhov.com](https://stepan.chizhov.com) for detailed Royal Road tools and insights!",
+            inline=False
+        )
+    
+    embed.set_footer(text="Data collected by Stepan Chizhov's Royal Road Analytics • Updated continuously")
+    
+    return embed
+
 # Help command
 @bot.tree.command(name="help", description="Learn how to use the Essence Bot")
 async def help_command(interaction: discord.Interaction):
@@ -1850,6 +2244,12 @@ async def help_command(interaction: discord.Interaction):
             "**`/rr-views`** - Views over time chart\n"
             "• Example: `/rr-views 12345` (shows all time)\n"
             "• Same format as followers command\n\n"
+            "**`/brag`** - Show your essence discoveries\n"
+            "• Example: `/brag`\n"
+            "• Shows combinations you discovered first\n\n"
+            "**`/rr-stats`** - Royal Road database statistics\n"
+            "• Example: `/rr-stats`\n"
+            "• Shows comprehensive database stats\n\n"
         ),
         inline=False
     )
