@@ -1859,6 +1859,8 @@ async def brag_command(interaction: discord.Interaction):
         except:
             print("[ERROR] Failed to send error message to user")
 
+# Updated brag command function in discord_essence_bot.py
+
 def create_brag_embed(result, user):
     """Create brag embed showing user's discoveries"""
     global command_counter
