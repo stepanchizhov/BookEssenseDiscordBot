@@ -1919,7 +1919,7 @@ def create_brag_embed(result, user):
                 date_display = discovery['created_at'][:10]  # Just the date part
             
             # Add rarity emoji based on book count
-            book_count = discovery['times_discovered']
+            book_count = int(discovery.get('times_discovered', 0))
             if book_count == 0:
                 rarity_emoji = "✨"
             elif book_count <= 5:
@@ -2113,11 +2113,11 @@ def create_stats_embed(stats):
     facts = []
     if stats.get('oldest_ongoing_book'):
         book = stats['oldest_ongoing_book']
-        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} ({int(book['age_days'] or 0)} days)")
+        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} (Book ID: {int(book['age_days'] or 0)})")
     
     if stats.get('youngest_hiatus_book'):
         book = stats['youngest_hiatus_book']
-        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} ({int(book['age_days'] or 0)} days)")
+        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} (Book ID: {int(book['age_days'] or 0)})")
     
     if stats.get('most_popular_book'):
         book = stats['most_popular_book']
