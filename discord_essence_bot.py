@@ -1895,6 +1895,8 @@ def create_brag_embed(result, user):
     # Show up to 5 rarest discoveries (sorted by rarity_tier ASC - lowest percentage first)
     if discoveries:
         discovery_list = []
+        has_zero_percentages = False  # Track if we have any 0% entries
+        
         for i, discovery in enumerate(discoveries[:5]):  # Limit to 5
             # Parse tags from JSON
             tags = []
@@ -1920,8 +1922,15 @@ def create_brag_embed(result, user):
             except:
                 date_display = discovery['created_at'][:10]  # Just the date part
             
-            # Use rarity_tier percentage instead of book count
-            rarity_percentage = float(discovery.get('rarity_tier', 0))
+            # FIXED: Use rarity_tier percentage instead of book count with null handling
+            rarity_tier_raw = discovery.get('rarity_tier', 0)
+            if rarity_tier_raw is None or rarity_tier_raw == '':
+                rarity_percentage = 0.0
+                has_zero_percentages = True  # Mark that we found a zero
+            else:
+                rarity_percentage = float(rarity_tier_raw)
+                if rarity_percentage == 0.0:
+                    has_zero_percentages = True  # Also mark if it's actually 0.0
             
             # Add rarity emoji based on percentage
             if rarity_percentage == 0:
@@ -1944,9 +1953,16 @@ def create_brag_embed(result, user):
                 f"   └ *{tags_display}* • {date_display} • {rarity_percentage:.2f}%"
             )
         
+        # Build the field value
+        field_value = "\n".join(discovery_list)
+        
+        # Add notice about updating 0% entries if any exist
+        if has_zero_percentages:
+            field_value += "\n\n💡 *Some combinations show 0.00% - try running `/essence [tag1] [tag2]` again to update the percentage!*"
+        
         embed.add_field(
             name=f"🔮 Rarest Discoveries (Top {len(discovery_list)} of {len(discoveries)})",
-            value="\n".join(discovery_list),
+            value=field_value,
             inline=False
         )
         
