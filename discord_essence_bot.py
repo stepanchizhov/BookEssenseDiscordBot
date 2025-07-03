@@ -362,6 +362,83 @@ TAG_CHOICES = [
 # Track command usage for promotional messages
 command_counter = 0
 
+def get_promotional_field(force_show=False):
+    """
+    Get promotional field for embeds based on command counter
+    
+    Args:
+        force_show (bool): Force showing a promotional message regardless of counter
+    
+    Returns:
+        dict: Field data with name and value, or None if no promo should be shown
+    """
+    global command_counter
+    
+    # Only show promotional messages every 2 commands (or if forced)
+    if not force_show and command_counter % 2 != 0:
+        return None
+    
+    # Define all promotional messages
+    promo_messages = [
+        {
+            "text": "📖 You can also read Stepan Chizhov's",
+            "url": "https://www.royalroad.com/fiction/105229/",
+            "link_text": "The Dark Lady's Guide to Villainy!"
+        },
+        {
+            "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+            "url": "https://www.patreon.com/stepanchizhov",
+            "link_text": "Support his work on Patreon!"
+        },
+        {
+            "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+            "url": "https://stepan.chizhov.com",
+            "link_text": "Visit stepan.chizhov.com"
+        },
+        {
+            "text": "💬 Need help or have suggestions?",
+            "url": "https://discord.gg/xvw9vbvrwj",
+            "link_text": "Join our Support Discord"
+        },
+        {
+            "text": "📚 Join discussions about Royal Road and analytics!",
+            "url": "https://discord.gg/7Xrrf3Q5zp",
+            "link_text": "Immersive Ink Community Discord"
+        }
+    ]
+    
+    # Rotate through promotional messages based on how many promos have been shown
+    promo_index = (command_counter // 2 - 1) % len(promo_messages)
+    promo = promo_messages[promo_index]
+    
+    return {
+        "name": "━━━━━━━━━━━━━━━━━━━━━",
+        "value": f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+        "inline": False
+    }
+
+def add_promotional_field(embed, force_show=False):
+    """
+    Add promotional field to an embed if conditions are met
+    
+    Args:
+        embed (discord.Embed): The embed to add the field to
+        force_show (bool): Force showing a promotional message regardless of counter
+    
+    Returns:
+        discord.Embed: The embed with promotional field added (if applicable)
+    """
+    promo_field = get_promotional_field(force_show)
+    
+    if promo_field:
+        embed.add_field(
+            name=promo_field["name"],
+            value=promo_field["value"],
+            inline=promo_field["inline"]
+        )
+    
+    return embed
+
 def normalize_tag(tag: str) -> str:
     """Normalize any tag input to its canonical display name"""
     # Handle None or empty input
@@ -1120,46 +1197,7 @@ def create_result_embed(result, tag1, tag2, interaction):
             inline=False
         )
     
-    # Add promotional message every 2 commands
-    if command_counter % 2 == 0:
-        promo_messages = [
-            {
-                "text": "📖 You can also read Stepan Chizhov's",
-                "url": "https://www.royalroad.com/fiction/105229/",
-                "link_text": "The Dark Lady's Guide to Villainy!"
-            },
-            {
-                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
-                "url": "https://www.patreon.com/stepanchizhov",
-                "link_text": "Support his work on Patreon!"
-            },
-            {
-                "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
-                "url": "https://stepan.chizhov.com",
-                "link_text": "Visit stepan.chizhov.com"
-            },
-            {
-                "text": "💬 Need help or have suggestions?",
-                "url": "https://discord.gg/xvw9vbvrwj",
-                "link_text": "Join our Support Discord"
-            },
-            {
-                "text": "📚 Join discussions about Royal Road and analytics!",
-                "url": "https://discord.gg/7Xrrf3Q5zp",
-                "link_text": "Immersive Ink Community Discord"
-            }
-        ]
-        
-        # Rotate through promotional messages based on how many promos have been shown
-        promo_index = (command_counter // 2 - 1) % len(promo_messages)
-        promo = promo_messages[promo_index]
-        
-        # Add promotional field with hyperlink
-        embed.add_field(
-            name="━━━━━━━━━━━━━━━━━━━━━",
-            value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
-            inline=False
-        )
+    embed = add_promotional_field(embed)
     
     return embed
 
@@ -1381,51 +1419,12 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         # Add data note about chart features
         embed.add_field(
             name="📊 Chart Features",
-            value="• Chart starts from first meaningful data point\n• Points connected to show trends over time\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
+            value="• Chart starts from the first meaningful data point\n• Points connected to show trends over time\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
             inline=False
         )
         
-        # Add promotional message every 2 commands
-        if command_counter % 2 == 0:
-            promo_messages = [
-                {
-                    "text": "📖 You can also read Stepan Chizhov's",
-                    "url": "https://www.royalroad.com/fiction/105229/",
-                    "link_text": "The Dark Lady's Guide to Villainy!"
-                },
-                {
-                    "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
-                    "url": "https://www.patreon.com/stepanchizhov",
-                    "link_text": "Support his work on Patreon!"
-                },
-                {
-                    "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
-                    "url": "https://stepan.chizhov.com",
-                    "link_text": "Visit stepan.chizhov.com"
-                },
-                {
-                    "text": "💬 Need help or have suggestions?",
-                    "url": "https://discord.gg/xvw9vbvrwj",
-                    "link_text": "Join our Support Discord"
-                },
-                {
-                    "text": "📚 Join discussions about Royal Road and analytics!",
-                    "url": "https://discord.gg/7Xrrf3Q5zp",
-                    "link_text": "Immersive Ink Community Discord"
-                }
-            ]
+        embed = add_promotional_field(embed)
             
-            # Rotate through promotional messages based on how many promos have been shown
-            promo_index = (command_counter // 2 - 1) % len(promo_messages)
-            promo = promo_messages[promo_index]
-            
-            # Add promotional field with hyperlink
-            embed.add_field(
-                name="━━━━━━━━━━━━━━━━━━━━━",
-                value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
-                inline=False
-            )
-        
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-views or /rr-followers")
         
         await interaction.followup.send(embed=embed, file=file)
@@ -1534,46 +1533,7 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
             inline=False
         )
         
-        # Add promotional message every 2 commands
-        if command_counter % 2 == 0:
-            promo_messages = [
-                {
-                    "text": "📖 You can also read Stepan Chizhov's",
-                    "url": "https://www.royalroad.com/fiction/105229/",
-                    "link_text": "The Dark Lady's Guide to Villainy!"
-                },
-                {
-                    "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
-                    "url": "https://www.patreon.com/stepanchizhov",
-                    "link_text": "Support his work on Patreon!"
-                },
-                {
-                    "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
-                    "url": "https://stepan.chizhov.com",
-                    "link_text": "Visit stepan.chizhov.com"
-                },
-                {
-                    "text": "💬 Need help or have suggestions?",
-                    "url": "https://discord.gg/xvw9vbvrwj",
-                    "link_text": "Join our Support Discord"
-                },
-                {
-                    "text": "📚 Join discussions about Royal Road and analytics!",
-                    "url": "https://discord.gg/7Xrrf3Q5zp",
-                    "link_text": "Immersive Ink Community Discord"
-                }
-            ]
-            
-            # Rotate through promotional messages based on how many promos have been shown
-            promo_index = (command_counter // 2 - 1) % len(promo_messages)
-            promo = promo_messages[promo_index]
-            
-            # Add promotional field with hyperlink
-            embed.add_field(
-                name="━━━━━━━━━━━━━━━━━━━━━",
-                value=f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
-                inline=False
-            )
+        embed = add_promotional_field(embed)
         
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-views or /rr-followers")
         
@@ -1933,7 +1893,21 @@ def create_brag_embed(result, user):
         discovery_list = []
         for i, discovery in enumerate(discoveries[:10]):
             # Parse tags from JSON
-            tags = json.loads(discovery['tags']) if discovery['tags'] else []
+            
+            # Handle both possible field names and formats
+            tags = []
+            if 'tags' in discovery and discovery['tags']:
+                try:
+                    tags = json.loads(discovery['tags']) if isinstance(discovery['tags'], str) else discovery['tags']
+                except json.JSONDecodeError:
+                    tags = discovery['tags'].split(',') if isinstance(discovery['tags'], str) else []
+            elif 'tags_key' in discovery and discovery['tags_key']:
+                try:
+                    tags = json.loads(discovery['tags_key']) if isinstance(discovery['tags_key'], str) else discovery['tags_key']
+                except json.JSONDecodeError:
+                    # tags_key might be comma-separated like "fantasy,magic"
+                    tags = discovery['tags_key'].split(',') if isinstance(discovery['tags_key'], str) else []
+                    
             tags_display = " + ".join(tags)
             
             # Format date nicely
@@ -1987,12 +1961,12 @@ def create_brag_embed(result, user):
         )
     
     # Add promotional message occasionally
-    if command_counter % 3 == 0:
+    #if command_counter % 3 == 0:
         embed.add_field(
             name="━━━━━━━━━━━━━━━━━━━━━",
-            value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/7Xrrf3Q5zp)",
+            value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/xvw9vbvrwj)",
             inline=False
-        )
+    #    )
     
     embed.set_footer(text="Keep exploring to discover more rare combinations! • Created by Stepan Chizhov")
     
@@ -2139,19 +2113,19 @@ def create_stats_embed(stats):
     facts = []
     if stats.get('oldest_ongoing_book'):
         book = stats['oldest_ongoing_book']
-        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} ({book['age_days']} days)")
+        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} ({book(['age_days'] or 0)} days)")
     
     if stats.get('youngest_hiatus_book'):
         book = stats['youngest_hiatus_book']
-        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} ({book['age_days']} days)")
+        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} ({int(book['age_days'] or 0)} days)")
     
     if stats.get('most_popular_book'):
         book = stats['most_popular_book']
-        facts.append(f"👑 **Most Popular:** [{book['title']}]({book['url']}) ({book['followers']:,} followers)")
+        facts.append(f"👑 **Most Popular:** [{book['title']}]({book['url']}) ({int(book['followers'] or 0):,} followers)")
     
     if stats.get('most_prolific_author'):
         author = stats['most_prolific_author']
-        facts.append(f"✍️ **Most Prolific:** {author['name']} ({author['book_count']} books)")
+        facts.append(f"✍️ **Most Prolific:** {author['name']} ({int(author['book_count'] or 0)} books)")
     
     if facts:
         embed.add_field(
@@ -2199,12 +2173,7 @@ def create_stats_embed(stats):
         )
     
     # Add promotional message occasionally
-    if command_counter % 4 == 0:
-        embed.add_field(
-            name="━━━━━━━━━━━━━━━━━━━━━",
-            value="📊 **Want more analytics?** Visit [stepan.chizhov.com](https://stepan.chizhov.com) for detailed Royal Road tools and insights!",
-            inline=False
-        )
+    embed = add_promotional_field(embed, force_show=True)
     
     embed.set_footer(text="Data collected by Stepan Chizhov's Royal Road Analytics • Updated continuously")
     
