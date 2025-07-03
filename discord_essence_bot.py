@@ -1961,7 +1961,7 @@ def create_brag_embed(result, user):
         )
     
     # Add promotional message occasionally
-    if command_counter % 1 == 0:
+    # if command_counter % 1 == 0:
         embed.add_field(
             name="━━━━━━━━━━━━━━━━━━━━━",
             value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/xvw9vbvrwj)",
