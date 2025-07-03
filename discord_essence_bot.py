@@ -2113,7 +2113,7 @@ def create_stats_embed(stats):
     facts = []
     if stats.get('oldest_ongoing_book'):
         book = stats['oldest_ongoing_book']
-        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} (book['age_days']} days)")
+        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} ({int(book['age_days'] or 0)} days)")
     
     if stats.get('youngest_hiatus_book'):
         book = stats['youngest_hiatus_book']
