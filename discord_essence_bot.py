@@ -1868,7 +1868,7 @@ def create_brag_embed(result, user):
     
     embed = discord.Embed(
         title="🏆 ESSENCE PIONEER ACHIEVEMENTS 🏆",
-        description=f"**{user.display_name}** has discovered **{stats['total_discoveries']}** unique essence combinations!",
+        description=f"**{user.display_name}** has discovered **{stats['total_discoveries']}** unique essence combinations out of total of **{stats['total_possible_combinations']}** tracked combinations!",
         color=0xFFD700  # Gold color for achievements
     )
     
@@ -1888,13 +1888,11 @@ def create_brag_embed(result, user):
         inline=False
     )
     
-    # Show up to 10 most recent discoveries
+    # Show up to 5 rarest discoveries (sorted by rarity_tier ASC - lowest percentage first)
     if discoveries:
         discovery_list = []
-        for i, discovery in enumerate(discoveries[:10]):
+        for i, discovery in enumerate(discoveries[:5]):  # Limit to 5
             # Parse tags from JSON
-            
-            # Handle both possible field names and formats
             tags = []
             if 'tags' in discovery and discovery['tags']:
                 try:
@@ -1918,36 +1916,40 @@ def create_brag_embed(result, user):
             except:
                 date_display = discovery['created_at'][:10]  # Just the date part
             
-            # Add rarity emoji based on book count
-            book_count = int(discovery.get('times_discovered', 0))
-            if book_count == 0:
+            # Use rarity_tier percentage instead of book count
+            rarity_percentage = float(discovery.get('rarity_tier', 0))
+            
+            # Add rarity emoji based on percentage
+            if rarity_percentage == 0:
                 rarity_emoji = "✨"
-            elif book_count <= 5:
+            elif rarity_percentage <= 0.15:
                 rarity_emoji = "🌟"
-            elif book_count <= 15:
+            elif rarity_percentage <= 0.3:
                 rarity_emoji = "⭐"
-            elif book_count <= 30:
+            elif rarity_percentage <= 0.5:
                 rarity_emoji = "💜"
-            elif book_count <= 100:
+            elif rarity_percentage <= 1.0:
                 rarity_emoji = "💙"
-            else:
+            elif rarity_percentage <= 5.0:
                 rarity_emoji = "💚"
+            else:
+                rarity_emoji = "⚪"
             
             discovery_list.append(
                 f"{rarity_emoji} **{discovery['combination_name']}**\n"
-                f"   └ *{tags_display}* • {date_display} • {book_count} books"
+                f"   └ *{tags_display}* • {date_display} • {rarity_percentage:.2f}%"
             )
         
         embed.add_field(
-            name=f"🔮 Recent Discoveries ({len(discovery_list)} of {len(discoveries)})",
+            name=f"🔮 Rarest Discoveries (Top {len(discovery_list)} of {len(discoveries)})",
             value="\n".join(discovery_list),
             inline=False
         )
         
-        if len(discoveries) > 10:
+        if len(discoveries) > 5:
             embed.add_field(
                 name="📜 More Discoveries",
-                value=f"*...and {len(discoveries) - 10} more! You're truly an essence pioneer!*",
+                value=f"*...and {len(discoveries) - 5} more! You're truly an essence pioneer!*",
                 inline=False
             )
     
@@ -1961,12 +1963,11 @@ def create_brag_embed(result, user):
         )
     
     # Add promotional message occasionally
-    # if command_counter % 1 == 0:
-        embed.add_field(
-            name="━━━━━━━━━━━━━━━━━━━━━",
-            value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/xvw9vbvrwj)",
-            inline=False
-        )
+    embed.add_field(
+        name="━━━━━━━━━━━━━━━━━━━━━",
+        value="🌟 **Share your discoveries!** Screenshot this and show off your pioneer status!\n[**Join our Discord Community**](https://discord.gg/xvw9vbvrwj)",
+        inline=False
+    )
     
     embed.set_footer(text="Keep exploring to discover more rare combinations! • Created by Stepan Chizhov")
     
@@ -2113,11 +2114,11 @@ def create_stats_embed(stats):
     facts = []
     if stats.get('oldest_ongoing_book'):
         book = stats['oldest_ongoing_book']
-        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']} (Book ID: {int(book['age_days'] or 0)})")
+        facts.append(f"📜 **Oldest Ongoing:** [{book['title']}]({book['url']}) by {book['author']}")
     
     if stats.get('youngest_hiatus_book'):
         book = stats['youngest_hiatus_book']
-        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']} (Book ID: {int(book['age_days'] or 0)})")
+        facts.append(f"⏸️ **Newest on Hiatus:** [{book['title']}]({book['url']}) by {book['author']}")
     
     if stats.get('most_popular_book'):
         book = stats['most_popular_book']
@@ -2151,7 +2152,7 @@ def create_stats_embed(stats):
     if stats.get('last_update'):
         embed.add_field(
             name="🔄 Data Freshness",
-            value=f"Last updated: **{stats['last_update']}**",
+            value=f"(for ONGOING books)\nLast updated: **{stats['last_update']}**",
             inline=True
         )
     
