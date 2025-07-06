@@ -1362,7 +1362,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
             if chart_response and 'message' in chart_response:
                 error_msg += f"\n{chart_response['message']}"
             else:
-                error_msg += " The book might not exist or have no tracking data. If the book is new, you can add it by running this tool: https://stepan.chizhov.com/author-tools/book-analyzer/ (not more than 20 books)"
+                error_msg += " The book might not exist or have no tracking data. If the book is new, you can add it by running this tool: https://stepan.chizhov.com/author-tools/rising-stars-checker/"
             
             await interaction.followup.send(error_msg, ephemeral=True)
             return
