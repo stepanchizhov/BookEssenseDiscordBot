@@ -788,11 +788,6 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
                     ax.text(0.5, 0.5, 'No meaningful data to display after filtering', 
                            horizontalalignment='center', verticalalignment='center',
                            transform=ax.transAxes, fontsize=16, color='gray')
-                else:
-                    # No meaningful data after filtering
-                    ax.text(0.5, 0.5, 'No meaningful data to display after filtering', 
-                           horizontalalignment='center', verticalalignment='center',
-                           transform=ax.transAxes, fontsize=16, color='gray')
                     ax.set_title(title)
         
         # Add grid and styling
