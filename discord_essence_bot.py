@@ -642,9 +642,70 @@ async def get_book_chart_data(book_input, days_param, session):
         print(f"[CHART] Exception fetching chart data: {e}")
         return None
 
-# Updated create_chart_image function with proper date scaling
+def filter_zero_data_points(labels, data, timestamps=None):
+    """
+    Filter out data points where the value is zero (except the first non-zero value)
+    to avoid gaps in the chart while preserving meaningful trend information
+    
+    Returns filtered labels, data, and timestamps
+    """
+    if not labels or not data or len(labels) != len(data):
+        return labels, data, timestamps
+    
+    filtered_labels = []
+    filtered_data = []
+    filtered_timestamps = []
+    
+    found_first_nonzero = False
+    
+    for i, value in enumerate(data):
+        # Always include the first non-zero value to establish baseline
+        if value > 0 and not found_first_nonzero:
+            found_first_nonzero = True
+            filtered_labels.append(labels[i])
+            filtered_data.append(value)
+            if timestamps:
+                filtered_timestamps.append(timestamps[i])
+        # After finding first non-zero, only include non-zero values
+        elif found_first_nonzero and value > 0:
+            filtered_labels.append(labels[i])
+            filtered_data.append(value)
+            if timestamps:
+                filtered_timestamps.append(timestamps[i])
+    
+    # If we have timestamps, return all three; otherwise return what we have
+    if timestamps:
+        return filtered_labels, filtered_data, filtered_timestamps
+    else:
+        return filtered_labels, filtered_data, None
+
+def trim_leading_zeros(labels, data, timestamps=None):
+    """
+    Trim leading zeros from the data to start from first meaningful data point
+    Returns trimmed labels, data, and timestamps
+    """
+    if not labels or not data or len(labels) != len(data):
+        return labels, data, timestamps
+    
+    # Find the first non-zero data point to start from
+    first_nonzero_index = 0
+    for i, value in enumerate(data):
+        if value > 0:
+            first_nonzero_index = i
+            break
+    
+    # Trim the data to start from first meaningful point
+    if first_nonzero_index > 0:
+        labels = labels[first_nonzero_index:]
+        data = data[first_nonzero_index:]
+        if timestamps:
+            timestamps = timestamps[first_nonzero_index:]
+    
+    return labels, data, timestamps
+
+# Updated create_chart_image function with zero filtering
 def create_chart_image(chart_data, chart_type, book_title, days_param):
-    """Create a chart image using matplotlib with proper linear date scaling and leading zero trimming"""
+    """Create a chart image using matplotlib with proper linear date scaling, leading zero trimming, and intermediate zero filtering"""
     try:
         # Set up the plot
         plt.style.use('default')
@@ -672,55 +733,67 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
                    transform=ax.transAxes, fontsize=16, color='gray')
             ax.set_title(title)
         else:
-            # Trim leading zeros to start from first meaningful data point
+            # First, trim leading zeros to start from first meaningful data point
             trimmed_labels, trimmed_data, trimmed_timestamps = trim_leading_zeros(
                 labels, data, timestamps
             )
             
+            # Then, filter out intermediate zero data points
             if trimmed_labels and trimmed_data:
-                # Parse dates for proper linear scaling
-                date_objects = parse_dates_from_labels(trimmed_labels, trimmed_timestamps)
+                filtered_labels, filtered_data, filtered_timestamps = filter_zero_data_points(
+                    trimmed_labels, trimmed_data, trimmed_timestamps
+                )
                 
-                # Plot the line connecting all data points using actual dates
-                ax.plot(date_objects, trimmed_data, color=color, linewidth=2, marker='o', 
-                       markersize=4, label='Data Points', zorder=3)
-                ax.fill_between(date_objects, trimmed_data, alpha=0.3, color=color)
-                
-                # Format axes
-                ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
-                ax.set_ylabel(ylabel, fontsize=12)
-                ax.set_xlabel('Date', fontsize=12)
-                
-                # Format y-axis with commas
-                ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
-                
-                # Format x-axis with proper date formatting
-                if len(date_objects) > 1:
-                    # Calculate span to determine appropriate date formatting
-                    date_span = (date_objects[-1] - date_objects[0]).days
+                if filtered_labels and filtered_data:
+                    # Parse dates for proper linear scaling
+                    date_objects = parse_dates_from_labels(filtered_labels, filtered_timestamps)
                     
-                    if date_span > 365:  # More than a year, show months
-                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
-                        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
-                    elif date_span > 60:  # More than 2 months, show months
-                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-                        ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
-                    else:  # Less than 2 months, show days
-                        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
-                        ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, date_span // 10)))
+                    # Plot the line connecting all non-zero data points using actual dates
+                    ax.plot(date_objects, filtered_data, color=color, linewidth=2, marker='o', 
+                           markersize=4, label='Data Points', zorder=3)
+                    ax.fill_between(date_objects, filtered_data, alpha=0.3, color=color)
                     
-                    # Rotate labels for better readability
-                    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                    # Format axes
+                    ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+                    ax.set_ylabel(ylabel, fontsize=12)
+                    ax.set_xlabel('Date', fontsize=12)
                     
-                    # Set reasonable limits with some padding
-                    date_range = date_objects[-1] - date_objects[0]
-                    padding = timedelta(days=max(1, date_range.days * 0.02))  # 2% padding
-                    ax.set_xlim(date_objects[0] - padding, date_objects[-1] + padding)
-            else:
-                # Fallback - shouldn't happen after trimming, but just in case
-                ax.text(0.5, 0.5, 'No meaningful data to display', 
-                       horizontalalignment='center', verticalalignment='center',
-                       transform=ax.transAxes, fontsize=16, color='gray')
+                    # Format y-axis with commas
+                    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+                    
+                    # Format x-axis with proper date formatting
+                    if len(date_objects) > 1:
+                        # Calculate span to determine appropriate date formatting
+                        date_span = (date_objects[-1] - date_objects[0]).days
+                        
+                        if date_span > 365:  # More than a year, show months
+                            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+                            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+                        elif date_span > 60:  # More than 2 months, show months
+                            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+                            ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+                        else:  # Less than 2 months, show days
+                            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+                            ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, date_span // 10)))
+                        
+                        # Rotate labels for better readability
+                        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                        
+                        # Set reasonable limits with some padding
+                        date_range = date_objects[-1] - date_objects[0]
+                        padding = timedelta(days=max(1, date_range.days * 0.02))  # 2% padding
+                        ax.set_xlim(date_objects[0] - padding, date_objects[-1] + padding)
+                else:
+                    # No meaningful data after filtering
+                    ax.text(0.5, 0.5, 'No meaningful data to display after filtering', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=ax.transAxes, fontsize=16, color='gray')
+                else:
+                    # No meaningful data after filtering
+                    ax.text(0.5, 0.5, 'No meaningful data to display after filtering', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=ax.transAxes, fontsize=16, color='gray')
+                    ax.set_title(title)
         
         # Add grid and styling
         ax.grid(True, alpha=0.3)
