@@ -1385,23 +1385,20 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             filtered_avg_views = []
             filtered_chapters = []
             
-            # Filter data: skip points where average_views is 0 or missing, but keep chapters data
+            # Include ALL data points - don't skip zeros, connect all dots
             for i in range(len(timestamps)):
                 # Convert timestamp to datetime
                 if timestamps[i]:
                     date_obj = datetime.fromtimestamp(timestamps[i])
                     date_objects.append(date_obj)
                     
-                    # For average views: use None for missing/zero values (will create gaps in line)
-                    if average_views_data[i] > 0:
-                        filtered_avg_views.append(average_views_data[i])
-                    else:
-                        filtered_avg_views.append(None)  # Creates gaps in the line
+                    # Include all average views data (including zeros) - connect all dots
+                    filtered_avg_views.append(average_views_data[i])
                     
-                    # For chapters: always include if > 0 (chapters shouldn't have gaps)
-                    filtered_chapters.append(chapters_data[i] if chapters_data[i] > 0 else None)
+                    # Include all chapters data
+                    filtered_chapters.append(chapters_data[i])
             
-            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views valid:{sum(1 for x in filtered_avg_views if x is not None)}, chapters valid:{sum(1 for x in filtered_chapters if x is not None)}")
+            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views:{len(filtered_avg_views)}, chapters:{len(filtered_chapters)}")
             
             if not date_objects:
                 raise ValueError("No valid data points with timestamps")
@@ -1411,14 +1408,22 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             color2 = '#F39C12'  # Orange for chapters
             
             print(f"[CHART DEBUG] Plotting average views data with linear time axis")
-            # Plot average views on primary axis with linear time
+            # Plot average views on primary axis with linear time - SET Y-AXIS FROM 0 TO MAX
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
             
-            # Plot with datetime objects for linear time axis
+            # Set y-axis from 0 to max for better scale visibility
+            max_avg_views = max(filtered_avg_views) if filtered_avg_views else 1400
+            ax1.set_ylim(0, max_avg_views * 1.1)  # 0 to max + 10% padding
+            
+            # Plot with datetime objects for linear time axis - FILL AREA for better visibility
             line1 = ax1.plot(date_objects, filtered_avg_views, color=color1, linewidth=2, 
-                           marker='o', markersize=4, label='Average Views', 
+                           marker='o', markersize=3, label='Average Views', 
                            markerfacecolor=color1, markeredgecolor='white', markeredgewidth=1)
+            
+            # Add fill under the curve for better visibility (like followers chart)
+            ax1.fill_between(date_objects, filtered_avg_views, alpha=0.3, color=color1)
+            
             ax1.tick_params(axis='y', labelcolor=color1)
             ax1.grid(True, alpha=0.3)
             
@@ -1521,23 +1526,31 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             color2_hex = '#FFCE56'  # Yellow for ratings count (from admin.js)
             
             print(f"[CHART DEBUG] Plotting overall score data with linear time axis")
-            # Plot overall score on primary axis (0-5 scale)
+            # Plot overall score on primary axis (0-5 scale) - ADD FILL for better visibility
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
             ax1.set_ylim(0, 5)  # Rating scale is 0-5
-            line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=2, 
-                           marker='o', markersize=4, label='Overall Score', 
+            line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=3, 
+                           marker='o', markersize=5, label='Overall Score', 
                            markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
+            
+            # Add fill under the rating score curve for better visibility
+            ax1.fill_between(date_objects, filtered_scores, alpha=0.3, color=color1_hex)
+            
             ax1.tick_params(axis='y', labelcolor=color1_hex)
             ax1.grid(True, alpha=0.3)
             
             print(f"[CHART DEBUG] Plotting ratings count data")
-            # Create secondary axis for ratings count
+            # Create secondary axis for ratings count - THICKER LINE for better visibility
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
-            line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=2, 
-                           marker='o', markersize=4, label='Ratings Count',
+            line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=3, 
+                           marker='o', markersize=5, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgecolor='white', markeredgewidth=2)
+            
+            # Add fill under the ratings count curve for better visibility  
+            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color=color2_hex)
+            
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
             # Scale ratings axis so it never goes above 5 (to stay below rating score visually)
