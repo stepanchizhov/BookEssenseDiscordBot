@@ -2667,17 +2667,21 @@ def create_stats_embed(stats):
     return embed
 
 # Help command
-@bot.tree.command(name="help", description="Learn how to use the Essence Bot")
+@bot.tree.command(name="help", description="Show detailed help information for all commands")
 async def help_command(interaction: discord.Interaction):
-    """Show detailed help information"""
-    
+    """Display comprehensive help information"""
     embed = discord.Embed(
-        title="📖 Essence Bot Help",
-        description="Discover rare book combinations by combining Royal Road tags!",
+        title="🤖 Discord Essence Bot Help",
+        description=(
+            "**Discover rare Royal Road book combinations & track analytics!**\n\n"
+            "🎯 **Quick Start:** `/e Fantasy Magic` or `/rr-followers 105229`\n"
+            "💡 **Tip:** Use autocomplete in `/essence` by pressing Tab after typing the command\n\n"
+            "📊 **All chart commands show 'all time' data by default**"
+        ),
         color=0x5468ff
     )
     
-    # Commands section
+    # Commands section - UPDATED with new commands
     embed.add_field(
         name="🎮 Commands",
         value=(
@@ -2691,7 +2695,8 @@ async def help_command(interaction: discord.Interaction):
             "• Same as `/e`\n\n"
             "**`/tags`** - List all available tags\n"
             "**`/help`** - Show this help message\n"
-            "**`/ping`** - Check if bot is online\n"
+            "**`/ping`** - Check if bot is online\n\n"
+            "**📊 CHART COMMANDS:**\n"
             "**`/rr-followers`** - Followers over time chart\n"
             "• Example: `/rr-followers 12345` (shows all time)\n"
             "• Example: `/rr-followers 12345 30` (last 30 days)\n"
@@ -2700,6 +2705,12 @@ async def help_command(interaction: discord.Interaction):
             "**`/rr-views`** - Views over time chart\n"
             "• Example: `/rr-views 12345` (shows all time)\n"
             "• Same format as followers command\n\n"
+            "**`/rr-average-views`** - Average views & chapters chart\n"
+            "• Example: `/rr-average-views 12345` (shows all time)\n"
+            "• Shows average views per chapter with chapter count reference\n\n"
+            "**`/rr-ratings`** - Rating metrics over time chart\n"
+            "• Example: `/rr-ratings 12345` (shows all time)\n"
+            "• Shows overall score and ratings count (dual-axis)\n\n"
             "**`/brag`** - Show your essence discoveries\n"
             "• Example: `/brag`\n"
             "• Shows combinations you discovered first\n\n"
@@ -2720,35 +2731,28 @@ async def help_command(interaction: discord.Interaction):
             "1. Type `/essence`\n"
             "2. Press Tab or click the command\n"
             "3. Fill in both tag fields\n"
-            "4. Press Enter"
+            "4. Press Enter\n\n"
+            "**Chart Commands:**\n"
+            "Use book ID or full Royal Road URL\n"
+            "All charts default to showing all available data\n"
+            "Add time parameters for specific periods"
         ),
-        inline=True
-    )
-    
-    # Tag formats section
-    embed.add_field(
-        name="📝 Tag Formats",
-        value=(
-            "**Accepted formats:**\n"
-            "• Display: `Fantasy`, `Female Lead`\n"
-            "• URL: `fantasy`, `female_lead`\n"
-            "• Mixed: `FANTASY`, `magic`\n"
-            "**Multi-word tags:**\n"
-            "• `/e Female Lead Magic` ✓\n"
-            "• `/e portal fantasy litrpg` ✓"
-        ),
-        inline=True
+        inline=False
     )
     
     # Chart features section
     embed.add_field(
         name="📊 Chart Features",
         value=(
-            "**Default:** Shows all available data\n"
-            "**Smart trimming:** Starts from first meaningful data\n"
-            "• Connected dots show trends over time\n"
-            "• Clean date scaling with proper gaps\n"
-            "**Time ranges:** 30 days, date ranges, or 'all'"
+            "🔷 **Followers Chart** - Track follower growth\n"
+            "🔸 **Views Chart** - Monitor total view trends\n"
+            "🟣 **Average Views Chart** - Views per chapter + chapter count\n"
+            "🔵 **Ratings Chart** - Rating score & count over time\n\n"
+            "**Time Formats:**\n"
+            "• `30` - Last 30 days\n"
+            "• `all` - All available data (default)\n"
+            "• `2024-01-01` - From specific date\n"
+            "• `2024-01-01:2024-02-01` - Date range"
         ),
         inline=False
     )
@@ -2767,33 +2771,39 @@ async def help_command(interaction: discord.Interaction):
         inline=True
     )
     
-    # Examples
+    # Examples section
     embed.add_field(
-        name="📚 Example Combinations",
+        name="💡 Examples",
         value=(
-            "`/e Fantasy Magic` - The Arcane Weave\n"
-            "`/e LitRPG Progression` - The Ascending Interface\n"
-            "`/e Female Lead Strong Lead` - The Valkyrie's Bond\n"
-            "`/e Portal Fantasy Reincarnation` - The Eternal Gateway"
-        ),
-        inline=True
-    )
-    
-    # Tips
-    embed.add_field(
-        name="💡 Pro Tips",
-        value=(
-            "• Try unusual combinations for rare discoveries!\n"
-            "• Use `/tags` to see all 65+ available tags\n"
-            "• Charts now default to showing all time data\n"
-            "• Charts automatically start from meaningful data\n"
-            "• The rarer the combination, the more prestigious!"
+            "**Essence Discovery:**\n"
+            "`/e Fantasy Magic` - Quick combo\n"
+            "`/essence` then Tab → autocomplete\n\n"
+            "**Chart Analysis:**\n"
+            "`/rr-followers 105229` - All-time followers\n"
+            "`/rr-views 105229 30` - Views last 30 days\n"
+            "`/rr-average-views 105229` - Avg views + chapters\n"
+            "`/rr-ratings 105229` - Rating trends\n\n"
+            "**Advanced:**\n"
+            "`/rr-followers https://royalroad.com/fiction/105229`\n"
+            "`/rr-ratings 105229 2024-01-01:2024-06-01`"
         ),
         inline=False
     )
     
-    embed.set_footer(text="Created by Stepan Chizhov • Powered by Royal Road Analytics")
-    embed.timestamp = interaction.created_at
+    # Links and support
+    embed.add_field(
+        name="🔗 Links & Support",
+        value=(
+            "📖 [Read \"The Dark Lady's Guide to Villainy\"](https://www.royalroad.com/fiction/105229)\n"
+            "🔍 [More Tools](https://stepan.chizhov.com)\n"
+            "💬 [Support Discord](https://discord.gg/xvw9vbvrwj)\n"
+            "❤️ [Support on Patreon](https://patreon.com/stepanchizhov)\n"
+            "📚 [Community Discord](https://discord.gg/7Xrrf3Q5zp)"
+        ),
+        inline=False
+    )
+    
+    embed.set_footer(text="Tip: Start with '/e Fantasy Magic' or '/rr-followers 105229' to try it out!")
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
