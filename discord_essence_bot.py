@@ -1418,8 +1418,8 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             
             # Plot with datetime objects for linear time axis - FILL AREA for better visibility
             line1 = ax1.plot(date_objects, filtered_avg_views, color=color1, linewidth=2, 
-                           marker='o', markersize=3, label='Average Views', 
-                           markerfacecolor=color1, markeredgecolor='white', markeredgewidth=1)
+                           marker='o', markersize=4, label='Average Views', 
+                           markerfacecolor=color1, markeredgecolor='white', markeredgewidth=2)
             
             # Add fill under the curve for better visibility (like followers chart)
             ax1.fill_between(date_objects, filtered_avg_views, alpha=0.3, color=color1)
@@ -1428,12 +1428,12 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             ax1.grid(True, alpha=0.3)
             
             print(f"[CHART DEBUG] Plotting chapters data")
-            # Create secondary axis for chapters
+            # Create secondary axis for chapters - MATCH STYLING with circles and white borders
             ax2 = ax1.twinx()
             ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
             line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
-                           marker='s', markersize=4, label='Chapters',
-                           markerfacecolor=color2, markeredgecolor='white', markeredgewidth=1)
+                           marker='o', markersize=4, label='Chapters',
+                           markerfacecolor=color2, markeredgecolor='white', markeredgewidth=2)
             ax2.tick_params(axis='y', labelcolor=color2)
             
             # Format x-axis for dates
@@ -1530,8 +1530,8 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
             ax1.set_ylim(0, 5)  # Rating scale is 0-5
-            line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=3, 
-                           marker='o', markersize=5, label='Overall Score', 
+            line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=2, 
+                           marker='o', markersize=4, label='Overall Score', 
                            markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
             
             # Add fill under the rating score curve for better visibility
@@ -1541,11 +1541,11 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             ax1.grid(True, alpha=0.3)
             
             print(f"[CHART DEBUG] Plotting ratings count data")
-            # Create secondary axis for ratings count - THICKER LINE for better visibility
+            # Create secondary axis for ratings count - MATCH STYLING
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
-            line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=3, 
-                           marker='o', markersize=5, label='Ratings Count',
+            line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=2, 
+                           marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgecolor='white', markeredgewidth=2)
             
             # Add fill under the ratings count curve for better visibility  
