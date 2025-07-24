@@ -1416,9 +1416,9 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgewidth=0)
             
-            # Add fill under the ratings count curve - FORCE YELLOW COLOR WITH DEBUG
-            print(f"[CHART DEBUG] Adding YELLOW fill for ratings count with color: #FFCE56")
-            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color='#FFCE56')  # FORCE yellow color
+            # NO FILL for ratings count to avoid green color from overlapping blue and yellow
+            # The issue was yellow fill overlaying blue fill, creating green where they overlap
+            print(f"[CHART DEBUG] Skipping fill for ratings count to avoid blue+yellow=green overlap")
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
@@ -1587,12 +1587,11 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 # 4. Filling under total chapters chart  
                 # 5. Scale total chapters chart so that it is always below average view chart
                 
-                # Calculate proper scaling to keep chapters at 75% of chart height
+                # Set chapters y-axis max to 125% of the highest chapter number
+                # This makes the highest chapters value appear at ~80% of the y-axis height
                 max_chapters = max(filtered_chapters) if filtered_chapters else 1
-                
-                # Set chapters y-axis to use 75% of the average views scale
-                chapters_scale_max = max_avg_views * 0.75
-                ax2.set_ylim(0, chapters_scale_max)  # Scale to keep chapters at 75% height
+                chapters_axis_max = max_chapters * 1.25  # 125% of highest chapter number
+                ax2.set_ylim(0, chapters_axis_max)  # Scale chapters axis properly
                 
                 line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
                                marker='o', markersize=4, label='Chapters',
