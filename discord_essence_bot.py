@@ -1416,9 +1416,14 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgewidth=0)
             
-            # NO FILL for ratings count to avoid green color from overlapping blue and yellow
-            # The issue was yellow fill overlaying blue fill, creating green where they overlap
-            print(f"[CHART DEBUG] Skipping fill for ratings count to avoid blue+yellow=green overlap")
+            # SOLUTION: Use white fill with yellow edge to create yellow appearance without mixing
+            # This creates a yellow-bordered area that doesn't blend with the blue underneath
+            ax2.fill_between(date_objects, filtered_ratings, alpha=0.8, color='white', 
+                           edgecolor='#FFCE56', linewidth=1)
+            # Add a thin yellow fill on top for better yellow visibility
+            ax2.fill_between(date_objects, filtered_ratings, alpha=0.3, color='#FFCE56')
+            
+            print(f"[CHART DEBUG] Added white+yellow layered fill to avoid color mixing")
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
