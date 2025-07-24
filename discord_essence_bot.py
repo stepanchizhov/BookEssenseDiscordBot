@@ -1401,8 +1401,8 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Overall Score', 
                            markerfacecolor=color1_hex, markeredgewidth=0)
             
-            # Add fill under the rating score curve for better visibility
-            ax1.fill_between(date_objects, filtered_scores, alpha=0.3, color=color1_hex)
+            # Add fill under the rating score curve for better visibility (BLUE)
+            ax1.fill_between(date_objects, filtered_scores, alpha=0.3, color='#36A2EB')  # Explicit blue color
             
             ax1.tick_params(axis='y', labelcolor=color1_hex)
             ax1.grid(True, alpha=0.3)
@@ -1416,8 +1416,9 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgewidth=0)
             
-            # Add fill under the ratings count curve - EXPLICITLY using yellow color
-            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color='#FFCE56')  # Explicit yellow color
+            # Add fill under the ratings count curve - FORCE YELLOW COLOR WITH DEBUG
+            print(f"[CHART DEBUG] Adding YELLOW fill for ratings count with color: #FFCE56")
+            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color='#FFCE56')  # FORCE yellow color
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
@@ -1586,14 +1587,12 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 # 4. Filling under total chapters chart  
                 # 5. Scale total chapters chart so that it is always below average view chart
                 
-                # Calculate proper scaling to ensure chapters NEVER go above average views
+                # Calculate proper scaling to keep chapters at 75% of chart height
                 max_chapters = max(filtered_chapters) if filtered_chapters else 1
-                min_avg_views = min(filtered_avg_views) if filtered_avg_views else 0
                 
-                # Set chapters y-axis max to be 60% of the minimum average views value
-                # This ensures chapters line stays well below the average views line
-                chapters_max_scale = min_avg_views * 0.6 if min_avg_views > 0 else max_chapters * 0.5
-                ax2.set_ylim(0, chapters_max_scale)  # Scale to keep chapters below avg views
+                # Set chapters y-axis to use 75% of the average views scale
+                chapters_scale_max = max_avg_views * 0.75
+                ax2.set_ylim(0, chapters_scale_max)  # Scale to keep chapters at 75% height
                 
                 line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
                                marker='o', markersize=4, label='Chapters',
