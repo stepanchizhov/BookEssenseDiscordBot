@@ -1385,72 +1385,100 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             filtered_avg_views = []
             filtered_chapters = []
             
-            # Include ALL data points - don't skip zeros, connect all dots
-            for i in range(len(timestamps)):
-                # Convert timestamp to datetime
-                if timestamps[i]:
-                    date_obj = datetime.fromtimestamp(timestamps[i])
-                    date_objects.append(date_obj)
-                    
-                    # Include all average views data (including zeros) - connect all dots
-                    filtered_avg_views.append(average_views_data[i])
-                    
-                    # Include all chapters data
-                    filtered_chapters.append(chapters_data[i])
+            # IMPLEMENTATION OF REQUESTED FIXES:
+            # 1. Start with the first non-zero point
+            first_nonzero_index = -1
+            for i, value in enumerate(average_views_data):
+                if value > 0:
+                    first_nonzero_index = i
+                    break
             
-            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views:{len(filtered_avg_views)}, chapters:{len(filtered_chapters)}")
-            
-            if not date_objects:
-                raise ValueError("No valid data points with timestamps")
-            
-            # Create dual-axis chart
-            color1 = '#9B59B6'  # Purple for average views
-            color2 = '#F39C12'  # Orange for chapters
-            
-            print(f"[CHART DEBUG] Plotting average views data with linear time axis")
-            # Plot average views on primary axis with linear time - SET Y-AXIS FROM 0 TO MAX
-            ax1.set_xlabel('Date', fontsize=12)
-            ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
-            
-            # Set y-axis from 0 to max for better scale visibility
-            max_avg_views = max(filtered_avg_views) if filtered_avg_views else 1400
-            ax1.set_ylim(0, max_avg_views * 1.1)  # 0 to max + 10% padding
-            
-            # Plot with datetime objects for linear time axis - FILL AREA for better visibility
-            line1 = ax1.plot(date_objects, filtered_avg_views, color=color1, linewidth=2, 
-                           marker='o', markersize=4, label='Average Views', 
-                           markerfacecolor=color1, markeredgecolor='white', markeredgewidth=2)
-            
-            # Add fill under the curve for better visibility (like followers chart)
-            ax1.fill_between(date_objects, filtered_avg_views, alpha=0.3, color=color1)
-            
-            ax1.tick_params(axis='y', labelcolor=color1)
-            ax1.grid(True, alpha=0.3)
-            
-            print(f"[CHART DEBUG] Plotting chapters data")
-            # Create secondary axis for chapters - MATCH STYLING with circles and white borders
-            ax2 = ax1.twinx()
-            ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
-            line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
-                           marker='o', markersize=4, label='Chapters',
-                           markerfacecolor=color2, markeredgecolor='white', markeredgewidth=2)
-            ax2.tick_params(axis='y', labelcolor=color2)
-            
-            # Format x-axis for dates
-            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-            ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))  # Every 2 weeks
-            
-            # Rotate date labels for better readability
-            plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
-            
-            # Add title
-            title = f'Average Views & Chapters Over Time - {book_title}'
-            ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
-            
-            # Add legend
-            lines1, labels1 = ax1.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+            if first_nonzero_index == -1:
+                # No non-zero values found
+                ax1.text(0.5, 0.5, 'No meaningful average views data available', 
+                        horizontalalignment='center', verticalalignment='center',
+                        transform=ax1.transAxes, fontsize=14, color='red')
+                ax1.set_title(f'Average Views & Chapters Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
+            else:
+                # Start from first non-zero point and handle intermediate zeros
+                for i in range(first_nonzero_index, len(timestamps)):
+                    if timestamps[i]:
+                        date_obj = datetime.fromtimestamp(timestamps[i])
+                        
+                        # 2. If an intermediate average views datapoint is zero, skip it
+                        # (only add non-zero values to create line between previous and next)
+                        if average_views_data[i] > 0:
+                            date_objects.append(date_obj)
+                            filtered_avg_views.append(average_views_data[i])
+                            filtered_chapters.append(chapters_data[i])
+                
+                print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views:{len(filtered_avg_views)}, chapters:{len(filtered_chapters)}")
+                
+                if not date_objects:
+                    raise ValueError("No valid data points with timestamps after filtering")
+                
+                # Create dual-axis chart
+                color1 = '#9B59B6'  # Purple for average views
+                color2 = '#F39C12'  # Orange for chapters
+                
+                print(f"[CHART DEBUG] Plotting average views data with linear time axis")
+                # Plot average views on primary axis with linear time
+                ax1.set_xlabel('Date', fontsize=12)
+                ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
+                
+                # Set y-axis from 0 to max for better scale visibility
+                max_avg_views = max(filtered_avg_views) if filtered_avg_views else 1400
+                ax1.set_ylim(0, max_avg_views * 1.1)  # 0 to max + 10% padding
+                
+                # Plot with datetime objects for linear time axis - FILL AREA for better visibility
+                line1 = ax1.plot(date_objects, filtered_avg_views, color=color1, linewidth=2, 
+                               marker='o', markersize=4, label='Average Views', 
+                               markerfacecolor=color1, markeredgewidth=0)
+                
+                # Add fill under the curve for better visibility (like followers chart)
+                ax1.fill_between(date_objects, filtered_avg_views, alpha=0.3, color=color1)
+                
+                ax1.tick_params(axis='y', labelcolor=color1)
+                ax1.grid(True, alpha=0.3)
+                
+                print(f"[CHART DEBUG] Plotting chapters data")
+                # Create secondary axis for chapters
+                ax2 = ax1.twinx()
+                ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
+                
+                # 3. Circles without white borders for total chapters datapoints
+                # 4. Filling under total chapters chart  
+                # 5. Scale total chapters chart so that it is always below average view chart
+                
+                # Scale chapters so max chapters appears at ~80% of the average views max
+                max_chapters = max(filtered_chapters) if filtered_chapters else 1
+                scale_factor = (max_avg_views * 0.8) / max_chapters if max_chapters > 0 else 1
+                ax2.set_ylim(0, max_chapters * 1.1)  # Keep original scale for y-axis labels
+                
+                line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
+                               marker='o', markersize=4, label='Chapters',
+                               markerfacecolor=color2, markeredgewidth=0)
+                
+                # 4. Add fill under total chapters chart
+                ax2.fill_between(date_objects, filtered_chapters, alpha=0.2, color=color2)
+                
+                ax2.tick_params(axis='y', labelcolor=color2)
+                
+                # Format x-axis for dates
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+                ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))  # Every 2 weeks
+                
+                # Rotate date labels for better readability
+                plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                
+                # Add title
+                title = f'Average Views & Chapters Over Time - {book_title}'
+                ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
+                
+                # Add legend
+                lines1, labels1 = ax1.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
         
         # Adjust layout and save
         plt.tight_layout()
@@ -1530,9 +1558,10 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
             ax1.set_ylim(0, 5)  # Rating scale is 0-5
+            # REMOVED WHITE BORDER: Changed markeredgewidth from 2 to 0 and removed markeredgecolor
             line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=2, 
                            marker='o', markersize=4, label='Overall Score', 
-                           markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
+                           markerfacecolor=color1_hex, markeredgewidth=0)
             
             # Add fill under the rating score curve for better visibility
             ax1.fill_between(date_objects, filtered_scores, alpha=0.3, color=color1_hex)
@@ -1544,11 +1573,12 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             # Create secondary axis for ratings count - MATCH STYLING
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
+            # REMOVED WHITE BORDER: Changed markeredgewidth from 2 to 0 and removed markeredgecolor
             line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=2, 
                            marker='o', markersize=4, label='Ratings Count',
-                           markerfacecolor=color2_hex, markeredgecolor='white', markeredgewidth=2)
+                           markerfacecolor=color2_hex, markeredgewidth=0)
             
-            # Add fill under the ratings count curve for better visibility  
+            # Add fill under the ratings count curve for better visibility (matching yellow datapoints)
             ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color=color2_hex)
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
@@ -1583,7 +1613,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             # Add legend (matching admin dashboard style)
             lines1, labels1 = ax1.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', frameon=True, fancybox=True, shadow=True)
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
         
         # Adjust layout and save
         plt.tight_layout()
@@ -1593,7 +1623,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         buffer.seek(0)
         
-        print(f"[CHART DEBUG] Ratings chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
+        print(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
         
         # Clean up
         plt.close()
@@ -1601,7 +1631,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         return buffer
        
     except Exception as e:
-        print(f"[CHART DEBUG] ERROR in ratings chart creation: {e}")
+        print(f"[CHART DEBUG] ERROR in chart creation: {e}")
         import traceback
         traceback.print_exc()
         plt.close()  # Ensure we clean up even on error
