@@ -1358,7 +1358,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         
         print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
         
-        # Check if we have average_views data - this field might not be in the API response yet
+        # Check if we have average_views data
         if not average_views_data or len(average_views_data) == 0:
             print(f"[CHART DEBUG] No average_views data, trying to calculate from total_views/chapters")
             # Try to calculate average views from total_views and chapters if possible
@@ -1373,48 +1373,52 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                         average_views_data.append(0)
                 print(f"[CHART DEBUG] Calculated {len(average_views_data)} average_views values")
         
-        if not average_views_data or not labels or not chapters_data:
+        if not average_views_data or not labels or not chapters_data or not timestamps:
             # Create a "no data" chart
             ax1.text(0.5, 0.5, 'No average views or chapters data available\n(Check logs for details)', 
                     horizontalalignment='center', verticalalignment='center',
                     transform=ax1.transAxes, fontsize=14, color='red')
             ax1.set_title(f'Average Views & Chapters Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
         else:
-            # FIXED: Trim leading zeros for ALL arrays consistently
-            # Find the first non-zero index for average_views
-            first_nonzero_index = 0
-            for i, value in enumerate(average_views_data):
-                if value > 0:
-                    first_nonzero_index = i
-                    break
+            # Convert timestamps to datetime objects for linear time axis
+            date_objects = []
+            filtered_avg_views = []
+            filtered_chapters = []
             
-            print(f"[CHART DEBUG] First non-zero average_views at index: {first_nonzero_index}")
+            # Filter data: skip points where average_views is 0 or missing, but keep chapters data
+            for i in range(len(timestamps)):
+                # Convert timestamp to datetime
+                if timestamps[i]:
+                    date_obj = datetime.fromtimestamp(timestamps[i])
+                    date_objects.append(date_obj)
+                    
+                    # For average views: use None for missing/zero values (will create gaps in line)
+                    if average_views_data[i] > 0:
+                        filtered_avg_views.append(average_views_data[i])
+                    else:
+                        filtered_avg_views.append(None)  # Creates gaps in the line
+                    
+                    # For chapters: always include if > 0 (chapters shouldn't have gaps)
+                    filtered_chapters.append(chapters_data[i] if chapters_data[i] > 0 else None)
             
-            # Trim ALL arrays from the same starting point
-            if first_nonzero_index > 0:
-                labels = labels[first_nonzero_index:]
-                average_views_data = average_views_data[first_nonzero_index:]
-                chapters_data = chapters_data[first_nonzero_index:]
-                if timestamps:
-                    timestamps = timestamps[first_nonzero_index:]
+            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views valid:{sum(1 for x in filtered_avg_views if x is not None)}, chapters valid:{sum(1 for x in filtered_chapters if x is not None)}")
             
-            print(f"[CHART DEBUG] After trimming - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
-            
-            # Verify all arrays have the same length
-            if len(labels) != len(average_views_data) or len(labels) != len(chapters_data):
-                print(f"[CHART DEBUG] ERROR: Array length mismatch after trimming!")
-                raise ValueError(f"Array lengths don't match: labels={len(labels)}, avg_views={len(average_views_data)}, chapters={len(chapters_data)}")
+            if not date_objects:
+                raise ValueError("No valid data points with timestamps")
             
             # Create dual-axis chart
             color1 = '#9B59B6'  # Purple for average views
             color2 = '#F39C12'  # Orange for chapters
             
-            print(f"[CHART DEBUG] Plotting average views data")
-            # Plot average views on primary axis
+            print(f"[CHART DEBUG] Plotting average views data with linear time axis")
+            # Plot average views on primary axis with linear time
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
-            line1 = ax1.plot(labels, average_views_data, color=color1, linewidth=2, 
-                           marker='o', markersize=4, label='Average Views')
+            
+            # Plot with datetime objects for linear time axis
+            line1 = ax1.plot(date_objects, filtered_avg_views, color=color1, linewidth=2, 
+                           marker='o', markersize=4, label='Average Views', 
+                           markerfacecolor=color1, markeredgecolor='white', markeredgewidth=1)
             ax1.tick_params(axis='y', labelcolor=color1)
             ax1.grid(True, alpha=0.3)
             
@@ -1422,17 +1426,17 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             # Create secondary axis for chapters
             ax2 = ax1.twinx()
             ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
-            line2 = ax2.plot(labels, chapters_data, color=color2, linewidth=2, 
-                           marker='s', markersize=4, label='Chapters')
+            line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
+                           marker='s', markersize=4, label='Chapters',
+                           markerfacecolor=color2, markeredgecolor='white', markeredgewidth=1)
             ax2.tick_params(axis='y', labelcolor=color2)
             
-            # Format x-axis
-            if len(labels) > 15:
-                step = max(1, len(labels) // 10)
-                ax1.set_xticks(range(0, len(labels), step))
-                ax1.set_xticklabels([labels[i] for i in range(0, len(labels), step)], rotation=45)
-            else:
-                ax1.set_xticklabels(labels, rotation=45)
+            # Format x-axis for dates
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+            ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))  # Every 2 weeks
+            
+            # Rotate date labels for better readability
+            plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
             
             # Add title
             title = f'Average Views & Chapters Over Time - {book_title}'
@@ -1465,7 +1469,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         plt.close()  # Ensure we clean up even on error
         return None
 
-# NEW: Chart creation function for ratings metrics (dual-axis like admin dashboard)
+# IMPROVED: Ratings chart with linear dates
 def create_ratings_chart_image(chart_data, book_title, days_param):
     """Create a ratings metrics chart with dual axis (matching admin dashboard) using matplotlib"""
     try:
@@ -1483,48 +1487,45 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         
         print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
         
-        if not overall_score_data or not labels or not ratings_data:
+        if not overall_score_data or not labels or not ratings_data or not timestamps:
             # Create a "no data" chart
             ax1.text(0.5, 0.5, 'No rating data available', 
                     horizontalalignment='center', verticalalignment='center',
                     transform=ax1.transAxes, fontsize=16, color='red')
             ax1.set_title(f'Rating Metrics Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
         else:
-            # FIXED: Trim leading zeros for ALL arrays consistently
-            # Find the first non-zero index for ratings (since scores might always have values)
-            first_nonzero_index = 0
-            for i, value in enumerate(ratings_data):
-                if value > 0:
-                    first_nonzero_index = i
-                    break
+            # Convert timestamps to datetime objects for linear time axis
+            date_objects = []
+            filtered_scores = []
+            filtered_ratings = []
             
-            print(f"[CHART DEBUG] First non-zero ratings at index: {first_nonzero_index}")
+            # Filter data: only include points where we have meaningful data
+            for i in range(len(timestamps)):
+                if timestamps[i] and ratings_data[i] > 0:  # Only include if we have actual ratings
+                    date_obj = datetime.fromtimestamp(timestamps[i])
+                    date_objects.append(date_obj)
+                    
+                    # Include scores only when we have ratings (ratings drive the chart)
+                    filtered_scores.append(overall_score_data[i])
+                    
+                    # Include ratings (we already filtered for > 0)
+                    filtered_ratings.append(ratings_data[i])
             
-            # Trim ALL arrays from the same starting point
-            if first_nonzero_index > 0:
-                labels = labels[first_nonzero_index:]
-                overall_score_data = overall_score_data[first_nonzero_index:]
-                ratings_data = ratings_data[first_nonzero_index:]
-                if timestamps:
-                    timestamps = timestamps[first_nonzero_index:]
+            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, scores valid:{sum(1 for x in filtered_scores if x is not None)}, ratings valid:{sum(1 for x in filtered_ratings if x is not None)}")
             
-            print(f"[CHART DEBUG] After trimming - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
-            
-            # Verify all arrays have the same length
-            if len(labels) != len(overall_score_data) or len(labels) != len(ratings_data):
-                print(f"[CHART DEBUG] ERROR: Array length mismatch after trimming!")
-                raise ValueError(f"Array lengths don't match: labels={len(labels)}, scores={len(overall_score_data)}, ratings={len(ratings_data)}")
+            if not date_objects:
+                raise ValueError("No valid data points with timestamps")
             
             # Create dual-axis chart (matching admin dashboard colors)
             color1_hex = '#36A2EB'  # Blue for rating score (from admin.js)
             color2_hex = '#FFCE56'  # Yellow for ratings count (from admin.js)
             
-            print(f"[CHART DEBUG] Plotting overall score data")
+            print(f"[CHART DEBUG] Plotting overall score data with linear time axis")
             # Plot overall score on primary axis (0-5 scale)
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
             ax1.set_ylim(0, 5)  # Rating scale is 0-5
-            line1 = ax1.plot(labels, overall_score_data, color=color1_hex, linewidth=2, 
+            line1 = ax1.plot(date_objects, filtered_scores, color=color1_hex, linewidth=2, 
                            marker='o', markersize=4, label='Overall Score', 
                            markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
             ax1.tick_params(axis='y', labelcolor=color1_hex)
@@ -1534,22 +1535,33 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             # Create secondary axis for ratings count
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
-            line2 = ax2.plot(labels, ratings_data, color=color2_hex, linewidth=2, 
+            line2 = ax2.plot(date_objects, filtered_ratings, color=color2_hex, linewidth=2, 
                            marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgecolor='white', markeredgewidth=2)
             ax2.tick_params(axis='y', labelcolor=color2_hex)
-            ax2.set_ylim(bottom=0)  # Start from 0
+            
+            # Scale ratings axis so it never goes above 5 (to stay below rating score visually)
+            max_ratings = max(filtered_ratings) if filtered_ratings else 1
+            # Calculate scale factor to keep ratings visually below scores
+            # If max rating is > 100, use a larger scale; otherwise use a smaller one 
+            if max_ratings > 100:
+                scale_factor = max_ratings / 4.0  # Max ratings will display at 4.0 on visual scale
+            elif max_ratings > 50:
+                scale_factor = max_ratings / 3.5  # Max ratings will display at 3.5 on visual scale  
+            else:
+                scale_factor = max_ratings / 3.0  # Max ratings will display at 3.0 on visual scale
+            
+            ax2.set_ylim(0, scale_factor * 5)  # 0 to scale_factor*5 so max shows below rating line
             
             # Format ratings count with commas
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
             
-            # Format x-axis
-            if len(labels) > 15:
-                step = max(1, len(labels) // 10)
-                ax1.set_xticks(range(0, len(labels), step))
-                ax1.set_xticklabels([labels[i] for i in range(0, len(labels), step)], rotation=45)
-            else:
-                ax1.set_xticklabels(labels, rotation=45)
+            # Format x-axis for dates
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+            ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))  # Every 2 weeks
+            
+            # Rotate date labels for better readability
+            plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
             
             # Add title (matching admin dashboard)
             title = f'Rating Metrics Over Time - {book_title}'
