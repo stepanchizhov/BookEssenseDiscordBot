@@ -945,6 +945,235 @@ async def cleanup():
         await session.close()
         print('[CLEANUP] Session closed')
 
+@bot.tree.command(name="rr-average-views", description="Show average views and chapters over time chart for a Royal Road book")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'"
+)
+async def rr_average_views(interaction: discord.Interaction, book_input: str, days: str = "all"):
+    """Generate and send an average views over time chart with chapters for reference - DEFAULT TO 'all' TIME"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-AVERAGE-VIEWS] Command called by {interaction.user}")
+    print(f"[RR-AVERAGE-VIEWS] Book input: '{book_input}', Days: '{days}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
+        days_param = parse_days_parameter(days)
+        print(f"[RR-AVERAGE-VIEWS] Parsed days parameter: {days_param}")
+        
+        # Fetch chart data - API handles ALL filtering
+        global session
+        chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
+        
+        if not chart_response or not chart_response.get('success'):
+            error_msg = "❌ Could not fetch data for the specified book."
+            if chart_response and 'message' in chart_response:
+                error_msg += f"\n{chart_response['message']}"
+            else:
+                error_msg += " The book might not exist or have no tracking data. If the book is new, you can add it by running this tool: https://stepan.chizhov.com/author-tools/rising-stars-checker/"
+            
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+        
+        chart_data = chart_response.get('chart_data', {})
+        book_info = chart_response.get('book_info', {})
+        data_info = chart_response.get('data_info', {})
+        
+        book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
+        book_id = book_info.get('id', 'Unknown')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
+        
+        print(f"[RR-AVERAGE-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        print(f"[RR-AVERAGE-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        
+        # CRITICAL: Use data exactly as returned from API - NO FILTERING
+        filtered_data = chart_data  # API already filtered everything
+        
+        # Create chart image with average views and chapters
+        chart_buffer = create_average_views_chart_image(filtered_data, book_title, days_param)
+        
+        if not chart_buffer:
+            await interaction.followup.send(
+                "❌ Failed to generate chart image. Please try again later.",
+                ephemeral=True
+            )
+            return
+        
+        # Create Discord file and embed
+        file = discord.File(chart_buffer, filename=f"average_views_chart_{book_id}.png")
+        
+        embed = discord.Embed(
+            title="📊 Average Views & Chapters Over Time",
+            description=f"**[{book_title}]({book_url})**\nBook ID: {book_id}",
+            color=0x9B59B6  # Purple color for average views
+        )
+        embed.set_image(url=f"attachment://average_views_chart_{book_id}.png")
+        
+        # Add stats if available
+        if filtered_data.get('average_views'):
+            latest_avg_views = filtered_data['average_views'][-1] if filtered_data['average_views'] else 0
+            embed.add_field(name="Current Avg Views", value=f"{latest_avg_views:,}", inline=True)
+            
+            if len(filtered_data['average_views']) > 1:
+                first_avg_views = filtered_data['average_views'][0]
+                change = latest_avg_views - first_avg_views
+                change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
+                embed.add_field(name="Change", value=change_text, inline=True)
+        
+        # Add chapters info
+        if filtered_data.get('chapters'):
+            latest_chapters = filtered_data['chapters'][-1] if filtered_data['chapters'] else 0
+            embed.add_field(name="Current Chapters", value=f"{latest_chapters:,}", inline=True)
+        
+        # Use the filter description from the API
+        period_text = data_info.get('filter_applied', 'Unknown period')
+        embed.add_field(name="Period", value=period_text, inline=True)
+        
+        # Add data note about chart features
+        embed.add_field(
+            name="📊 Chart Features",
+            value="• Purple line shows average views per chapter\n• Orange line shows total chapters for reference\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
+            inline=False
+        )
+        
+        embed = add_promotional_field(embed)
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-average-views")
+        
+        await interaction.followup.send(embed=embed, file=file)
+        print(f"[RR-AVERAGE-VIEWS] Successfully sent chart for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-AVERAGE-VIEWS] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while generating the average views chart.",
+                ephemeral=True
+            )
+        except:
+            pass
+
+@bot.tree.command(name="rr-ratings", description="Show rating metrics over time chart for a Royal Road book")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'"
+)
+async def rr_ratings(interaction: discord.Interaction, book_input: str, days: str = "all"):
+    """Generate and send a rating metrics over time chart - matching admin dashboard - DEFAULT TO 'all' TIME"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-RATINGS] Command called by {interaction.user}")
+    print(f"[RR-RATINGS] Book input: '{book_input}', Days: '{days}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
+        days_param = parse_days_parameter(days)
+        print(f"[RR-RATINGS] Parsed days parameter: {days_param}")
+        
+        # Fetch chart data - API handles ALL filtering
+        global session
+        chart_response = await get_book_chart_data(book_input.strip(), days_param, session)
+        
+        if not chart_response or not chart_response.get('success'):
+            error_msg = "❌ Could not fetch data for the specified book."
+            if chart_response and 'message' in chart_response:
+                error_msg += f"\n{chart_response['message']}"
+            else:
+                error_msg += " The book might not exist or have no tracking data. If the book is new, you can add it by running this tool: https://stepan.chizhov.com/author-tools/rising-stars-checker/"
+            
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+        
+        chart_data = chart_response.get('chart_data', {})
+        book_info = chart_response.get('book_info', {})
+        data_info = chart_response.get('data_info', {})
+        
+        book_title = book_info.get('title', f'Book {book_info.get("id", "Unknown")}')
+        book_id = book_info.get('id', 'Unknown')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
+        
+        print(f"[RR-RATINGS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        print(f"[RR-RATINGS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        
+        # CRITICAL: Use data exactly as returned from API - NO FILTERING
+        filtered_data = chart_data  # API already filtered everything
+        
+        # Create chart image with rating metrics (dual-axis)
+        chart_buffer = create_ratings_chart_image(filtered_data, book_title, days_param)
+        
+        if not chart_buffer:
+            await interaction.followup.send(
+                "❌ Failed to generate chart image. Please try again later.",
+                ephemeral=True
+            )
+            return
+        
+        # Create Discord file and embed
+        file = discord.File(chart_buffer, filename=f"ratings_chart_{book_id}.png")
+        
+        embed = discord.Embed(
+            title="⭐ Rating Metrics Over Time",
+            description=f"**[{book_title}]({book_url})**\nBook ID: {book_id}",
+            color=0x3498DB  # Blue color for ratings (matching admin dashboard)
+        )
+        embed.set_image(url=f"attachment://ratings_chart_{book_id}.png")
+        
+        # Add stats if available
+        if filtered_data.get('overall_score'):
+            latest_score = filtered_data['overall_score'][-1] if filtered_data['overall_score'] else 0
+            embed.add_field(name="Current Rating", value=f"{latest_score:.2f}/5.00", inline=True)
+        
+        if filtered_data.get('ratings'):
+            latest_ratings = filtered_data['ratings'][-1] if filtered_data['ratings'] else 0
+            embed.add_field(name="Total Ratings", value=f"{latest_ratings:,}", inline=True)
+            
+            if len(filtered_data['ratings']) > 1:
+                first_ratings = filtered_data['ratings'][0]
+                change = latest_ratings - first_ratings
+                change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
+                embed.add_field(name="Rating Change", value=change_text, inline=True)
+        
+        # Use the filter description from the API
+        period_text = data_info.get('filter_applied', 'Unknown period')
+        embed.add_field(name="Period", value=period_text, inline=True)
+        
+        # Add data note about chart features
+        embed.add_field(
+            name="📊 Chart Features",
+            value="• Blue line shows overall rating score (0-5)\n• Yellow line shows number of ratings\n• Dual-axis chart matching admin dashboard\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
+            inline=False
+        )
+        
+        embed = add_promotional_field(embed)
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-ratings")
+        
+        await interaction.followup.send(embed=embed, file=file)
+        print(f"[RR-RATINGS] Successfully sent chart for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-RATINGS] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while generating the ratings chart.",
+                ephemeral=True
+            )
+        except:
+            pass
+
 @bot.tree.command(name="essence", description="Combine two essence tags to discover rare book combinations")
 @discord.app_commands.describe(
     tag1="First tag - choose from list or type your own",
@@ -1107,6 +1336,175 @@ def calculate_relative_rarity(book_count, total_books):
             'tier': 'common',
             'flavor': 'A well-established confluence, beloved by many'
         }
+
+# NEW: Chart creation function for average views with chapters reference
+def create_average_views_chart_image(chart_data, book_title, days_param):
+    """Create an average views chart with chapters reference using matplotlib"""
+    try:
+        # Set up the plot
+        plt.style.use('default')
+        fig, ax1 = plt.subplots(figsize=(12, 6))
+        
+        # Prepare data - USE AS-IS from API (already filtered)
+        labels = chart_data.get('labels', [])
+        timestamps = chart_data.get('timestamps', [])
+        average_views_data = chart_data.get('average_views', [])
+        chapters_data = chart_data.get('chapters', [])
+        
+        if not average_views_data or not labels or not chapters_data:
+            # Create a "no data" chart
+            ax1.text(0.5, 0.5, 'No average views or chapters data available', 
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax1.transAxes, fontsize=16, color='red')
+            ax1.set_title(f'Average Views & Chapters Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
+        else:
+            # Trim leading zeros for better visualization
+            labels, average_views_data, timestamps = trim_leading_zeros(labels, average_views_data, timestamps)
+            _, chapters_data, _ = trim_leading_zeros(labels, chapters_data, None)
+            
+            # Create dual-axis chart
+            color1 = '#9B59B6'  # Purple for average views
+            color2 = '#F39C12'  # Orange for chapters
+            
+            # Plot average views on primary axis
+            ax1.set_xlabel('Date', fontsize=12)
+            ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
+            line1 = ax1.plot(labels, average_views_data, color=color1, linewidth=2, 
+                           marker='o', markersize=4, label='Average Views')
+            ax1.tick_params(axis='y', labelcolor=color1)
+            ax1.grid(True, alpha=0.3)
+            
+            # Create secondary axis for chapters
+            ax2 = ax1.twinx()
+            ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
+            line2 = ax2.plot(labels, chapters_data, color=color2, linewidth=2, 
+                           marker='s', markersize=4, label='Chapters')
+            ax2.tick_params(axis='y', labelcolor=color2)
+            
+            # Format x-axis
+            if len(labels) > 15:
+                step = max(1, len(labels) // 10)
+                ax1.set_xticks(range(0, len(labels), step))
+                ax1.set_xticklabels([labels[i] for i in range(0, len(labels), step)], rotation=45)
+            else:
+                ax1.set_xticklabels(labels, rotation=45)
+            
+            # Add title
+            title = f'Average Views & Chapters Over Time - {book_title}'
+            ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
+            
+            # Add legend
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        
+        # Save to BytesIO buffer
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+        buffer.seek(0)
+        
+        # Clean up
+        plt.close()
+        
+        return buffer
+       
+    except Exception as e:
+        print(f"[CHART] Error creating average views chart image: {e}")
+        plt.close()  # Ensure we clean up even on error
+        return None
+
+# NEW: Chart creation function for ratings metrics (dual-axis like admin dashboard)
+def create_ratings_chart_image(chart_data, book_title, days_param):
+    """Create a ratings metrics chart with dual axis (matching admin dashboard) using matplotlib"""
+    try:
+        # Set up the plot
+        plt.style.use('default')
+        fig, ax1 = plt.subplots(figsize=(12, 6))
+        
+        # Prepare data - USE AS-IS from API (already filtered)
+        labels = chart_data.get('labels', [])
+        timestamps = chart_data.get('timestamps', [])
+        overall_score_data = chart_data.get('overall_score', [])
+        ratings_data = chart_data.get('ratings', [])
+        
+        if not overall_score_data or not labels or not ratings_data:
+            # Create a "no data" chart
+            ax1.text(0.5, 0.5, 'No rating data available', 
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax1.transAxes, fontsize=16, color='red')
+            ax1.set_title(f'Rating Metrics Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
+        else:
+            # Trim leading zeros for better visualization
+            labels, overall_score_data, timestamps = trim_leading_zeros(labels, overall_score_data, timestamps)
+            _, ratings_data, _ = trim_leading_zeros(labels, ratings_data, None)
+            
+            # Create dual-axis chart (matching admin dashboard colors)
+            color1 = 'rgb(54, 162, 235)'  # Blue for rating score (from admin.js)
+            color2 = 'rgb(255, 206, 86)'  # Yellow for ratings count (from admin.js)
+            
+            # Convert rgb colors to hex for matplotlib
+            color1_hex = '#36A2EB'  # Blue
+            color2_hex = '#FFCE56'  # Yellow
+            
+            # Plot overall score on primary axis (0-5 scale)
+            ax1.set_xlabel('Date', fontsize=12)
+            ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
+            ax1.set_ylim(0, 5)  # Rating scale is 0-5
+            line1 = ax1.plot(labels, overall_score_data, color=color1_hex, linewidth=2, 
+                           marker='o', markersize=4, label='Overall Score', 
+                           markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
+            ax1.tick_params(axis='y', labelcolor=color1_hex)
+            ax1.grid(True, alpha=0.3, color='rgba(0, 0, 0, 0.1)')
+            
+            # Create secondary axis for ratings count
+            ax2 = ax1.twinx()
+            ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
+            line2 = ax2.plot(labels, ratings_data, color=color2_hex, linewidth=2, 
+                           marker='o', markersize=4, label='Ratings Count',
+                           markerfacecolor=color2_hex, markeredgecolor='white', markeredgewidth=2)
+            ax2.tick_params(axis='y', labelcolor=color2_hex)
+            ax2.set_ylim(bottom=0)  # Start from 0
+            
+            # Format ratings count with commas
+            ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
+            
+            # Format x-axis
+            if len(labels) > 15:
+                step = max(1, len(labels) // 10)
+                ax1.set_xticks(range(0, len(labels), step))
+                ax1.set_xticklabels([labels[i] for i in range(0, len(labels), step)], rotation=45)
+            else:
+                ax1.set_xticklabels(labels, rotation=45)
+            
+            # Add title (matching admin dashboard)
+            title = f'Rating Metrics Over Time - {book_title}'
+            ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
+            
+            # Add legend (matching admin dashboard style)
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', frameon=True, fancybox=True, shadow=True)
+        
+        # Adjust layout and save
+        plt.tight_layout()
+        
+        # Save to BytesIO buffer
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+        buffer.seek(0)
+        
+        # Clean up
+        plt.close()
+        
+        return buffer
+       
+    except Exception as e:
+        print(f"[CHART] Error creating ratings chart image: {e}")
+        plt.close()  # Ensure we clean up even on error
+        return None
 
 def create_result_embed(result, tag1, tag2, interaction):
     """
