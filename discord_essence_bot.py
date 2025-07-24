@@ -1439,7 +1439,8 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             
             # Format x-axis for dates with exactly 12 date points
             ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-            ax1.xaxis.set_major_locator(mdates.MaxNLocator(nbins=12))  # Exactly 12 date points
+            from matplotlib.ticker import MaxNLocator
+            ax1.xaxis.set_major_locator(MaxNLocator(nbins=12))  # Exactly 12 date points
             
             # Rotate date labels for better readability
             plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
@@ -1605,7 +1606,8 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 
                 # Format x-axis for dates with exactly 12 date points
                 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-                ax1.xaxis.set_major_locator(mdates.MaxNLocator(nbins=12))  # Exactly 12 date points
+                from matplotlib.ticker import MaxNLocator
+                ax1.xaxis.set_major_locator(MaxNLocator(nbins=12))  # Exactly 12 date points
                 
                 # Rotate date labels for better readability
                 plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
