@@ -1416,8 +1416,8 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Ratings Count',
                            markerfacecolor=color2_hex, markeredgewidth=0)
             
-            # Add fill under the ratings count curve for better visibility (matching yellow datapoints)
-            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color=color2_hex)
+            # Add fill under the ratings count curve - EXPLICITLY using yellow color
+            ax2.fill_between(date_objects, filtered_ratings, alpha=0.2, color='#FFCE56')  # Explicit yellow color
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
@@ -1437,9 +1437,9 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             # Format ratings count with commas
             ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x):,}'))
             
-            # Format x-axis for dates
+            # Format x-axis for dates with exactly 12 date points
             ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-            ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))  # Every 2 weeks
+            ax1.xaxis.set_major_locator(mdates.MaxNLocator(nbins=12))  # Exactly 12 date points
             
             # Rotate date labels for better readability
             plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
@@ -1585,12 +1585,14 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 # 4. Filling under total chapters chart  
                 # 5. Scale total chapters chart so that it is always below average view chart
                 
-                # Calculate proper scaling to keep chapters visually below average views
+                # Calculate proper scaling to ensure chapters NEVER go above average views
                 max_chapters = max(filtered_chapters) if filtered_chapters else 1
+                min_avg_views = min(filtered_avg_views) if filtered_avg_views else 0
                 
-                # Set chapters axis to scale so max chapters appears at ~70% of avg views scale
-                chapters_visual_max = max_avg_views * 0.7
-                ax2.set_ylim(0, max_chapters * 1.1)  # Keep original scale for y-axis labels
+                # Set chapters y-axis max to be 60% of the minimum average views value
+                # This ensures chapters line stays well below the average views line
+                chapters_max_scale = min_avg_views * 0.6 if min_avg_views > 0 else max_chapters * 0.5
+                ax2.set_ylim(0, chapters_max_scale)  # Scale to keep chapters below avg views
                 
                 line2 = ax2.plot(date_objects, filtered_chapters, color=color2, linewidth=2, 
                                marker='o', markersize=4, label='Chapters',
@@ -1601,9 +1603,9 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 
                 ax2.tick_params(axis='y', labelcolor=color2)
                 
-                # Format x-axis for dates with more frequent labels
+                # Format x-axis for dates with exactly 12 date points
                 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-                ax1.xaxis.set_major_locator(mdates.DayLocator(interval=3))  # Every 3 days instead of 2 weeks
+                ax1.xaxis.set_major_locator(mdates.MaxNLocator(nbins=12))  # Exactly 12 date points
                 
                 # Rotate date labels for better readability
                 plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
