@@ -1342,27 +1342,13 @@ def calculate_relative_rarity(book_count, total_books):
 
 # NEW: Chart creation function for average views with chapters reference
 def create_average_views_chart_image(chart_data, book_title, days_param):
-    """Create an average views chart with chapters reference using matplotlib - DEBUG VERSION"""
+    """Create an average views chart with chapters reference using matplotlib"""
     try:
         print(f"[CHART DEBUG] Starting chart creation for {book_title}")
-        print(f"[CHART DEBUG] Chart data keys: {list(chart_data.keys())}")
-        
-        # Check each field individually
-        for key in ['labels', 'timestamps', 'average_views', 'chapters', 'total_views']:
-            if key in chart_data:
-                data_length = len(chart_data[key])
-                print(f"[CHART DEBUG] {key}: {data_length} items")
-                if data_length > 0:
-                    print(f"[CHART DEBUG] {key} first 3 items: {chart_data[key][:3]}")
-                else:
-                    print(f"[CHART DEBUG] {key} is EMPTY")
-            else:
-                print(f"[CHART DEBUG] {key} is MISSING from chart_data")
         
         # Set up the plot
         plt.style.use('default')
         fig, ax1 = plt.subplots(figsize=(12, 6))
-        print(f"[CHART DEBUG] Matplotlib figure created successfully")
         
         # Prepare data - USE AS-IS from API (already filtered)
         labels = chart_data.get('labels', [])
@@ -1370,7 +1356,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         average_views_data = chart_data.get('average_views', [])
         chapters_data = chart_data.get('chapters', [])
         
-        print(f"[CHART DEBUG] Data extracted - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
+        print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
         
         # Check if we have average_views data - this field might not be in the API response yet
         if not average_views_data or len(average_views_data) == 0:
@@ -1386,24 +1372,38 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                     else:
                         average_views_data.append(0)
                 print(f"[CHART DEBUG] Calculated {len(average_views_data)} average_views values")
-                print(f"[CHART DEBUG] Sample calculated values: {average_views_data[:5]}")
-            else:
-                print(f"[CHART DEBUG] Cannot calculate - total_views:{len(total_views_data) if total_views_data else 0}, chapters:{len(chapters_data)}")
         
         if not average_views_data or not labels or not chapters_data:
-            print(f"[CHART DEBUG] Creating 'no data' chart")
             # Create a "no data" chart
             ax1.text(0.5, 0.5, 'No average views or chapters data available\n(Check logs for details)', 
                     horizontalalignment='center', verticalalignment='center',
                     transform=ax1.transAxes, fontsize=14, color='red')
             ax1.set_title(f'Average Views & Chapters Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
         else:
-            print(f"[CHART DEBUG] Creating actual chart with data")
-            # Trim leading zeros for better visualization
-            labels, average_views_data, timestamps = trim_leading_zeros(labels, average_views_data, timestamps)
-            _, chapters_data, _ = trim_leading_zeros(labels, chapters_data, None)
+            # FIXED: Trim leading zeros for ALL arrays consistently
+            # Find the first non-zero index for average_views
+            first_nonzero_index = 0
+            for i, value in enumerate(average_views_data):
+                if value > 0:
+                    first_nonzero_index = i
+                    break
+            
+            print(f"[CHART DEBUG] First non-zero average_views at index: {first_nonzero_index}")
+            
+            # Trim ALL arrays from the same starting point
+            if first_nonzero_index > 0:
+                labels = labels[first_nonzero_index:]
+                average_views_data = average_views_data[first_nonzero_index:]
+                chapters_data = chapters_data[first_nonzero_index:]
+                if timestamps:
+                    timestamps = timestamps[first_nonzero_index:]
             
             print(f"[CHART DEBUG] After trimming - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
+            
+            # Verify all arrays have the same length
+            if len(labels) != len(average_views_data) or len(labels) != len(chapters_data):
+                print(f"[CHART DEBUG] ERROR: Array length mismatch after trimming!")
+                raise ValueError(f"Array lengths don't match: labels={len(labels)}, avg_views={len(average_views_data)}, chapters={len(chapters_data)}")
             
             # Create dual-axis chart
             color1 = '#9B59B6'  # Purple for average views
@@ -1426,7 +1426,6 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                            marker='s', markersize=4, label='Chapters')
             ax2.tick_params(axis='y', labelcolor=color2)
             
-            print(f"[CHART DEBUG] Formatting x-axis")
             # Format x-axis
             if len(labels) > 15:
                 step = max(1, len(labels) // 10)
@@ -1439,17 +1438,14 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             title = f'Average Views & Chapters Over Time - {book_title}'
             ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
             
-            print(f"[CHART DEBUG] Adding legend")
             # Add legend
             lines1, labels1 = ax1.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
         
-        print(f"[CHART DEBUG] Adjusting layout")
         # Adjust layout and save
         plt.tight_layout()
         
-        print(f"[CHART DEBUG] Saving to buffer")
         # Save to BytesIO buffer
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
@@ -1473,6 +1469,8 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
 def create_ratings_chart_image(chart_data, book_title, days_param):
     """Create a ratings metrics chart with dual axis (matching admin dashboard) using matplotlib"""
     try:
+        print(f"[CHART DEBUG] Starting ratings chart creation for {book_title}")
+        
         # Set up the plot
         plt.style.use('default')
         fig, ax1 = plt.subplots(figsize=(12, 6))
@@ -1483,6 +1481,8 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         overall_score_data = chart_data.get('overall_score', [])
         ratings_data = chart_data.get('ratings', [])
         
+        print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
+        
         if not overall_score_data or not labels or not ratings_data:
             # Create a "no data" chart
             ax1.text(0.5, 0.5, 'No rating data available', 
@@ -1490,18 +1490,36 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                     transform=ax1.transAxes, fontsize=16, color='red')
             ax1.set_title(f'Rating Metrics Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
         else:
-            # Trim leading zeros for better visualization
-            labels, overall_score_data, timestamps = trim_leading_zeros(labels, overall_score_data, timestamps)
-            _, ratings_data, _ = trim_leading_zeros(labels, ratings_data, None)
+            # FIXED: Trim leading zeros for ALL arrays consistently
+            # Find the first non-zero index for ratings (since scores might always have values)
+            first_nonzero_index = 0
+            for i, value in enumerate(ratings_data):
+                if value > 0:
+                    first_nonzero_index = i
+                    break
+            
+            print(f"[CHART DEBUG] First non-zero ratings at index: {first_nonzero_index}")
+            
+            # Trim ALL arrays from the same starting point
+            if first_nonzero_index > 0:
+                labels = labels[first_nonzero_index:]
+                overall_score_data = overall_score_data[first_nonzero_index:]
+                ratings_data = ratings_data[first_nonzero_index:]
+                if timestamps:
+                    timestamps = timestamps[first_nonzero_index:]
+            
+            print(f"[CHART DEBUG] After trimming - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
+            
+            # Verify all arrays have the same length
+            if len(labels) != len(overall_score_data) or len(labels) != len(ratings_data):
+                print(f"[CHART DEBUG] ERROR: Array length mismatch after trimming!")
+                raise ValueError(f"Array lengths don't match: labels={len(labels)}, scores={len(overall_score_data)}, ratings={len(ratings_data)}")
             
             # Create dual-axis chart (matching admin dashboard colors)
-            color1 = 'rgb(54, 162, 235)'  # Blue for rating score (from admin.js)
-            color2 = 'rgb(255, 206, 86)'  # Yellow for ratings count (from admin.js)
+            color1_hex = '#36A2EB'  # Blue for rating score (from admin.js)
+            color2_hex = '#FFCE56'  # Yellow for ratings count (from admin.js)
             
-            # Convert rgb colors to hex for matplotlib
-            color1_hex = '#36A2EB'  # Blue
-            color2_hex = '#FFCE56'  # Yellow
-            
+            print(f"[CHART DEBUG] Plotting overall score data")
             # Plot overall score on primary axis (0-5 scale)
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
@@ -1510,8 +1528,9 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                            marker='o', markersize=4, label='Overall Score', 
                            markerfacecolor=color1_hex, markeredgecolor='white', markeredgewidth=2)
             ax1.tick_params(axis='y', labelcolor=color1_hex)
-            ax1.grid(True, alpha=0.3, color='rgba(0, 0, 0, 0.1)')
+            ax1.grid(True, alpha=0.3)
             
+            print(f"[CHART DEBUG] Plotting ratings count data")
             # Create secondary axis for ratings count
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
@@ -1549,13 +1568,17 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         buffer.seek(0)
         
+        print(f"[CHART DEBUG] Ratings chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
+        
         # Clean up
         plt.close()
         
         return buffer
        
     except Exception as e:
-        print(f"[CHART] Error creating ratings chart image: {e}")
+        print(f"[CHART DEBUG] ERROR in ratings chart creation: {e}")
+        import traceback
+        traceback.print_exc()
         plt.close()  # Ensure we clean up even on error
         return None
 
