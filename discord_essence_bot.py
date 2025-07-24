@@ -14,8 +14,11 @@ from urllib.parse import urlparse, parse_qs
 
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger('discord')
+
+logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
+logging.getLogger('matplotlib.category').setLevel(logging.WARNING)
 
 # Bot configuration
 BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -1339,11 +1342,27 @@ def calculate_relative_rarity(book_count, total_books):
 
 # NEW: Chart creation function for average views with chapters reference
 def create_average_views_chart_image(chart_data, book_title, days_param):
-    """Create an average views chart with chapters reference using matplotlib"""
+    """Create an average views chart with chapters reference using matplotlib - DEBUG VERSION"""
     try:
+        print(f"[CHART DEBUG] Starting chart creation for {book_title}")
+        print(f"[CHART DEBUG] Chart data keys: {list(chart_data.keys())}")
+        
+        # Check each field individually
+        for key in ['labels', 'timestamps', 'average_views', 'chapters', 'total_views']:
+            if key in chart_data:
+                data_length = len(chart_data[key])
+                print(f"[CHART DEBUG] {key}: {data_length} items")
+                if data_length > 0:
+                    print(f"[CHART DEBUG] {key} first 3 items: {chart_data[key][:3]}")
+                else:
+                    print(f"[CHART DEBUG] {key} is EMPTY")
+            else:
+                print(f"[CHART DEBUG] {key} is MISSING from chart_data")
+        
         # Set up the plot
         plt.style.use('default')
         fig, ax1 = plt.subplots(figsize=(12, 6))
+        print(f"[CHART DEBUG] Matplotlib figure created successfully")
         
         # Prepare data - USE AS-IS from API (already filtered)
         labels = chart_data.get('labels', [])
@@ -1351,21 +1370,46 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         average_views_data = chart_data.get('average_views', [])
         chapters_data = chart_data.get('chapters', [])
         
+        print(f"[CHART DEBUG] Data extracted - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
+        
+        # Check if we have average_views data - this field might not be in the API response yet
+        if not average_views_data or len(average_views_data) == 0:
+            print(f"[CHART DEBUG] No average_views data, trying to calculate from total_views/chapters")
+            # Try to calculate average views from total_views and chapters if possible
+            total_views_data = chart_data.get('total_views', [])
+            if total_views_data and chapters_data and len(total_views_data) == len(chapters_data):
+                average_views_data = []
+                for i in range(len(total_views_data)):
+                    if chapters_data[i] > 0:
+                        avg_views = total_views_data[i] / chapters_data[i]
+                        average_views_data.append(int(avg_views))
+                    else:
+                        average_views_data.append(0)
+                print(f"[CHART DEBUG] Calculated {len(average_views_data)} average_views values")
+                print(f"[CHART DEBUG] Sample calculated values: {average_views_data[:5]}")
+            else:
+                print(f"[CHART DEBUG] Cannot calculate - total_views:{len(total_views_data) if total_views_data else 0}, chapters:{len(chapters_data)}")
+        
         if not average_views_data or not labels or not chapters_data:
+            print(f"[CHART DEBUG] Creating 'no data' chart")
             # Create a "no data" chart
-            ax1.text(0.5, 0.5, 'No average views or chapters data available', 
+            ax1.text(0.5, 0.5, 'No average views or chapters data available\n(Check logs for details)', 
                     horizontalalignment='center', verticalalignment='center',
-                    transform=ax1.transAxes, fontsize=16, color='red')
+                    transform=ax1.transAxes, fontsize=14, color='red')
             ax1.set_title(f'Average Views & Chapters Over Time - {book_title}', fontsize=14, fontweight='bold', pad=20)
         else:
+            print(f"[CHART DEBUG] Creating actual chart with data")
             # Trim leading zeros for better visualization
             labels, average_views_data, timestamps = trim_leading_zeros(labels, average_views_data, timestamps)
             _, chapters_data, _ = trim_leading_zeros(labels, chapters_data, None)
+            
+            print(f"[CHART DEBUG] After trimming - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
             
             # Create dual-axis chart
             color1 = '#9B59B6'  # Purple for average views
             color2 = '#F39C12'  # Orange for chapters
             
+            print(f"[CHART DEBUG] Plotting average views data")
             # Plot average views on primary axis
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
@@ -1374,6 +1418,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             ax1.tick_params(axis='y', labelcolor=color1)
             ax1.grid(True, alpha=0.3)
             
+            print(f"[CHART DEBUG] Plotting chapters data")
             # Create secondary axis for chapters
             ax2 = ax1.twinx()
             ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
@@ -1381,6 +1426,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                            marker='s', markersize=4, label='Chapters')
             ax2.tick_params(axis='y', labelcolor=color2)
             
+            print(f"[CHART DEBUG] Formatting x-axis")
             # Format x-axis
             if len(labels) > 15:
                 step = max(1, len(labels) // 10)
@@ -1393,18 +1439,23 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
             title = f'Average Views & Chapters Over Time - {book_title}'
             ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
             
+            print(f"[CHART DEBUG] Adding legend")
             # Add legend
             lines1, labels1 = ax1.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
         
+        print(f"[CHART DEBUG] Adjusting layout")
         # Adjust layout and save
         plt.tight_layout()
         
+        print(f"[CHART DEBUG] Saving to buffer")
         # Save to BytesIO buffer
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         buffer.seek(0)
+        
+        print(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
         
         # Clean up
         plt.close()
@@ -1412,7 +1463,9 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         return buffer
        
     except Exception as e:
-        print(f"[CHART] Error creating average views chart image: {e}")
+        print(f"[CHART DEBUG] ERROR in chart creation: {e}")
+        import traceback
+        traceback.print_exc()
         plt.close()  # Ensure we clean up even on error
         return None
 
