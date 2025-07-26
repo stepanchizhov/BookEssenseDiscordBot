@@ -982,7 +982,10 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
         
         print(f"[RR-OTHERS-ALSO-LIKED] Making API request to: {url}")
         
-        async with session.post(url, json=data, headers=headers) as response:
+        # Set a longer timeout for this API call
+        timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
+        
+        async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
             response_text = await response.text()
             print(f"[RR-OTHERS-ALSO-LIKED] API Status: {response.status}")
             
@@ -1003,6 +1006,21 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
                 )
                 print(f"[ERROR] Others Also Liked API returned status {response.status}")
                 
+    except asyncio.TimeoutError:
+        print(f"[ERROR] API timeout in rr-others-also-liked command")
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "⏰ Request timed out. The server might be busy. Please try again.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "⏰ Request timed out. The server might be busy. Please try again.",
+                    ephemeral=True
+                )
+        except:
+            print("[ERROR] Could not send timeout message")
     except Exception as e:
         print(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
         import traceback
@@ -1452,7 +1470,7 @@ def create_others_also_liked_embed(result, user):
     
     # Add books
     if books:
-        for i, book in enumerate(books[:6]):  # Limit to 10 for display
+        for i, book in enumerate(books[:10]):  # Limit to 10 for display
             book_value = f"**[{book['title']}]({book['url']})**\n"
             book_value += f"*by {book['author']}*\n"
             book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00"
