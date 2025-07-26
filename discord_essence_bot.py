@@ -1437,7 +1437,7 @@ def create_others_also_liked_embed(result, user):
     
     # Add statistics
     stats_value = f"**{total_books:,}** books reference this title"
-    if user_tier in ['administrator', 'editor', 'premium', 'pro', 'pro_free']:
+    if user_tier in ['administrator', 'admin', 'editor', 'patreon_premium', 'patreon_supporter', 'premium', 'pro', 'pro_free']:
         stats_value += f"\n**Premium Access** - Showing all {len(books)} books"
     else:
         stats_value += f"\n**Free Tier** - Showing top book only"
