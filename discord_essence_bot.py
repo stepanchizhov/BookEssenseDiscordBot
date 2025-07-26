@@ -1437,7 +1437,7 @@ def create_others_also_liked_embed(result, user):
     
     # Add statistics
     stats_value = f"**{total_books:,}** books reference this title"
-    if user_tier in ['premium', 'pro', 'admin']:
+    if user_tier in ['administrator', 'editor', 'premium', 'pro', 'pro_free']:
         stats_value += f"\n✅ **Premium Access** - Showing all {len(books)} books"
     else:
         stats_value += f"\n🔒 **Free Tier** - Showing top book only"
@@ -1459,12 +1459,16 @@ def create_others_also_liked_embed(result, user):
             if book.get('status'):
                 book_value += f" • 📊 {book['status'].title()}"
             
-            # Add position indicator for premium users
+            # Add position indicator - fixed logic
             position = ""
-            if user_tier in ['premium', 'pro', 'admin'] and i == 0:
+            if i == 0:
                 position = "🥇 Most Popular - "
-            elif user_tier not in ['premium', 'pro', 'admin']:
-                position = "🥇 Most Popular - "
+            elif i == 1:
+                position = "🥈 Second - "
+            elif i == 2:
+                position = "🥉 Third - "
+            else:
+                position = f"#{i+1} - "
             
             embed.add_field(
                 name=f"📚 {position}Book {i+1}",
@@ -1479,13 +1483,13 @@ def create_others_also_liked_embed(result, user):
         )
     
     # Add tier explanation
-    if user_tier not in ['premium', 'pro', 'admin'] and total_books > 1:
+    if user_tier not in ['administrator', 'editor', 'premium', 'pro', 'pro_free'] and total_books > 1:
         embed.add_field(
-            name="💎 Want to see all books?",
+            name="Want to see all books?",
             value=(
                 f"**{total_books - 1} more books** reference this title!\n"
-                "[**Upgrade to Premium**](https://patreon.com/stepanchizhov) to see the complete list.\n"
-                "Connect your Discord in [Stepan's Discord](https://discord.gg/xvw9vbvrwj) after subscribing."
+                "[**Join any paid tier**](https://patreon.com/stepanchizhov) to see the complete list.\n"
+                "Message [Stepan Chizhov](https://discord.gg/xvw9vbvrwj) to get access after subscribing."
             ),
             inline=False
         )
