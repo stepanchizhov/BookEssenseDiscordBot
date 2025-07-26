@@ -1470,7 +1470,7 @@ def create_others_also_liked_embed(result, user):
     
     # Add books
     if books:
-        for i, book in enumerate(books[:6]):  # Limit to 6 for display
+        for i, book in enumerate(books[:10]):  # Limit to 10 for display
             book_value = f"**[{book['title']}]({book['url']})**\n"
             book_value += f"*by {book['author']}*\n"
             book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00"
