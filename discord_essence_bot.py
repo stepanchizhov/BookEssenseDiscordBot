@@ -948,6 +948,74 @@ async def cleanup():
         await session.close()
         print('[CLEANUP] Session closed')
 
+@bot.tree.command(name="rr-others-also-liked", description="Show books that have this book in their 'Others Also Liked' section")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL"
+)
+async def rr_others_also_liked(interaction: discord.Interaction, book_input: str):
+    """Show books that reference the given book in their 'Others Also Liked' section"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-OTHERS-ALSO-LIKED] Command called by {interaction.user}")
+    print(f"[RR-OTHERS-ALSO-LIKED] Book input: '{book_input}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Get the session
+        global session
+        
+        # Make API request to get others also liked data
+        data = {
+            'book_input': book_input.strip(),
+            'bot_token': WP_BOT_TOKEN,
+            'user_id': str(interaction.user.id)  # Discord user ID for role checking
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/others-also-liked"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        print(f"[RR-OTHERS-ALSO-LIKED] Making API request to: {url}")
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            response_text = await response.text()
+            print(f"[RR-OTHERS-ALSO-LIKED] API Status: {response.status}")
+            
+            if response.status == 200:
+                result = json.loads(response_text)
+                
+                if result.get('success'):
+                    embed = create_others_also_liked_embed(result, interaction.user)
+                    await interaction.followup.send(embed=embed)
+                    print("[RR-OTHERS-ALSO-LIKED] Successfully sent embed")
+                else:
+                    error_msg = result.get('message', 'Could not fetch data for the specified book.')
+                    await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
+            else:
+                await interaction.followup.send(
+                    f"❌ Error {response.status} from the database!",
+                    ephemeral=True
+                )
+                print(f"[ERROR] Others Also Liked API returned status {response.status}")
+                
+    except Exception as e:
+        print(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while fetching 'Others Also Liked' data!",
+                ephemeral=True
+            )
+        except:
+            print("[ERROR] Failed to send error message to user")
+
 @bot.tree.command(name="rr-average-views", description="Show average views and chapters over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
@@ -1339,6 +1407,95 @@ def calculate_relative_rarity(book_count, total_books):
             'tier': 'common',
             'flavor': 'A well-established confluence, beloved by many'
         }
+
+def create_others_also_liked_embed(result, user):
+    """Create embed showing books that reference the given book in 'Others Also Liked'"""
+    global command_counter
+    
+    book_info = result.get('book_info', {})
+    books = result.get('books', [])
+    user_tier = result.get('user_tier', 'free')
+    total_books = result.get('total_books', 0)
+    
+    # Create main embed
+    embed = discord.Embed(
+        title="📚 Others Also Liked This Book",
+        description=f"Books that feature **[{book_info.get('title', 'Unknown')}]({book_info.get('url', '#')})** in their 'Others Also Liked' section",
+        color=0x00A86B  # Green color
+    )
+    
+    # Add book info field
+    book_field = f"**Author:** {book_info.get('author', 'Unknown')}\n"
+    book_field += f"**Status:** {book_info.get('status', 'Unknown').title()}\n"
+    book_field += f"**Royal Road ID:** {book_info.get('id', 'Unknown')}"
+    
+    embed.add_field(
+        name="📖 Target Book",
+        value=book_field,
+        inline=False
+    )
+    
+    # Add statistics
+    stats_value = f"**{total_books:,}** books reference this title"
+    if user_tier in ['premium', 'pro', 'admin']:
+        stats_value += f"\n✅ **Premium Access** - Showing all {len(books)} books"
+    else:
+        stats_value += f"\n🔒 **Free Tier** - Showing top book only"
+        if total_books > 1:
+            stats_value += f"\n💎 [Upgrade for full access](https://patreon.com/stepanchizhov)"
+    
+    embed.add_field(
+        name="📊 Statistics",
+        value=stats_value,
+        inline=False
+    )
+    
+    # Add books
+    if books:
+        for i, book in enumerate(books[:5]):  # Limit to 5 for display
+            book_value = f"**[{book['title']}]({book['url']})**\n"
+            book_value += f"*by {book['author']}*\n"
+            book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00"
+            if book.get('status'):
+                book_value += f" • 📊 {book['status'].title()}"
+            
+            # Add position indicator for premium users
+            position = ""
+            if user_tier in ['premium', 'pro', 'admin'] and i == 0:
+                position = "🥇 Most Popular - "
+            elif user_tier not in ['premium', 'pro', 'admin']:
+                position = "🥇 Most Popular - "
+            
+            embed.add_field(
+                name=f"📚 {position}Book {i+1}",
+                value=book_value,
+                inline=True
+            )
+    else:
+        embed.add_field(
+            name="📚 No Books Found",
+            value="This book is not referenced in any 'Others Also Liked' sections yet.",
+            inline=False
+        )
+    
+    # Add tier explanation
+    if user_tier not in ['premium', 'pro', 'admin'] and total_books > 1:
+        embed.add_field(
+            name="💎 Want to see all books?",
+            value=(
+                f"**{total_books - 1} more books** reference this title!\n"
+                "[**Upgrade to Premium**](https://patreon.com/stepanchizhov) to see the complete list.\n"
+                "Connect your Discord in [Stepan's Discord](https://discord.gg/xvw9vbvrwj) after subscribing."
+            ),
+            inline=False
+        )
+    
+    # Add promotional field
+    embed = add_promotional_field(embed)
+    
+    embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics • Connect Discord for Premium access")
+    
+    return embed
 
 # NEW: Chart creation function for average views with chapters reference
 def create_ratings_chart_image(chart_data, book_title, days_param):
