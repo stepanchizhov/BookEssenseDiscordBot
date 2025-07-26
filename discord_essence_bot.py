@@ -970,7 +970,7 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
         data = {
             'book_input': book_input.strip(),
             'bot_token': WP_BOT_TOKEN,
-            'user_id': str(interaction.user.id)  # Discord user ID for role checking
+            'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"  # Use username instead of ID
         }
         
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/others-also-liked"
@@ -1408,6 +1408,75 @@ def calculate_relative_rarity(book_count, total_books):
             'flavor': 'A well-established confluence, beloved by many'
         }
 
+# NEW: Others Also Liked command
+@bot.tree.command(name="rr-others-also-liked", description="Show books that have this book in their 'Others Also Liked' section")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL"
+)
+async def rr_others_also_liked(interaction: discord.Interaction, book_input: str):
+    """Show books that reference the given book in their 'Others Also Liked' section"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-OTHERS-ALSO-LIKED] Command called by {interaction.user}")
+    print(f"[RR-OTHERS-ALSO-LIKED] Book input: '{book_input}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Get the session
+        global session
+        
+        # Make API request to get others also liked data
+        data = {
+            'book_input': book_input.strip(),
+            'bot_token': WP_BOT_TOKEN,
+            'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"  # Use username instead of ID
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/others-also-liked"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        print(f"[RR-OTHERS-ALSO-LIKED] Making API request to: {url}")
+        
+        async with session.post(url, json=data, headers=headers) as response:
+            response_text = await response.text()
+            print(f"[RR-OTHERS-ALSO-LIKED] API Status: {response.status}")
+            
+            if response.status == 200:
+                result = json.loads(response_text)
+                
+                if result.get('success'):
+                    embed = create_others_also_liked_embed(result, interaction.user)
+                    await interaction.followup.send(embed=embed)
+                    print("[RR-OTHERS-ALSO-LIKED] Successfully sent embed")
+                else:
+                    error_msg = result.get('message', 'Could not fetch data for the specified book.')
+                    await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
+            else:
+                await interaction.followup.send(
+                    f"❌ Error {response.status} from the database!",
+                    ephemeral=True
+                )
+                print(f"[ERROR] Others Also Liked API returned status {response.status}")
+                
+    except Exception as e:
+        print(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while fetching 'Others Also Liked' data!",
+                ephemeral=True
+            )
+        except:
+            print("[ERROR] Failed to send error message to user")
+
 def create_others_also_liked_embed(result, user):
     """Create embed showing books that reference the given book in 'Others Also Liked'"""
     global command_counter
@@ -1438,11 +1507,11 @@ def create_others_also_liked_embed(result, user):
     # Add statistics
     stats_value = f"**{total_books:,}** books reference this title"
     if user_tier in ['administrator', 'editor', 'premium', 'pro', 'pro_free']:
-        stats_value += f"\n✅ **Premium Access** - Showing all {len(books)} books"
+        stats_value += f"\n**Premium Access** - Showing all {len(books)} books"
     else:
-        stats_value += f"\n🔒 **Free Tier** - Showing top book only"
+        stats_value += f"\n**Free Tier** - Showing top book only"
         if total_books > 1:
-            stats_value += f"\n💎 [Upgrade for full access](https://patreon.com/stepanchizhov)"
+            stats_value += f"\n[Upgrade for full access](https://patreon.com/stepanchizhov)"
     
     embed.add_field(
         name="📊 Statistics",
@@ -1497,7 +1566,7 @@ def create_others_also_liked_embed(result, user):
     # Add promotional field
     embed = add_promotional_field(embed)
     
-    embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics • Connect Discord for Premium access")
+    embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics")
     
     return embed
 
