@@ -1651,10 +1651,10 @@ def create_others_also_liked_embed(result, user):
     # Add statistics with enhanced information
     stats_value = f"**{total_books:,}** books reference this title"
     if user_tier in ['administrator', 'admin', 'editor', 'patreon_premium', 'patreon_supporter', 'premium', 'pro', 'pro_free']:
-        if len(books) <= 10:
+        if len(books) <= 9:
             stats_value += f"\n**Premium Access** - Showing all {len(books)} books"
         else:
-            stats_value += f"\n**Premium Access** - Showing top 10 books"
+            stats_value += f"\n**Premium Access** - Showing top 9 books"
     else:
         stats_value += f"\n**Free Tier** - Showing top book only"
         if total_books > 1:
@@ -1672,7 +1672,7 @@ def create_others_also_liked_embed(result, user):
     
     # Add books with timestamp information
     if books:
-        for i, book in enumerate(books[:10]):  # Limit to 10 for display
+        for i, book in enumerate(books[:9]):  # Limit to 9 for display
             book_value = f"**[{book['title']}]({book['url']})**\n"
             book_value += f"*by {book['author']}*\n"
             book_value += f"👥 {book['followers']:,} followers\n⭐ {book['rating']:.2f}/5.00"
