@@ -1453,7 +1453,7 @@ def create_others_also_liked_embed(result, user):
         inline=False
     )
     
-    # Add statistics
+    # Add statistics with enhanced information
     stats_value = f"**{total_books:,}** books reference this title"
     if user_tier in ['administrator', 'admin', 'editor', 'patreon_premium', 'patreon_supporter', 'premium', 'pro', 'pro_free']:
         if len(books) <= 10:
@@ -1465,13 +1465,17 @@ def create_others_also_liked_embed(result, user):
         if total_books > 1:
             stats_value += f"\n[Upgrade for full access](https://patreon.com/stepanchizhov)"
     
+    # Add information about the timestamp data
+    if books and any(book.get('timestamp') for book in books):
+        stats_value += f"\n📅 *Showing when each book last referenced this title*"
+    
     embed.add_field(
         name="📊 Statistics",
         value=stats_value,
         inline=False
     )
     
-    # Add books
+    # Add books with timestamp information
     if books:
         for i, book in enumerate(books[:10]):  # Limit to 10 for display
             book_value = f"**[{book['title']}]({book['url']})**\n"
@@ -1479,6 +1483,19 @@ def create_others_also_liked_embed(result, user):
             book_value += f"👥 {book['followers']:,} followers • ⭐ {book['rating']:.2f}/5.00"
             if book.get('status'):
                 book_value += f" • 📊 {book['status'].title()}"
+            
+            # Add timestamp information if available
+            if book.get('timestamp'):
+                try:
+                    from datetime import datetime
+                    # Parse the timestamp (assuming it's in MySQL datetime format)
+                    timestamp_dt = datetime.strptime(book['timestamp'], '%Y-%m-%d %H:%M:%S')
+                    # Format as date only
+                    formatted_date = timestamp_dt.strftime('%b %d, %Y')
+                    book_value += f"\n📅 *Last referenced: {formatted_date}*"
+                except (ValueError, TypeError) as e:
+                    # If timestamp parsing fails, show raw timestamp
+                    book_value += f"\n📅 *Last referenced: {book['timestamp'][:10]}*"
             
             # Add position indicator - fixed logic
             position = ""
