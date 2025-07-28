@@ -1675,9 +1675,9 @@ def create_others_also_liked_embed(result, user):
         for i, book in enumerate(books[:10]):  # Limit to 10 for display
             book_value = f"**[{book['title']}]({book['url']})**\n"
             book_value += f"*by {book['author']}*\n"
-            book_value += f"{book['followers']:,} followers\n⭐ {book['rating']:.2f}/5.00"
+            book_value += f"👥 {book['followers']:,} followers\n⭐ {book['rating']:.2f}/5.00"
             if book.get('status'):
-                book_value += f"\n{book['status'].title()}"
+                book_value += f"\nStatus: {book['status'].title()}"
             
             # Add timestamp information if available
             if book.get('timestamp'):
