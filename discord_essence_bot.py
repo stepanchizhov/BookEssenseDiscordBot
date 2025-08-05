@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands
 import aiohttp
@@ -11,6 +12,8 @@ from datetime import datetime, timedelta
 import io
 import re
 from urllib.parse import urlparse, parse_qs
+
+from shoutout_module import ShoutoutModule
 
 
 # Set up logging
@@ -891,7 +894,7 @@ async def get_session():
 
 @bot.event
 async def on_ready():
-    global session
+    global session, shoutout_module
     session = await get_session()
     print(f'[READY] {bot.user} has connected to Discord!')
     print(f'[READY] Bot is in {len(bot.guilds)} guilds')
@@ -899,6 +902,10 @@ async def on_ready():
     # List all guilds
     for guild in bot.guilds:
         print(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
+        
+    # Initialize shoutout module
+    shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
+    print('[READY] Shoutout module initialized')        
     
     # Test WordPress connection immediately
     print('[TEST] Testing WordPress connection...')
@@ -3360,6 +3367,8 @@ signal.signal(signal.SIGINT, lambda s, f: cleanup_handler())
 
 # Global session variable
 session = None
+
+shoutout_module = None
 
 # Run the bot
 if __name__ == "__main__":
