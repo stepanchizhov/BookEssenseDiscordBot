@@ -20,13 +20,13 @@ class ShoutoutModule:
     Handles campaign creation, browsing, and application management
     """
     
-    def __init__(self, bot: commands.Bot, session: aiohttp.ClientSession, wp_api_url: str, wp_bot_token: str, tag_autocomplete_func=None, get_user_tier_func=None):
+    def __init__(self, bot: commands.Bot, session: aiohttp.ClientSession, wp_api_url: str, wp_bot_token: str, tag_autocomplete_func=None, get_user_info_func=None):
         self.bot = bot
         self.session = session
         self.wp_api_url = wp_api_url
         self.wp_bot_token = wp_bot_token
         self.tag_autocomplete = tag_autocomplete_func
-        self.get_user_tier = get_user_tier_func
+        self.get_user_info = get_user_info_func
         
         # Register commands immediately
         self.register_commands()
@@ -137,18 +137,20 @@ class ShoutoutModule:
         )
     
     async def check_user_tier(self, discord_user_id: str) -> str:
-        """Check user's subscription tier using the main bot's function"""
-        if self.get_user_tier:
+        """Check user's subscription tier using the main bot's user info function"""
+        if self.get_user_info:
             try:
-                # Use the same tier checking function as the main bot
-                tier = await self.get_user_tier(discord_user_id)
+                # Use the same user info function as the main bot
+                # This should make the same API call and return the result dict
+                result = await self.get_user_info(discord_user_id)
+                tier = result.get('user_tier', 'free')
                 logger.info(f"[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
                 return tier
             except Exception as e:
                 logger.error(f"[SHOUTOUT_MODULE] Error checking user tier: {e}")
                 return 'free'
         else:
-            logger.warning(f"[SHOUTOUT_MODULE] No get_user_tier function provided, defaulting to free")
+            logger.warning(f"[SHOUTOUT_MODULE] No get_user_info function provided, defaulting to free")
             return 'free'
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
