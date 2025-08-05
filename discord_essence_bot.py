@@ -905,7 +905,7 @@ async def on_ready():
         
     try:
         # Initialize shoutout module WITH tag_autocomplete function
-        shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
+        shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete, get_user_tier)
         logger.info("Shoutout module initialized successfully")
         
         # Sync commands to Discord
