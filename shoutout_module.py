@@ -34,53 +34,43 @@ class ShoutoutModule:
     def register_commands(self):
         """Register all shoutout-related commands with the bot"""
         
-        # Create command instances
-        campaign_create_cmd = discord.app_commands.Command(
-            name="shoutout-campaign-create",
-            description="Create a new shoutout campaign (DM only)",
-            callback=self.shoutout_campaign_create
-        )
+        # Create campaign creation command
+        @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign (DM only)")
+        async def shoutout_campaign_create(interaction: discord.Interaction):
+            """Create a new shoutout campaign - only works in DMs"""
+            if interaction.guild is not None:
+                await interaction.response.send_message(
+                    "❌ Campaign creation only works in DMs for privacy. Please send me a direct message and try again!",
+                    ephemeral=True
+                )
+                return
+            
+            await self.handle_campaign_create(interaction)
         
-        browse_cmd = discord.app_commands.Command(
-            name="shoutout-browse",
-            description="Browse available shoutout campaigns",
-            callback=self.shoutout_browse
+        # Create browse command with parameters
+        @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
+        @discord.app_commands.describe(
+            genre="Filter by book genre/tags",
+            platform="Filter by preferred platform",
+            min_followers="Minimum follower requirement",
+            max_followers="Maximum follower limit",
+            server_only="Only show campaigns from current server"
         )
-        
-        # Add parameters to browse command
-        browse_cmd.add_parameter(
-            name="genre",
-            description="Filter by book genre/tags",
-            required=False,
-            type=discord.app_commands.AppCommandOptionType.string
-        )
-        browse_cmd.add_parameter(
-            name="platform", 
-            description="Filter by preferred platform",
-            required=False,
-            type=discord.app_commands.AppCommandOptionType.string
-        )
-        browse_cmd.add_parameter(
-            name="min_followers",
-            description="Minimum follower requirement", 
-            required=False,
-            type=discord.app_commands.AppCommandOptionType.integer
-        )
-        browse_cmd.add_parameter(
-            name="max_followers",
-            description="Maximum follower limit",
-            required=False,
-            type=discord.app_commands.AppCommandOptionType.integer
-        )
-        browse_cmd.add_parameter(
-            name="server_only",
-            description="Only show campaigns from current server",
-            required=False,
-            type=discord.app_commands.AppCommandOptionType.boolean
-        )
+        async def shoutout_browse(
+            interaction: discord.Interaction,
+            genre: Optional[str] = None,
+            platform: Optional[str] = None,
+            min_followers: Optional[int] = None,
+            max_followers: Optional[int] = None,
+            server_only: Optional[bool] = False
+        ):
+            """Browse available shoutout campaigns"""
+            await self.handle_browse_campaigns(
+                interaction, genre, platform, min_followers, max_followers, server_only
+            )
         
         # Add autocomplete for genre and platform
-        @browse_cmd.autocomplete('genre')
+        @shoutout_browse.autocomplete('genre')
         async def genre_autocomplete(interaction: discord.Interaction, current: str):
             # Use the tag_autocomplete function if available, otherwise fallback to static list
             if self.tag_autocomplete:
@@ -97,17 +87,13 @@ class ShoutoutModule:
                     for genre in genres if current.lower() in genre.lower()
                 ][:25]
         
-        @browse_cmd.autocomplete('platform')
+        @shoutout_browse.autocomplete('platform')
         async def platform_autocomplete(interaction: discord.Interaction, current: str):
             platforms = ["Royal Road", "Scribble Hub", "Kindle", "Audible", "Other"]
             return [
                 discord.app_commands.Choice(name=platform, value=platform.lower().replace(" ", "_"))
                 for platform in platforms if current.lower() in platform.lower()
             ]
-        
-        # Add commands to the bot tree
-        self.bot.tree.add_command(campaign_create_cmd)
-        self.bot.tree.add_command(browse_cmd)
         
         logger.info("[SHOUTOUT_MODULE] Commands registered successfully")
     
