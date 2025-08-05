@@ -92,10 +92,10 @@ class ShoutoutModule:
                 for platform in platforms if current.lower() in platform.lower()
             ]
     
-    async def check_user_tier(self, discord_user_id: str) -> str:
+    async def check_user_tier(self, discord_username: str) -> str:
         """Check user's subscription tier via WordPress API"""
         try:
-            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/user-stats/{discord_user_id}"
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/user-stats/{discord_username}"
             headers = {
                 'Content-Type': 'application/json',
                 'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
@@ -108,7 +108,7 @@ class ShoutoutModule:
                     data = await response.json()
                     return data.get('tier', 'free')
                 else:
-                    logger.warning(f"Failed to get user tier for {discord_user_id}: {response.status}")
+                    logger.warning(f"Failed to get user tier for {discord_username}: {response.status}")
                     return 'free'
                     
         except Exception as e:
@@ -196,6 +196,7 @@ class ShoutoutModule:
         
         # Add user context
         filters['discord_user_id'] = str(interaction.user.id)
+        filters['discord_username'] = str(interaction.user.display_name)
         
         try:
             campaigns = await self.fetch_campaigns(filters)
