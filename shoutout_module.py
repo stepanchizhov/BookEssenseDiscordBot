@@ -14,20 +14,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-
 class ShoutoutModule:
     """
     Modular shoutout swap system for Discord bot
     Handles campaign creation, browsing, and application management
     """
     
-    def __init__(self, bot: commands.Bot, session: aiohttp.ClientSession, wp_api_url: str, wp_bot_token: str, tag_autocomplete_func=None):
+    def __init__(self, bot: commands.Bot, session: aiohttp.ClientSession, wp_api_url: str, wp_bot_token: str):
         self.bot = bot
         self.session = session
         self.wp_api_url = wp_api_url
         self.wp_bot_token = wp_bot_token
-        self.tag_autocomplete_func = tag_autocomplete_func
         
         # Register commands
         self.register_commands()
@@ -71,13 +68,10 @@ class ShoutoutModule:
         # Add autocomplete for genre and platform
         @shoutout_browse.autocomplete('genre')
         async def genre_autocomplete(interaction: discord.Interaction, current: str):
-            if self.tag_autocomplete_func:
-                return await self.tag_autocomplete_func(interaction, current)
-                
             genres = [
-                'Fantasy', 'Magic', 'LitRPG', 'Progression', 'Action', 
-                'Adventure', 'Romance', 'Female Lead', 'Male Lead', 'Dungeon',
-                'High Fantasy', 'Urban Fantasy', 'Sci-fi', 'Horror', 'Comedy'
+                "Fantasy", "Action", "Adventure", "Romance", "Sci-fi", "LitRPG", 
+                "Portal Fantasy", "Magic", "Progression", "Slice of Life",
+                "Drama", "Comedy", "Horror", "Mystery", "Thriller"
             ]
             return [
                 discord.app_commands.Choice(name=genre, value=genre)
@@ -92,10 +86,13 @@ class ShoutoutModule:
                 for platform in platforms if current.lower() in platform.lower()
             ]
     
-    async def check_user_tier(self, discord_username: str) -> str:
-        """Check user's subscription tier via WordPress API"""
+    async def check_user_tier(self, discord_user_id: str) -> str:
+        """Check user's subscription tier via WordPress API with DEBUG LOGGING"""
+        logger.info(f"[SHOUTOUT_DEBUG] ===== CHECKING USER TIER =====")
+        logger.info(f"[SHOUTOUT_DEBUG] Discord user ID: {discord_user_id}")
+        
         try:
-            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/user-stats/{discord_username}"
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/user-stats/{discord_user_id}"
             headers = {
                 'Content-Type': 'application/json',
                 'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
@@ -103,16 +100,34 @@ class ShoutoutModule:
                 'Authorization': f'Bearer {self.wp_bot_token}'
             }
             
+            logger.info(f"[SHOUTOUT_DEBUG] API URL: {url}")
+            logger.info(f"[SHOUTOUT_DEBUG] Headers: {headers}")
+            
             async with self.session.get(url, headers=headers) as response:
+                logger.info(f"[SHOUTOUT_DEBUG] Response status: {response.status}")
+                
                 if response.status == 200:
                     data = await response.json()
-                    return data.get('tier', 'free')
+                    logger.info(f"[SHOUTOUT_DEBUG] Response data: {data}")
+                    
+                    tier = data.get('tier', 'free')
+                    has_access = data.get('has_access', False)
+                    
+                    logger.info(f"[SHOUTOUT_DEBUG] Tier: {tier}")
+                    logger.info(f"[SHOUTOUT_DEBUG] Has access: {has_access}")
+                    logger.info(f"[SHOUTOUT_DEBUG] ===== TIER CHECK COMPLETE =====")
+                    
+                    return tier
                 else:
-                    logger.warning(f"Failed to get user tier for {discord_username}: {response.status}")
+                    error_text = await response.text()
+                    logger.warning(f"[SHOUTOUT_DEBUG] Failed to get user tier for {discord_user_id}: {response.status}")
+                    logger.warning(f"[SHOUTOUT_DEBUG] Error response: {error_text}")
                     return 'free'
                     
         except Exception as e:
-            logger.error(f"Error checking user tier: {e}")
+            logger.error(f"[SHOUTOUT_DEBUG] Error checking user tier: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_DEBUG] Traceback: {traceback.format_exc()}")
             return 'free'
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
@@ -196,7 +211,6 @@ class ShoutoutModule:
         
         # Add user context
         filters['discord_user_id'] = str(interaction.user.id)
-        filters['discord_username'] = str(interaction.user.display_name)
         
         try:
             campaigns = await self.fetch_campaigns(filters)
