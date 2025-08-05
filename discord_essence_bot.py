@@ -903,9 +903,18 @@ async def on_ready():
     for guild in bot.guilds:
         print(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
         
-    # Initialize shoutout module
-    shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
-    print('[READY] Shoutout module initialized')        
+    try:
+        # Initialize shoutout module WITH tag_autocomplete function
+        shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
+        logger.info("Shoutout module initialized successfully")
+        
+        # Sync commands to Discord
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} command(s)")   
+    except Exception as e:
+        logger.error(f"Error during bot startup: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
     
     # Test WordPress connection immediately
     print('[TEST] Testing WordPress connection...')
