@@ -88,69 +88,158 @@ class ShoutoutModule:
         )
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
-        """Handle campaign creation workflow - directly checks user tier via API"""
+        """Handle campaign creation workflow - with enhanced logging"""
         await interaction.response.defer(ephemeral=True)
 
-        print(f"[SHOUTOUT_MODULE] User {interaction.user.id} requesting campaign creation")
+        print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
+        print(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
+        print(f"[SHOUTOUT_MODULE] User Name: {interaction.user.name}")
+        print(f"[SHOUTOUT_MODULE] Discriminator: {interaction.user.discriminator}")
         
         try:
-            # Make direct API call to create campaign endpoint
-            # The WordPress API will handle user tier verification internally
+            # Build the request data
+            discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
+            
             data = {
                 'bot_token': self.wp_bot_token,
                 'discord_user_id': str(interaction.user.id),
-                'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}",
-                # Add placeholder data for initial tier check
-                'check_tier_only': True
+                'discord_username': discord_username,
+                'check_tier_only': True  # Just checking tier first
             }
             
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
+            
+            # Log the request details
+            print(f"[SHOUTOUT_MODULE] API URL: {url}")
+            print(f"[SHOUTOUT_MODULE] Request data: {json.dumps(data, indent=2)}")
+            print(f"[SHOUTOUT_MODULE] Bot token (first 10 chars): {self.wp_bot_token[:10] if self.wp_bot_token else 'None'}...")
+            
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {self.wp_bot_token}',
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
-            # First, check if user has access
-            async with self.session.post(url, json=data, headers=headers) as response:
-                result = await response.json()
-                
-                if response.status == 403:
-                    # User doesn't have access
-                    embed = discord.Embed(
-                        title="🔒 Shoutout Campaigns - Development Access",
-                        description="Shoutout campaigns are currently in development and only available to supporters.",
-                        color=0xff6b6b
-                    )
-                    embed.add_field(
-                        name="Get Access",
-                        value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="Coming Soon",
-                        value="Full public access will be available once testing is complete.",
-                        inline=False
-                    )
-                    await interaction.followup.send(embed=embed, ephemeral=True)
-                    return
-                
-                if response.status == 200 and result.get('has_access'):
-                    # User has access, proceed with campaign creation workflow
-                    await self.start_campaign_creation_flow(interaction, result.get('user_tier', 'unknown'))
-                else:
-                    # Unexpected response
-                    await interaction.followup.send(
-                        "❌ Unable to verify your access. Please try again later.",
-                        ephemeral=True
-                    )
+            print(f"[SHOUTOUT_MODULE] Making POST request to WordPress API...")
+            
+            # Make the API request with detailed error handling
+            try:
+                async with self.session.post(url, json=data, headers=headers, timeout=10) as response:
+                    # Log response details
+                    print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                    print(f"[SHOUTOUT_MODULE] Response headers: {dict(response.headers)}")
                     
+                    response_text = await response.text()
+                    print(f"[SHOUTOUT_MODULE] Response body: {response_text[:500]}")  # First 500 chars
+                    
+                    # Try to parse JSON
+                    try:
+                        result = json.loads(response_text)
+                        print(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
+                    except json.JSONDecodeError as e:
+                        print(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
+                        print(f"[SHOUTOUT_MODULE] Raw response was: {response_text}")
+                        
+                        # Check if it's an HTML error page
+                        if '<html' in response_text.lower():
+                            print(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
+                        
+                        await interaction.followup.send(
+                            "❌ Server returned invalid response. The API endpoint may not be properly configured.",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Handle different response scenarios
+                    if response.status == 403:
+                        print(f"[SHOUTOUT_MODULE] Access denied - user tier: {result.get('user_tier', 'unknown')}")
+                        # User doesn't have access
+                        embed = discord.Embed(
+                            title="🔒 Shoutout Campaigns - Development Access",
+                            description="Shoutout campaigns are currently in development and only available to supporters.",
+                            color=0xff6b6b
+                        )
+                        embed.add_field(
+                            name="Get Access",
+                            value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
+                            inline=False
+                        )
+                        embed.add_field(
+                            name="Coming Soon",
+                            value="Full public access will be available once testing is complete.",
+                            inline=False
+                        )
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                        return
+                    
+                    elif response.status == 401:
+                        print(f"[SHOUTOUT_MODULE] Authentication failed - bot token may be incorrect")
+                        await interaction.followup.send(
+                            "❌ Authentication failed. Please contact the bot administrator.",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    elif response.status == 404:
+                        print(f"[SHOUTOUT_MODULE] API endpoint not found - check WordPress REST API routes")
+                        await interaction.followup.send(
+                            "❌ API endpoint not found. The shoutout system may not be properly installed.",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    elif response.status == 200:
+                        if result.get('has_access'):
+                            print(f"[SHOUTOUT_MODULE] User has access! Tier: {result.get('user_tier', 'unknown')}")
+                            # User has access, proceed with campaign creation workflow
+                            await self.start_campaign_creation_flow(interaction, result.get('user_tier', 'unknown'))
+                        else:
+                            print(f"[SHOUTOUT_MODULE] User doesn't have access. Tier: {result.get('user_tier', 'free')}")
+                            # Show access denied message
+                            embed = discord.Embed(
+                                title="🔒 Shoutout Campaigns - Development Access",
+                                description="Shoutout campaigns are currently in development and only available to supporters.",
+                                color=0xff6b6b
+                            )
+                            embed.add_field(
+                                name="Get Access",
+                                value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
+                                inline=False
+                            )
+                            await interaction.followup.send(embed=embed, ephemeral=True)
+                    else:
+                        # Unexpected status code
+                        print(f"[SHOUTOUT_MODULE] Unexpected status code: {response.status}")
+                        await interaction.followup.send(
+                            f"❌ Unexpected response from server (status {response.status}). Please try again later.",
+                            ephemeral=True
+                        )
+                        
+            except asyncio.TimeoutError:
+                print(f"[SHOUTOUT_MODULE] Request timeout after 10 seconds")
+                await interaction.followup.send(
+                    "❌ Request timed out. The server may be slow or unavailable.",
+                    ephemeral=True
+                )
+            except aiohttp.ClientError as e:
+                print(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
+                await interaction.followup.send(
+                    "❌ Network error occurred. Please check your connection and try again.",
+                    ephemeral=True
+                )
+                
         except Exception as e:
-            print(f"[SHOUTOUT_MODULE] Error checking user access: {e}")
+            print(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
+            import traceback
+            print(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+            
             await interaction.followup.send(
-                "❌ An error occurred while checking your access. Please try again later.",
+                "❌ An unexpected error occurred. Please try again later.",
                 ephemeral=True
             )
+        
+        finally:
+            print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
     
     async def start_campaign_creation_flow(self, interaction: discord.Interaction, user_tier: str):
         """Start the actual campaign creation flow for users with access"""
