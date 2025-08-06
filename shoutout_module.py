@@ -459,7 +459,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
         try:
             # Validate slots number
             slots = int(self.available_slots.value)
-            if slots < 1# or slots > 10:
+            if slots < 1:    # or slots > 10:
                 await interaction.followup.send(
                     "❌ Number of slots must be higher than 0.",
                     ephemeral=True
