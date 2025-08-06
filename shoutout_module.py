@@ -27,6 +27,12 @@ class ShoutoutModule:
         self.wp_bot_token = wp_bot_token
         self.tag_autocomplete = tag_autocomplete_func
         self.get_user_info = get_user_info_func
+
+        print(f"[SHOUTOUT_MODULE] bot {bot}")
+        print(f"[SHOUTOUT_MODULE] session {session}")
+        print(f"[SHOUTOUT_MODULE] wp_api_url {wp_api_url}")
+        print(f"[SHOUTOUT_MODULE] wp_bot_token {wp_bot_token}")
+
         
         # Register commands immediately
         self.register_commands()
