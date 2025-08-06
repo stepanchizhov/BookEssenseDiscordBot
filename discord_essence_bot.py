@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 import aiohttp
@@ -892,50 +891,6 @@ async def get_session():
         session = aiohttp.ClientSession()
     return session
 
-async def get_user_info_for_shoutout(discord_user_id: str, discord_username: str):
-    """
-    Get user info for shoutout module - reuses the same API pattern as main bot
-    This function makes the same API call as the main bot commands
-    """
-    
-    try:
-        # Prepare the same data structure as other commands
-        data = {
-            'bot_token': WP_BOT_TOKEN,
-            'discord_user': {
-                'id': discord_user_id,
-                'username': 'unknown',  # We don't have access to full user object here
-                'discriminator': '0000',
-                'display_name': 'unknown'
-            }
-        }
-        
-        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
-        headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-        
-        # Make a dummy API request to get user info (we can use any endpoint that returns user_tier)
-        # Using essence-combination with dummy tags just to get user tier
-        dummy_data = {
-            **data,
-            'tags': ['fantasy', 'magic']  # Dummy tags just to trigger the API
-        }
-        
-        async with session.post(url, json=dummy_data, headers=headers) as response:
-            if response.status == 200:
-                result = await response.json()
-                return result  # This contains user_tier field
-            else:
-                print(f"[SHOUTOUT] API error {response.status} getting user info")
-                return {'user_tier': 'free'}
-                
-    except Exception as e:
-        print(f"[SHOUTOUT] Error getting user info: {e}")
-        return {'user_tier': 'free'}
-
 @bot.event
 async def on_ready():
     global session, shoutout_module
@@ -948,8 +903,9 @@ async def on_ready():
         print(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
         
     try:
-        # Initialize shoutout module WITH tag_autocomplete function
-        shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete, get_user_info_for_shoutout)
+        # Initialize shoutout module WITHOUT get_user_info_for_shoutout function
+        # The module will handle user tier checks directly via the API
+        shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
         logger.info("Shoutout module initialized successfully")
         
         # Sync commands to Discord
@@ -3434,7 +3390,6 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
-
 
 
 
