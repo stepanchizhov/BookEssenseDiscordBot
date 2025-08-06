@@ -149,7 +149,7 @@ class ShoutoutModule:
         """Handle campaign creation workflow"""
         await interaction.response.defer(ephemeral=True)
 
-        print(f"[SHOUTOUT_MODULE] User {interaction.user.id}"
+        print(f"[SHOUTOUT_MODULE] User {interaction.user.id}")
         # Check user tier
         user_tier = await self.check_user_tier(str(interaction.user.id))
         
