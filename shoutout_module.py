@@ -128,13 +128,13 @@ class ShoutoutModule:
             interaction, genre, platform, min_followers, max_followers, server_only
         )
     
-    async def check_user_tier(self, discord_user_id: str) -> str:
+    async def check_user_tier(self, discord_user_id: str, discord_username: str) -> str:
         """Check user's subscription tier using the main bot's user info function"""
         if self.get_user_info:
             try:
                 # Use the same user info function as the main bot
                 # This should make the same API call and return the result dict
-                result = await self.get_user_info(discord_user_id)
+                result = await self.get_user_info(discord_user_id, discord_username)
                 tier = result.get('user_tier', 'free')
                 print(f"[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
                 return tier
