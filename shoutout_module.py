@@ -95,7 +95,7 @@ class ShoutoutModule:
                 for platform in platforms if current.lower() in platform.lower()
             ]
         
-        logger.info("[SHOUTOUT_MODULE] Commands registered successfully")
+        print(f"[SHOUTOUT_MODULE] Commands registered successfully")
     
     async def shoutout_campaign_create(self, interaction: discord.Interaction):
         """Create a new shoutout campaign - only works in DMs"""
@@ -130,13 +130,13 @@ class ShoutoutModule:
                 # This should make the same API call and return the result dict
                 result = await self.get_user_info(discord_user_id)
                 tier = result.get('user_tier', 'free')
-                logger.info(f"[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
+                print(f""[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
                 return tier
             except Exception as e:
-                logger.error(f"[SHOUTOUT_MODULE] Error checking user tier: {e}")
+                print(f"[SHOUTOUT_MODULE] Error checking user tier: {e}")
                 return 'free'
         else:
-            logger.warning(f"[SHOUTOUT_MODULE] No get_user_info function provided, defaulting to free")
+            print(f"[SHOUTOUT_MODULE] No get_user_info function provided, defaulting to free")
             return 'free'
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
@@ -244,7 +244,7 @@ class ShoutoutModule:
             await interaction.followup.send(embed=embed, view=view)
             
         except Exception as e:
-            logger.error(f"Error browsing campaigns: {e}")
+            print(f"Error browsing campaigns: {e}")
             await interaction.followup.send(
                 "❌ Error retrieving campaigns. Please try again later!",
                 ephemeral=True
@@ -272,7 +272,7 @@ class ShoutoutModule:
                 data = await response.json()
                 return data.get('campaigns', [])
             else:
-                logger.error(f"Failed to fetch campaigns: {response.status}")
+                print(f"Failed to fetch campaigns: {response.status}")
                 raise Exception(f"API error: {response.status}")
     
     async def create_campaign(self, campaign_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -291,7 +291,7 @@ class ShoutoutModule:
                 return await response.json()
             else:
                 error_text = await response.text()
-                logger.error(f"Failed to create campaign: {response.status} - {error_text}")
+                print(f"Failed to create campaign: {response.status} - {error_text}")
                 raise Exception(f"API error: {response.status}")
 
 
@@ -459,7 +459,7 @@ class CampaignAdvancedView(discord.ui.View):
             await interaction.followup.send(embed=embed, ephemeral=True)
             
         except Exception as e:
-            logger.error(f"Error creating campaign: {e}")
+            print(f"Error creating campaign: {e}")
             await interaction.followup.send(
                 "❌ Error creating campaign. Please try again later!",
                 ephemeral=True
@@ -719,7 +719,7 @@ class CampaignApplicationModal(discord.ui.Modal, title="Apply to Campaign"):
             await interaction.followup.send(embed=embed, ephemeral=True)
             
         except Exception as e:
-            logger.error(f"Error submitting application: {e}")
+            print(f"Error submitting application: {e}")
             await interaction.followup.send(
                 "❌ Error submitting application. Please try again later!",
                 ephemeral=True
@@ -739,5 +739,5 @@ class CampaignApplicationModal(discord.ui.Modal, title="Apply to Campaign"):
         async with self.shoutout_module.session.post(url, headers=headers, json=application_data) as response:
             if response.status != 201:
                 error_text = await response.text()
-                logger.error(f"Failed to submit application: {response.status} - {error_text}")
+                print(f"Failed to submit application: {response.status} - {error_text}")
                 raise Exception(f"API error: {response.status}")
