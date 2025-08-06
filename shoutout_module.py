@@ -43,13 +43,18 @@ class ShoutoutModule:
         @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign (DM only)")
         async def shoutout_campaign_create(interaction: discord.Interaction):
             """Create a new shoutout campaign - only works in DMs"""
+            # Check if in DM BEFORE deferring to respond faster
             if interaction.guild is not None:
-                await interaction.response.send_message(
-                    "❌ Campaign creation only works in DMs for privacy. Please send me a direct message and try again!",
-                    ephemeral=True
-                )
+                try:
+                    await interaction.response.send_message(
+                        "❌ Campaign creation only works in DMs for privacy. Please send me a direct message and try again!",
+                        ephemeral=True
+                    )
+                except:
+                    pass  # If interaction expired, just ignore
                 return
             
+            # Now handle the actual campaign creation
             await self.handle_campaign_create(interaction)
         
         # Browse campaigns command
@@ -88,13 +93,24 @@ class ShoutoutModule:
         )
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
-        """Handle campaign creation workflow - with enhanced logging"""
-        await interaction.response.defer(ephemeral=True)
+        """Handle campaign creation workflow"""
+        # Try to defer immediately, but handle the case where it might fail
+        try:
+            await interaction.response.defer(ephemeral=True)
+            deferred = True
+        except discord.errors.NotFound:
+            # Interaction already expired, we can't do anything
+            print(f"[SHOUTOUT_MODULE] Interaction expired before defer")
+            return
+        except Exception as e:
+            print(f"[SHOUTOUT_MODULE] Error deferring: {e}")
+            deferred = False
 
         print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
         print(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
         print(f"[SHOUTOUT_MODULE] User Name: {interaction.user.name}")
         print(f"[SHOUTOUT_MODULE] Discriminator: {interaction.user.discriminator}")
+        print(f"[SHOUTOUT_MODULE] Deferred: {deferred}")
         
         try:
             # Build the request data
@@ -122,121 +138,132 @@ class ShoutoutModule:
             
             print(f"[SHOUTOUT_MODULE] Making POST request to WordPress API...")
             
-            # Make the API request with detailed error handling
-            try:
-                async with self.session.post(url, json=data, headers=headers, timeout=10) as response:
-                    # Log response details
-                    print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
-                    print(f"[SHOUTOUT_MODULE] Response headers: {dict(response.headers)}")
+            # Set a timeout for the API request
+            timeout = aiohttp.ClientTimeout(total=5)  # 5 second timeout
+            
+            async with self.session.post(url, json=data, headers=headers, timeout=timeout) as response:
+                # Log response details
+                print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                
+                response_text = await response.text()
+                print(f"[SHOUTOUT_MODULE] Response body (first 500 chars): {response_text[:500]}")
+                
+                # Try to parse JSON
+                try:
+                    result = json.loads(response_text)
+                    print(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
+                except json.JSONDecodeError as e:
+                    print(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
+                    print(f"[SHOUTOUT_MODULE] Raw response was: {response_text[:1000]}")
                     
-                    response_text = await response.text()
-                    print(f"[SHOUTOUT_MODULE] Response body: {response_text[:500]}")  # First 500 chars
+                    # Check if it's an HTML error page
+                    if '<html' in response_text.lower():
+                        print(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
                     
-                    # Try to parse JSON
-                    try:
-                        result = json.loads(response_text)
-                        print(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
-                    except json.JSONDecodeError as e:
-                        print(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
-                        print(f"[SHOUTOUT_MODULE] Raw response was: {response_text}")
-                        
-                        # Check if it's an HTML error page
-                        if '<html' in response_text.lower():
-                            print(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
-                        
+                    # Send error message
+                    if deferred:
                         await interaction.followup.send(
                             "❌ Server returned invalid response. The API endpoint may not be properly configured.",
                             ephemeral=True
                         )
-                        return
-                    
-                    # Handle different response scenarios
-                    if response.status == 403:
-                        print(f"[SHOUTOUT_MODULE] Access denied - user tier: {result.get('user_tier', 'unknown')}")
-                        # User doesn't have access
-                        embed = discord.Embed(
-                            title="🔒 Shoutout Campaigns - Development Access",
-                            description="Shoutout campaigns are currently in development and only available to supporters.",
-                            color=0xff6b6b
-                        )
-                        embed.add_field(
-                            name="Get Access",
-                            value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
-                            inline=False
-                        )
-                        embed.add_field(
-                            name="Coming Soon",
-                            value="Full public access will be available once testing is complete.",
-                            inline=False
-                        )
-                        await interaction.followup.send(embed=embed, ephemeral=True)
-                        return
-                    
-                    elif response.status == 401:
-                        print(f"[SHOUTOUT_MODULE] Authentication failed - bot token may be incorrect")
-                        await interaction.followup.send(
-                            "❌ Authentication failed. Please contact the bot administrator.",
-                            ephemeral=True
-                        )
-                        return
-                    
-                    elif response.status == 404:
-                        print(f"[SHOUTOUT_MODULE] API endpoint not found - check WordPress REST API routes")
-                        await interaction.followup.send(
-                            "❌ API endpoint not found. The shoutout system may not be properly installed.",
-                            ephemeral=True
-                        )
-                        return
-                    
-                    elif response.status == 200:
-                        if result.get('has_access'):
-                            print(f"[SHOUTOUT_MODULE] User has access! Tier: {result.get('user_tier', 'unknown')}")
-                            # User has access, proceed with campaign creation workflow
-                            await self.start_campaign_creation_flow(interaction, result.get('user_tier', 'unknown'))
-                        else:
-                            print(f"[SHOUTOUT_MODULE] User doesn't have access. Tier: {result.get('user_tier', 'free')}")
-                            # Show access denied message
-                            embed = discord.Embed(
-                                title="🔒 Shoutout Campaigns - Development Access",
-                                description="Shoutout campaigns are currently in development and only available to supporters.",
-                                color=0xff6b6b
-                            )
-                            embed.add_field(
-                                name="Get Access",
-                                value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
-                                inline=False
-                            )
-                            await interaction.followup.send(embed=embed, ephemeral=True)
                     else:
-                        # Unexpected status code
-                        print(f"[SHOUTOUT_MODULE] Unexpected status code: {response.status}")
-                        await interaction.followup.send(
-                            f"❌ Unexpected response from server (status {response.status}). Please try again later.",
-                            ephemeral=True
-                        )
-                        
-            except asyncio.TimeoutError:
-                print(f"[SHOUTOUT_MODULE] Request timeout after 10 seconds")
-                await interaction.followup.send(
-                    "❌ Request timed out. The server may be slow or unavailable.",
-                    ephemeral=True
-                )
-            except aiohttp.ClientError as e:
-                print(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
-                await interaction.followup.send(
-                    "❌ Network error occurred. Please check your connection and try again.",
-                    ephemeral=True
-                )
+                        try:
+                            await interaction.response.send_message(
+                                "❌ Server returned invalid response. The API endpoint may not be properly configured.",
+                                ephemeral=True
+                            )
+                        except:
+                            pass
+                    return
                 
+                # Handle the response based on status and content
+                if response.status == 200 and result.get('has_access'):
+                    print(f"[SHOUTOUT_MODULE] User has access! Tier: {result.get('user_tier', 'unknown')}")
+                    
+                    # Show success message
+                    embed = discord.Embed(
+                        title="📝 Create Shoutout Campaign",
+                        description=f"Welcome! Your tier: **{result.get('user_tier', 'unknown').upper()}**\n\nLet's set up your shoutout campaign.",
+                        color=0x00A86B
+                    )
+                    
+                    embed.add_field(
+                        name="Step 1: Book Details",
+                        value="Click the button below to enter your book information",
+                        inline=False
+                    )
+                    
+                    # Create view with buttons
+                    view = CampaignCreationView(self, interaction.user.id, result.get('user_tier', 'unknown'))
+                    
+                    if deferred:
+                        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                    else:
+                        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+                        
+                else:
+                    # User doesn't have access or error
+                    print(f"[SHOUTOUT_MODULE] User doesn't have access. Response: {result}")
+                    
+                    embed = discord.Embed(
+                        title="🔒 Shoutout Campaigns - Development Access",
+                        description="Shoutout campaigns are currently in development and only available to supporters.",
+                        color=0xff6b6b
+                    )
+                    embed.add_field(
+                        name="Get Access",
+                        value="Support the project on [Patreon](https://www.patreon.com/stepanchizhov) to get early access!",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="Debug Info",
+                        value=f"Your tier: **{result.get('user_tier', 'unknown')}**\nHas access: **{result.get('has_access', False)}**",
+                        inline=False
+                    )
+                    
+                    if deferred:
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                    else:
+                        await interaction.response.send_message(embed=embed, ephemeral=True)
+                        
+        except asyncio.TimeoutError:
+            print(f"[SHOUTOUT_MODULE] Request timeout after 5 seconds")
+            error_msg = "❌ Request timed out. The server may be slow or unavailable."
+            
+            if deferred:
+                await interaction.followup.send(error_msg, ephemeral=True)
+            else:
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except:
+                    pass
+                    
+        except aiohttp.ClientError as e:
+            print(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
+            error_msg = "❌ Network error occurred. Please check your connection and try again."
+            
+            if deferred:
+                await interaction.followup.send(error_msg, ephemeral=True)
+            else:
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except:
+                    pass
+                    
         except Exception as e:
             print(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
             import traceback
             print(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             
-            await interaction.followup.send(
-                "❌ An unexpected error occurred. Please try again later.",
-                ephemeral=True
-            )
+            error_msg = "❌ An unexpected error occurred. Please try again later."
+            
+            if deferred:
+                await interaction.followup.send(error_msg, ephemeral=True)
+            else:
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except:
+                    pass
         
         finally:
             print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
