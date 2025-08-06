@@ -28,10 +28,10 @@ BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 WP_API_URL = os.getenv('WP_API_URL', 'https://stepan.chizhov.com')
 WP_BOT_TOKEN = os.getenv('WP_BOT_TOKEN')
 
-print(f"[STARTUP] Bot Token exists: {'Yes' if BOT_TOKEN else 'No'}")
-print(f"[STARTUP] WP URL: {WP_API_URL}")
-print(f"[STARTUP] WP Bot Token exists: {'Yes' if WP_BOT_TOKEN else 'No'}")
-print(f"[STARTUP] WP Bot Token value: {WP_BOT_TOKEN[:10]}..." if WP_BOT_TOKEN else "[STARTUP] WP Bot Token is EMPTY!")
+logger.info((f"[STARTUP] Bot Token exists: {'Yes' if BOT_TOKEN else 'No'}")
+logger.info((f"[STARTUP] WP URL: {WP_API_URL}")
+logger.info((f"[STARTUP] WP Bot Token exists: {'Yes' if WP_BOT_TOKEN else 'No'}")
+logger.info((f"[STARTUP] WP Bot Token value: {WP_BOT_TOKEN[:10]}..." if WP_BOT_TOKEN else "[STARTUP] WP Bot Token is EMPTY!")
 
 # Initialize bot with command prefix (even though we'll use slash commands)
 intents = discord.Intents.default()
@@ -897,6 +897,7 @@ async def get_user_info_for_shoutout(discord_user_id: str):
     Get user info for shoutout module - reuses the same API pattern as main bot
     This function makes the same API call as the main bot commands
     """
+    
     try:
         # Prepare the same data structure as other commands
         data = {
@@ -3433,5 +3434,6 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
