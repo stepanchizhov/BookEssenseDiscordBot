@@ -148,7 +148,8 @@ class ShoutoutModule:
     async def handle_campaign_create(self, interaction: discord.Interaction):
         """Handle campaign creation workflow"""
         await interaction.response.defer(ephemeral=True)
-        
+
+        print(f"[SHOUTOUT_MODULE] User {interaction.user.id}"
         # Check user tier
         user_tier = await self.check_user_tier(str(interaction.user.id))
         
