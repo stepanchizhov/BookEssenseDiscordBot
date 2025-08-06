@@ -130,7 +130,7 @@ class ShoutoutModule:
                 # This should make the same API call and return the result dict
                 result = await self.get_user_info(discord_user_id)
                 tier = result.get('user_tier', 'free')
-                print(f""[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
+                print(f"[SHOUTOUT_MODULE] User {discord_user_id} has tier: {tier}")
                 return tier
             except Exception as e:
                 print(f"[SHOUTOUT_MODULE] Error checking user tier: {e}")
