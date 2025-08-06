@@ -443,7 +443,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     available_slots = discord.ui.TextInput(
         label="Number of Shoutout Slots",
-        placeholder="How many shoutouts can you offer? (1-10)",
+        placeholder="How many shoutouts can you offer?",
         required=True,
         max_length=2
     )
@@ -459,9 +459,9 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
         try:
             # Validate slots number
             slots = int(self.available_slots.value)
-            if slots < 1 or slots > 10:
+            if slots < 1# or slots > 10:
                 await interaction.followup.send(
-                    "❌ Number of slots must be between 1 and 10.",
+                    "❌ Number of slots must be higher than 0.",
                     ephemeral=True
                 )
                 return
