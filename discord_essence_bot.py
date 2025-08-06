@@ -892,7 +892,7 @@ async def get_session():
         session = aiohttp.ClientSession()
     return session
 
-async def get_user_info_for_shoutout(discord_user_id: str):
+async def get_user_info_for_shoutout(discord_user_id: str, discord_username: str):
     """
     Get user info for shoutout module - reuses the same API pattern as main bot
     This function makes the same API call as the main bot commands
@@ -3434,6 +3434,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
