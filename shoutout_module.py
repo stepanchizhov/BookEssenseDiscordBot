@@ -51,7 +51,7 @@ class ShoutoutModule:
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
         @discord.app_commands.describe(
             genre="Filter by genre",
-            platform="Filter by platform (royal road, scribble hub, kindle, etc.)",
+            platform="Filter by platform (Royal Road, Scribble Hub, Kindle, Audible, etc.)",
             min_followers="Minimum follower count",
             max_followers="Maximum follower count",
             server_only="Show only campaigns from this server"
@@ -375,7 +375,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     platform = discord.ui.TextInput(
         label="Platform",
-        placeholder="royal road, scribble hub, kindle, etc.",
+        placeholder="Royal Road, Scribble Hub, Kindle, Audible, etc.",
         required=True,
         max_length=50
     )
@@ -462,7 +462,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                 # Book data from modal
                 'book_title': self.book_title.value,
                 'book_url': self.book_url.value,
-                'platform': self.platform.value.lower(),
+                'platform': self.platform.value,
                 'author_name': self.author_name.value,
                 'available_slots': slots,
                 # Server info - including name
@@ -532,7 +532,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                     )
                     embed.add_field(
                         name="Platform",
-                        value=self.platform.value,
+                        value=self.platform.value.title(),  # Display with title case
                         inline=True
                     )
                     embed.add_field(
