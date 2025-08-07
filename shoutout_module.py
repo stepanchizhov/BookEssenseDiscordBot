@@ -14,9 +14,6 @@ import logging
 
 # Set up logging for this module
 logger = logging.getLogger('discord')  # Use the same logger as discord.py
-# OR if that doesn't work, try:
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 class ShoutoutModule:
     """
@@ -41,17 +38,16 @@ class ShoutoutModule:
         self.register_commands()
         logger.info(f"[SHOUTOUT_MODULE] Commands registered")
     
-     def register_commands(self):
+    def register_commands(self):
         """Register all shoutout-related commands with the bot"""
         
-        # Create campaign creation command - REMOVE DM restriction
+        # Create campaign creation command - works everywhere
         @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign")
         async def shoutout_campaign_create(interaction: discord.Interaction):
             """Create a new shoutout campaign - works anywhere"""
-            # No longer check if it's in DM - allow it everywhere
             await self.handle_campaign_create(interaction)
         
-        # Browse campaigns command - FIX the registration
+        # Browse campaigns command
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
         @discord.app_commands.describe(
             genre="Filter by genre",
@@ -68,31 +64,19 @@ class ShoutoutModule:
             max_followers: Optional[int] = None,
             server_only: Optional[bool] = False
         ):
-            # Call the method directly, don't call self.shoutout_browse
+            # Call the handler method directly
             await self.handle_browse_campaigns(
                 interaction, genre, platform, min_followers, max_followers, server_only
             )
-    
-    async def shoutout_browse(
-        self, 
-        interaction: discord.Interaction,
-        genre: Optional[str] = None,
-        platform: Optional[str] = None, 
-        min_followers: Optional[int] = None,
-        max_followers: Optional[int] = None,
-        server_only: Optional[bool] = False
-    ):
-        """Browse available shoutout campaigns"""
-        await self.handle_browse_campaigns(
-            interaction, genre, platform, min_followers, max_followers, server_only
-        )
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
         """Handle campaign creation workflow - works in servers and DMs"""
         try:
             await interaction.response.defer(ephemeral=True)
+            deferred = True
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Failed to defer: {e}")
+            deferred = False
             return
 
         logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
@@ -103,21 +87,17 @@ class ShoutoutModule:
             logger.info(f"[SHOUTOUT_MODULE] Guild: {interaction.guild.id} ({interaction.guild.name})")
         else:
             logger.info(f"[SHOUTOUT_MODULE] Guild: DM (no server)")
-
-        logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
-        logger.info(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
-        logger.info(f"[SHOUTOUT_MODULE] User Name: {interaction.user.name}")
-        logger.info(f"[SHOUTOUT_MODULE] Discriminator: {interaction.user.discriminator}")
-        logger.info(f"[SHOUTOUT_MODULE] Deferred: {deferred}")
         
         try:
             # Build the request data
             discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
+            server_id = str(interaction.guild.id) if interaction.guild else None
             
             data = {
                 'bot_token': self.wp_bot_token,
                 'discord_user_id': str(interaction.user.id),
                 'discord_username': discord_username,
+                'server_id': server_id,
                 'check_tier_only': True  # Just checking tier first
             }
             
@@ -125,8 +105,7 @@ class ShoutoutModule:
             
             # Log the request details
             logger.info(f"[SHOUTOUT_MODULE] API URL: {url}")
-            logger.info(f"[SHOUTOUT_MODULE] Request data: {json.dumps(data, indent=2)}")
-            logger.info(f"[SHOUTOUT_MODULE] Bot token (first 10 chars): {self.wp_bot_token[:10] if self.wp_bot_token else 'None'}...")
+            logger.info(f"[SHOUTOUT_MODULE] Request data: {json.dumps({k: v if k != 'bot_token' else '[hidden]' for k, v in data.items()})}")
             
             headers = {
                 'Content-Type': 'application/json',
@@ -137,7 +116,7 @@ class ShoutoutModule:
             logger.info(f"[SHOUTOUT_MODULE] Making POST request to WordPress API...")
             
             # Set a timeout for the API request
-            timeout = aiohttp.ClientTimeout(total=5)  # 5 second timeout
+            timeout = aiohttp.ClientTimeout(total=10)
             
             async with self.session.post(url, json=data, headers=headers, timeout=timeout) as response:
                 # Log response details
@@ -151,27 +130,13 @@ class ShoutoutModule:
                     result = json.loads(response_text)
                     logger.info(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
                 except json.JSONDecodeError as e:
-                    logger.info(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
-                    logger.info(f"[SHOUTOUT_MODULE] Raw response was: {response_text[:1000]}")
+                    logger.error(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
                     
-                    # Check if it's an HTML error page
-                    if '<html' in response_text.lower():
-                        logger.info(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
-                    
-                    # Send error message
                     if deferred:
                         await interaction.followup.send(
                             "❌ Server returned invalid response. The API endpoint may not be properly configured.",
                             ephemeral=True
                         )
-                    else:
-                        try:
-                            await interaction.response.send_message(
-                                "❌ Server returned invalid response. The API endpoint may not be properly configured.",
-                                ephemeral=True
-                            )
-                        except:
-                            pass
                     return
                 
                 # Handle the response based on status and content
@@ -221,74 +186,27 @@ class ShoutoutModule:
                     
                     if deferred:
                         await interaction.followup.send(embed=embed, ephemeral=True)
-                    else:
-                        await interaction.response.send_message(embed=embed, ephemeral=True)
                         
         except asyncio.TimeoutError:
-            logger.info(f"[SHOUTOUT_MODULE] Request timeout after 5 seconds")
-            error_msg = "❌ Request timed out. The server may be slow or unavailable."
-            
+            logger.error(f"[SHOUTOUT_MODULE] Request timeout")
             if deferred:
-                await interaction.followup.send(error_msg, ephemeral=True)
-            else:
-                try:
-                    await interaction.response.send_message(error_msg, ephemeral=True)
-                except:
-                    pass
+                await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
                     
         except aiohttp.ClientError as e:
-            logger.info(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
-            error_msg = "❌ Network error occurred. Please check your connection and try again."
-            
+            logger.error(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
             if deferred:
-                await interaction.followup.send(error_msg, ephemeral=True)
-            else:
-                try:
-                    await interaction.response.send_message(error_msg, ephemeral=True)
-                except:
-                    pass
+                await interaction.followup.send("❌ Network error occurred. Please try again.", ephemeral=True)
                     
         except Exception as e:
-            logger.info(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
+            logger.error(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
             import traceback
-            logger.info(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
-            
-            error_msg = "❌ An unexpected error occurred. Please try again later."
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             
             if deferred:
-                await interaction.followup.send(error_msg, ephemeral=True)
-            else:
-                try:
-                    await interaction.response.send_message(error_msg, ephemeral=True)
-                except:
-                    pass
+                await interaction.followup.send("❌ An unexpected error occurred. Please try again later.", ephemeral=True)
         
         finally:
             logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
-    
-    async def start_campaign_creation_flow(self, interaction: discord.Interaction, user_tier: str):
-        """Start the actual campaign creation flow for users with access"""
-        # Create initial form/modal for campaign details
-        embed = discord.Embed(
-            title="📝 Create Shoutout Campaign",
-            description=f"Welcome! Your tier: **{user_tier.upper()}**\n\nLet's set up your shoutout campaign.",
-            color=0x00A86B
-        )
-        
-        embed.add_field(
-            name="Step 1: Book Details",
-            value="Please provide your book information",
-            inline=False
-        )
-        
-        # Create view with buttons for next steps
-        view = CampaignCreationView(self, interaction.user.id, user_tier)
-        
-        await interaction.followup.send(
-            embed=embed,
-            view=view,
-            ephemeral=True
-        )
     
     async def handle_browse_campaigns(
         self,
@@ -337,7 +255,6 @@ class ShoutoutModule:
             }
             
             logger.info(f"[SHOUTOUT_MODULE] Fetching campaigns from: {url}")
-            logger.debug(f"[SHOUTOUT_MODULE] Params: {params}")
             
             timeout = aiohttp.ClientTimeout(total=10)
             async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
@@ -432,10 +349,11 @@ class CampaignCreationView(discord.ui.View):
         
         modal = BookDetailsModal(self.module)
         await interaction.response.send_modal(modal)
+        logger.info(f"[SHOUTOUT_MODULE] Book details modal sent to user {interaction.user.id}")
 
 
 class BookDetailsModal(discord.ui.Modal, title="Book Details"):
-    """Modal for entering book details"""
+    """Modal for entering book details - rest of the class continues as before..."""
     
     book_title = discord.ui.TextInput(
         label="Book Title",
