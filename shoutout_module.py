@@ -594,64 +594,64 @@ async def on_submit(self, interaction: discord.Interaction):
         )
         
 async with self.module.session.post(url, json=data, headers=headers, timeout=10) as response:
-            response_text = await response.text()
-            print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
-            print(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
-            
-            try:
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                print(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
-                await interaction.followup.send(
-                    "❌ Server returned invalid response. Please try again.",
-                    ephemeral=True
-                )
-                return
-            
-            if response.status == 200 and result.get('success'):
-                embed = discord.Embed(
-                    title="✅ Campaign Created Successfully!",
-                    description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
-                    color=0x00A86B
-                )
-                embed.add_field(
-                    name="Campaign ID",
-                    value=result.get('campaign_id', 'Unknown'),
-                    inline=True
-                )
-                embed.add_field(
-                    name="Available Slots",
-                    value=str(slots),
-                    inline=True
-                )
-                embed.add_field(
-                    name="Platform",
-                    value=self.platform.value,
-                    inline=True
-                )
-                embed.add_field(
-                    name="Book URL",
-                    value=f"[View Book]({self.book_url.value})",
-                    inline=False
-                )
-                embed.add_field(
-                    name="Next Steps",
-                    value=(
-                        "• Your campaign is now live\n"
-                        "• Use `/shoutout-my-campaigns` to manage applications\n"
-                        "• Share your campaign ID with potential participants"
-                    ),
-                    inline=False
-                )
-                
-                await interaction.followup.send(embed=embed, ephemeral=True)
-            else:
-                error_msg = result.get('message', 'Unknown error occurred')
-                print(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
-                await interaction.followup.send(
-                    f"❌ Failed to create campaign: {error_msg}",
-                    ephemeral=True
-                )
+    response_text = await response.text()
+    print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+    print(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
+    
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError:
+        print(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
+        await interaction.followup.send(
+            "❌ Server returned invalid response. Please try again.",
+            ephemeral=True
+        )
+        return
+    
+    if response.status == 200 and result.get('success'):
+        embed = discord.Embed(
+            title="✅ Campaign Created Successfully!",
+            description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
+            color=0x00A86B
+        )
+        embed.add_field(
+            name="Campaign ID",
+            value=result.get('campaign_id', 'Unknown'),
+            inline=True
+        )
+        embed.add_field(
+            name="Available Slots",
+            value=str(slots),
+            inline=True
+        )
+        embed.add_field(
+            name="Platform",
+            value=self.platform.value,
+            inline=True
+        )
+        embed.add_field(
+            name="Book URL",
+            value=f"[View Book]({self.book_url.value})",
+            inline=False
+        )
+        embed.add_field(
+            name="Next Steps",
+            value=(
+        "• Your campaign is now live\n"
+        "• Use `/shoutout-my-campaigns` to manage applications\n"
+        "• Share your campaign ID with potential participants"
+            ),
+            inline=False
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+    else:
+        error_msg = result.get('message', 'Unknown error occurred')
+        print(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
+        await interaction.followup.send(
+            f"❌ Failed to create campaign: {error_msg}",
+            ephemeral=True
+        )
                 
     except Exception as e:
         print(f"[SHOUTOUT_MODULE] Error creating campaign: {type(e).__name__}: {e}")
