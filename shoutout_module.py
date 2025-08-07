@@ -12,7 +12,11 @@ from typing import Optional, Dict, List, Any
 from datetime import datetime, timedelta
 import logging
 
-logger = logging.getLogger(__name__)
+# Set up logging for this module
+logger = logging.getLogger('discord')  # Use the same logger as discord.py
+# OR if that doesn't work, try:
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
 
 class ShoutoutModule:
     """
@@ -26,15 +30,16 @@ class ShoutoutModule:
         self.wp_api_url = wp_api_url
         self.wp_bot_token = wp_bot_token
         self.tag_autocomplete = tag_autocomplete_func
-        # Remove the get_user_info_func parameter as we'll handle this directly
 
-        print(f"[SHOUTOUT_MODULE] bot {bot}")
-        print(f"[SHOUTOUT_MODULE] session {session}")
-        print(f"[SHOUTOUT_MODULE] wp_api_url {wp_api_url}")
-        print(f"[SHOUTOUT_MODULE] wp_bot_token {wp_bot_token}")
+        # Use logger instead of print
+        logger.info(f"[SHOUTOUT_MODULE] Initializing...")
+        logger.info(f"[SHOUTOUT_MODULE] bot: {bot}")
+        logger.info(f"[SHOUTOUT_MODULE] wp_api_url: {wp_api_url}")
+        logger.info(f"[SHOUTOUT_MODULE] wp_bot_token: {'[SET]' if wp_bot_token else '[NOT SET]'}")
         
         # Register commands immediately
         self.register_commands()
+        logger.info(f"[SHOUTOUT_MODULE] Commands registered")
     
     def register_commands(self):
         """Register all shoutout-related commands with the bot"""
@@ -100,17 +105,17 @@ class ShoutoutModule:
             deferred = True
         except discord.errors.NotFound:
             # Interaction already expired, we can't do anything
-            print(f"[SHOUTOUT_MODULE] Interaction expired before defer")
+            logger.info(f"[SHOUTOUT_MODULE] Interaction expired before defer")
             return
         except Exception as e:
-            print(f"[SHOUTOUT_MODULE] Error deferring: {e}")
+            logger.info(f"[SHOUTOUT_MODULE] Error deferring: {e}")
             deferred = False
 
-        print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
-        print(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
-        print(f"[SHOUTOUT_MODULE] User Name: {interaction.user.name}")
-        print(f"[SHOUTOUT_MODULE] Discriminator: {interaction.user.discriminator}")
-        print(f"[SHOUTOUT_MODULE] Deferred: {deferred}")
+        logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
+        logger.info(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
+        logger.info(f"[SHOUTOUT_MODULE] User Name: {interaction.user.name}")
+        logger.info(f"[SHOUTOUT_MODULE] Discriminator: {interaction.user.discriminator}")
+        logger.info(f"[SHOUTOUT_MODULE] Deferred: {deferred}")
         
         try:
             # Build the request data
@@ -126,9 +131,9 @@ class ShoutoutModule:
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
             
             # Log the request details
-            print(f"[SHOUTOUT_MODULE] API URL: {url}")
-            print(f"[SHOUTOUT_MODULE] Request data: {json.dumps(data, indent=2)}")
-            print(f"[SHOUTOUT_MODULE] Bot token (first 10 chars): {self.wp_bot_token[:10] if self.wp_bot_token else 'None'}...")
+            logger.info(f"[SHOUTOUT_MODULE] API URL: {url}")
+            logger.info(f"[SHOUTOUT_MODULE] Request data: {json.dumps(data, indent=2)}")
+            logger.info(f"[SHOUTOUT_MODULE] Bot token (first 10 chars): {self.wp_bot_token[:10] if self.wp_bot_token else 'None'}...")
             
             headers = {
                 'Content-Type': 'application/json',
@@ -136,29 +141,29 @@ class ShoutoutModule:
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
-            print(f"[SHOUTOUT_MODULE] Making POST request to WordPress API...")
+            logger.info(f"[SHOUTOUT_MODULE] Making POST request to WordPress API...")
             
             # Set a timeout for the API request
             timeout = aiohttp.ClientTimeout(total=5)  # 5 second timeout
             
             async with self.session.post(url, json=data, headers=headers, timeout=timeout) as response:
                 # Log response details
-                print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
                 
                 response_text = await response.text()
-                print(f"[SHOUTOUT_MODULE] Response body (first 500 chars): {response_text[:500]}")
+                logger.info(f"[SHOUTOUT_MODULE] Response body (first 500 chars): {response_text[:500]}")
                 
                 # Try to parse JSON
                 try:
                     result = json.loads(response_text)
-                    print(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
+                    logger.info(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
                 except json.JSONDecodeError as e:
-                    print(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
-                    print(f"[SHOUTOUT_MODULE] Raw response was: {response_text[:1000]}")
+                    logger.info(f"[SHOUTOUT_MODULE] JSON decode error: {e}")
+                    logger.info(f"[SHOUTOUT_MODULE] Raw response was: {response_text[:1000]}")
                     
                     # Check if it's an HTML error page
                     if '<html' in response_text.lower():
-                        print(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
+                        logger.info(f"[SHOUTOUT_MODULE] Received HTML instead of JSON - likely a WordPress error page")
                     
                     # Send error message
                     if deferred:
@@ -178,7 +183,7 @@ class ShoutoutModule:
                 
                 # Handle the response based on status and content
                 if response.status == 200 and result.get('has_access'):
-                    print(f"[SHOUTOUT_MODULE] User has access! Tier: {result.get('user_tier', 'unknown')}")
+                    logger.info(f"[SHOUTOUT_MODULE] User has access! Tier: {result.get('user_tier', 'unknown')}")
                     
                     # Show success message
                     embed = discord.Embed(
@@ -203,7 +208,7 @@ class ShoutoutModule:
                         
                 else:
                     # User doesn't have access or error
-                    print(f"[SHOUTOUT_MODULE] User doesn't have access. Response: {result}")
+                    logger.info(f"[SHOUTOUT_MODULE] User doesn't have access. Response: {result}")
                     
                     embed = discord.Embed(
                         title="🔒 Shoutout Campaigns - Development Access",
@@ -227,7 +232,7 @@ class ShoutoutModule:
                         await interaction.response.send_message(embed=embed, ephemeral=True)
                         
         except asyncio.TimeoutError:
-            print(f"[SHOUTOUT_MODULE] Request timeout after 5 seconds")
+            logger.info(f"[SHOUTOUT_MODULE] Request timeout after 5 seconds")
             error_msg = "❌ Request timed out. The server may be slow or unavailable."
             
             if deferred:
@@ -239,7 +244,7 @@ class ShoutoutModule:
                     pass
                     
         except aiohttp.ClientError as e:
-            print(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
+            logger.info(f"[SHOUTOUT_MODULE] Client error: {type(e).__name__}: {e}")
             error_msg = "❌ Network error occurred. Please check your connection and try again."
             
             if deferred:
@@ -251,9 +256,9 @@ class ShoutoutModule:
                     pass
                     
         except Exception as e:
-            print(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
+            logger.info(f"[SHOUTOUT_MODULE] Unexpected error: {type(e).__name__}: {e}")
             import traceback
-            print(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+            logger.info(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             
             error_msg = "❌ An unexpected error occurred. Please try again later."
             
@@ -266,7 +271,7 @@ class ShoutoutModule:
                     pass
         
         finally:
-            print(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
+            logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
     
     async def start_campaign_creation_flow(self, interaction: discord.Interaction, user_tier: str):
         """Start the actual campaign creation flow for users with access"""
@@ -350,7 +355,7 @@ class ShoutoutModule:
                     )
                     
         except Exception as e:
-            print(f"[SHOUTOUT_MODULE] Error browsing campaigns: {e}")
+            logger.info(f"[SHOUTOUT_MODULE] Error browsing campaigns: {e}")
             await interaction.followup.send(
                 "❌ An error occurred while fetching campaigns.",
                 ephemeral=True
@@ -461,7 +466,7 @@ async def on_submit(self, interaction: discord.Interaction):
     """Handle modal submission - properly send all book data"""
     await interaction.response.defer(ephemeral=True)
     
-    print(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
+    logger.info(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
     
     try:
         # Validate slots number - only check that it's greater than 0
@@ -508,12 +513,12 @@ async def on_submit(self, interaction: discord.Interaction):
         }
         
         # Log what we're sending
-        print(f"[SHOUTOUT_MODULE] Sending campaign data:")
+        logger.info(f"[SHOUTOUT_MODULE] Sending campaign data:")
         for key, value in data.items():
             if key == 'bot_token':
-                print(f"[SHOUTOUT_MODULE]   {key}: [hidden]")
+                logger.info(f"[SHOUTOUT_MODULE]   {key}: [hidden]")
             else:
-                print(f"[SHOUTOUT_MODULE]   {key}: {value}")
+                logger.info(f"[SHOUTOUT_MODULE]   {key}: {value}")
         
         url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
         headers = {
@@ -525,14 +530,14 @@ async def on_submit(self, interaction: discord.Interaction):
         # Make the API request
         async with self.module.session.post(url, json=data, headers=headers, timeout=10) as response:
             response_text = await response.text()
-            print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
-            print(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
+            logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+            logger.info(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
             
             # Try to parse JSON response
             try:
                 result = json.loads(response_text)
             except json.JSONDecodeError:
-                print(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
+                logger.info(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
                 await interaction.followup.send(
                     "❌ Server returned invalid response. Please try again.",
                     ephemeral=True
@@ -579,28 +584,28 @@ async def on_submit(self, interaction: discord.Interaction):
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
                 error_msg = result.get('message', 'Unknown error occurred')
-                print(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
+                logger.info(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
                 await interaction.followup.send(
                     f"❌ Failed to create campaign: {error_msg}",
                     ephemeral=True
                 )
     
     except aiohttp.ClientError as e:
-        print(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
+        logger.info(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
         await interaction.followup.send(
             "❌ Network error occurred. Please try again.",
             ephemeral=True
         )
     except asyncio.TimeoutError:
-        print(f"[SHOUTOUT_MODULE] Request timeout")
+        logger.info(f"[SHOUTOUT_MODULE] Request timeout")
         await interaction.followup.send(
             "❌ Request timed out. Please try again.",
             ephemeral=True
         )
     except Exception as e:
-        print(f"[SHOUTOUT_MODULE] Error creating campaign: {type(e).__name__}: {e}")
+        logger.info(f"[SHOUTOUT_MODULE] Error creating campaign: {type(e).__name__}: {e}")
         import traceback
-        print(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+        logger.info(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
         
         await interaction.followup.send(
             "❌ An error occurred while creating your campaign. Please try again.",
