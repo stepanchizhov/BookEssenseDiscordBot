@@ -429,7 +429,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     platform = discord.ui.TextInput(
         label="Platform",
-        placeholder="royal road, scribble hub, kindle, etc.",
+        placeholder="Royal Road, Scribble Hub, Kindle, etc.",
         required=True,
         max_length=50
     )
@@ -443,93 +443,146 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     available_slots = discord.ui.TextInput(
         label="Number of Shoutout Slots",
-        placeholder="How many shoutouts can you offer?",
+        placeholder="How many shoutouts can you offer? (minimum 1)",  # Updated placeholder
         required=True,
-        max_length=2
+        max_length=4  (up to 9999 slots)
     )
     
     def __init__(self, module: ShoutoutModule):
         super().__init__()
         self.module = module
     
-    async def on_submit(self, interaction: discord.Interaction):
-        """Handle modal submission"""
-        await interaction.response.defer(ephemeral=True)
-        
+async def on_submit(self, interaction: discord.Interaction):
+    """Handle modal submission - properly send all book data"""
+    await interaction.response.defer(ephemeral=True)
+    
+    print(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
+    
+    try:
+        # Validate slots number - only check that it's greater than 0
         try:
-            # Validate slots number
             slots = int(self.available_slots.value)
-            if slots < 1:    # or slots > 10:
+        except ValueError:
+            await interaction.followup.send(
+                "❌ Please enter a valid number for slots.",
+                ephemeral=True
+            )
+            return
+            
+        if slots < 1:
+            await interaction.followup.send(
+                "❌ You must offer at least 1 shoutout slot.",
+                ephemeral=True
+            )
+            return
+        
+        # Get server ID if in a guild (for DMs, it will be None)
+        server_id = str(interaction.guild.id) if interaction.guild else None
+        
+        # Get username in the correct format
+        discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
+        
+        # Create campaign via API with ALL book data
+        data = {
+            'bot_token': self.module.wp_bot_token,
+            'discord_user_id': str(interaction.user.id),
+            'discord_username': discord_username,
+            # Book data from modal
+            'book_title': self.book_title.value,
+            'book_url': self.book_url.value,
+            'platform': self.platform.value.lower(),
+            'author_name': self.author_name.value,
+            'available_slots': slots,
+            # Server info
+            'server_id': server_id,
+            # Campaign settings
+            'campaign_settings': {
+                'auto_approve': False,
+                'require_mutual_server': False
+            }
+        }
+        
+        # Log what we're sending
+        print(f"[SHOUTOUT_MODULE] Sending campaign data:")
+        for key, value in data.items():
+            if key == 'bot_token':
+                print(f"[SHOUTOUT_MODULE]   {key}: [hidden]")
+            else:
+                print(f"[SHOUTOUT_MODULE]   {key}: {value}")
+        
+        url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.module.wp_bot_token}',
+            'User-Agent': 'Essence-Discord-Bot/1.0'
+        }
+        
+async with self.module.session.post(url, json=data, headers=headers, timeout=10) as response:
+            response_text = await response.text()
+            print(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+            print(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
+            
+            try:
+                result = json.loads(response_text)
+            except json.JSONDecodeError:
+                print(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
                 await interaction.followup.send(
-                    "❌ Number of slots must be higher than 0.",
+                    "❌ Server returned invalid response. Please try again.",
                     ephemeral=True
                 )
                 return
             
-            # Create campaign via API
-            data = {
-                'bot_token': self.module.wp_bot_token,
-                'discord_user_id': str(interaction.user.id),
-                'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}",
-                'book_title': self.book_title.value,
-                'book_url': self.book_url.value,
-                'platform': self.platform.value.lower(),
-                'author_name': self.author_name.value,
-                'available_slots': slots,
-                'campaign_settings': {
-                    'auto_approve': False,
-                    'require_mutual_server': False
-                }
-            }
-            
-            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.module.wp_bot_token}',
-                'User-Agent': 'Essence-Discord-Bot/1.0'
-            }
-            
-            async with self.module.session.post(url, json=data, headers=headers) as response:
-                result = await response.json()
+            if response.status == 200 and result.get('success'):
+                embed = discord.Embed(
+                    title="✅ Campaign Created Successfully!",
+                    description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
+                    color=0x00A86B
+                )
+                embed.add_field(
+                    name="Campaign ID",
+                    value=result.get('campaign_id', 'Unknown'),
+                    inline=True
+                )
+                embed.add_field(
+                    name="Available Slots",
+                    value=str(slots),
+                    inline=True
+                )
+                embed.add_field(
+                    name="Platform",
+                    value=self.platform.value,
+                    inline=True
+                )
+                embed.add_field(
+                    name="Book URL",
+                    value=f"[View Book]({self.book_url.value})",
+                    inline=False
+                )
+                embed.add_field(
+                    name="Next Steps",
+                    value=(
+                        "• Your campaign is now live\n"
+                        "• Use `/shoutout-my-campaigns` to manage applications\n"
+                        "• Share your campaign ID with potential participants"
+                    ),
+                    inline=False
+                )
                 
-                if response.status == 200 and result.get('success'):
-                    embed = discord.Embed(
-                        title="✅ Campaign Created Successfully!",
-                        description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
-                        color=0x00A86B
-                    )
-                    embed.add_field(
-                        name="Campaign ID",
-                        value=result.get('campaign_id', 'Unknown'),
-                        inline=True
-                    )
-                    embed.add_field(
-                        name="Available Slots",
-                        value=str(slots),
-                        inline=True
-                    )
-                    embed.add_field(
-                        name="Next Steps",
-                        value="• Your campaign is now live\n• Use `/shoutout-my-campaigns` to manage applications\n• Share your campaign ID with potential participants",
-                        inline=False
-                    )
-                    
-                    await interaction.followup.send(embed=embed, ephemeral=True)
-                else:
-                    error_msg = result.get('message', 'Unknown error occurred')
-                    await interaction.followup.send(
-                        f"❌ Failed to create campaign: {error_msg}",
-                        ephemeral=True
-                    )
-                    
-        except ValueError:
-            await interaction.followup.send(
-                "❌ Invalid number of slots. Please enter a number between 1 and 10.",
-                ephemeral=True
-            )
-        except Exception as e:
-            print(f"[SHOUTOUT_MODULE] Error creating campaign: {e}")
-            await interaction.followup.send(
-                "❌ An error occurred while creating your campaign. Please try again.",
-                ephemeral=True
-            )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                error_msg = result.get('message', 'Unknown error occurred')
+                print(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
+                await interaction.followup.send(
+                    f"❌ Failed to create campaign: {error_msg}",
+                    ephemeral=True
+                )
+                
+    except Exception as e:
+        print(f"[SHOUTOUT_MODULE] Error creating campaign: {type(e).__name__}: {e}")
+        import traceback
+        print(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+        
+        await interaction.followup.send(
+            "❌ An error occurred while creating your campaign. Please try again.",
+            ephemeral=True
+        )
