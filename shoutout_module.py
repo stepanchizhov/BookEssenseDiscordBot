@@ -434,7 +434,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     platform = discord.ui.TextInput(
         label="Platform",
-        placeholder="Royal Road, Scribble Hub, Kindle, etc.",
+        placeholder="royal road, scribble hub, kindle, etc.",
         required=True,
         max_length=50
     )
@@ -448,166 +448,193 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     
     available_slots = discord.ui.TextInput(
         label="Number of Shoutout Slots",
-        placeholder="How many shoutouts can you offer? (minimum 1)",  # Updated placeholder
+        placeholder="How many shoutouts can you offer? (minimum 1)",
         required=True,
-        max_length=4  #(up to 9999 slots)
+        max_length=5
     )
     
-    def __init__(self, module: ShoutoutModule):
+    def __init__(self, module):
         super().__init__()
         self.module = module
+        logger.info(f"[SHOUTOUT_MODULE] BookDetailsModal initialized")
     
-"""
-Properly structured on_submit method with correct try/except blocks
-Replace your current implementation with this
-"""
-
-async def on_submit(self, interaction: discord.Interaction):
-    """Handle modal submission - properly send all book data"""
-    await interaction.response.defer(ephemeral=True)
-    
-    logger.info(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
-    
-    try:
-        # Validate slots number - only check that it's greater than 0
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle modal submission - properly send all book data"""
+        logger.info(f"[SHOUTOUT_MODULE] ========== MODAL SUBMIT START ==========")
+        logger.info(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
+        
         try:
-            slots = int(self.available_slots.value)
-        except ValueError:
-            await interaction.followup.send(
-                "❌ Please enter a valid number for slots.",
-                ephemeral=True
-            )
-            return
-            
-        if slots < 1:
-            await interaction.followup.send(
-                "❌ You must offer at least 1 shoutout slot.",
-                ephemeral=True
-            )
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] Modal response deferred")
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Failed to defer modal response: {e}")
             return
         
-        # Get server ID if in a guild (for DMs, it will be None)
-        server_id = str(interaction.guild.id) if interaction.guild else None
-        
-        # Get username in the correct format
-        discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
-        
-        # Create campaign via API with ALL book data
-        data = {
-            'bot_token': self.module.wp_bot_token,
-            'discord_user_id': str(interaction.user.id),
-            'discord_username': discord_username,
-            # Book data from modal
-            'book_title': self.book_title.value,
-            'book_url': self.book_url.value,
-            'platform': self.platform.value.lower(),
-            'author_name': self.author_name.value,
-            'available_slots': slots,
-            # Server info
-            'server_id': server_id,
-            # Campaign settings
-            'campaign_settings': {
-                'auto_approve': False,
-                'require_mutual_server': False
-            }
-        }
-        
-        # Log what we're sending
-        logger.info(f"[SHOUTOUT_MODULE] Sending campaign data:")
-        for key, value in data.items():
-            if key == 'bot_token':
-                logger.info(f"[SHOUTOUT_MODULE]   {key}: [hidden]")
-            else:
-                logger.info(f"[SHOUTOUT_MODULE]   {key}: {value}")
-        
-        url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.module.wp_bot_token}',
-            'User-Agent': 'Essence-Discord-Bot/1.0'
-        }
-        
-        # Make the API request
-        async with self.module.session.post(url, json=data, headers=headers, timeout=10) as response:
-            response_text = await response.text()
-            logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
-            logger.info(f"[SHOUTOUT_MODULE] Response: {response_text[:500]}")
+        try:
+            # Log the values received
+            logger.info(f"[SHOUTOUT_MODULE] Book Title: {self.book_title.value}")
+            logger.info(f"[SHOUTOUT_MODULE] Book URL: {self.book_url.value}")
+            logger.info(f"[SHOUTOUT_MODULE] Platform: {self.platform.value}")
+            logger.info(f"[SHOUTOUT_MODULE] Author: {self.author_name.value}")
+            logger.info(f"[SHOUTOUT_MODULE] Slots value: {self.available_slots.value}")
             
-            # Try to parse JSON response
+            # Validate slots number
             try:
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                logger.info(f"[SHOUTOUT_MODULE] Failed to parse JSON response")
+                slots = int(self.available_slots.value)
+                logger.info(f"[SHOUTOUT_MODULE] Slots parsed as: {slots}")
+            except ValueError as e:
+                logger.error(f"[SHOUTOUT_MODULE] Invalid slots value: {e}")
                 await interaction.followup.send(
-                    "❌ Server returned invalid response. Please try again.",
+                    "❌ Please enter a valid number for slots.",
+                    ephemeral=True
+                )
+                return
+                
+            if slots < 1:
+                logger.error(f"[SHOUTOUT_MODULE] Slots less than 1: {slots}")
+                await interaction.followup.send(
+                    "❌ You must offer at least 1 shoutout slot.",
                     ephemeral=True
                 )
                 return
             
-            # Handle response based on status
-            if response.status == 200 and result.get('success'):
-                embed = discord.Embed(
-                    title="✅ Campaign Created Successfully!",
-                    description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
-                    color=0x00A86B
-                )
-                embed.add_field(
-                    name="Campaign ID",
-                    value=result.get('campaign_id', 'Unknown'),
-                    inline=True
-                )
-                embed.add_field(
-                    name="Available Slots",
-                    value=str(slots),
-                    inline=True
-                )
-                embed.add_field(
-                    name="Platform",
-                    value=self.platform.value,
-                    inline=True
-                )
-                embed.add_field(
-                    name="Book URL",
-                    value=f"[View Book]({self.book_url.value})",
-                    inline=False
-                )
-                embed.add_field(
-                    name="Next Steps",
-                    value=(
-                        "• Your campaign is now live\n"
-                        "• Use `/shoutout-my-campaigns` to manage applications\n"
-                        "• Share your campaign ID with potential participants"
-                    ),
-                    inline=False
-                )
+            # Get server ID if in a guild (for DMs, it will be None)
+            server_id = str(interaction.guild.id) if interaction.guild else None
+            logger.info(f"[SHOUTOUT_MODULE] Server ID: {server_id}")
+            
+            # Get username in the correct format
+            discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
+            logger.info(f"[SHOUTOUT_MODULE] Discord username: {discord_username}")
+            
+            # Create campaign via API with ALL book data
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'discord_user_id': str(interaction.user.id),
+                'discord_username': discord_username,
+                # Book data from modal
+                'book_title': self.book_title.value,
+                'book_url': self.book_url.value,
+                'platform': self.platform.value.lower(),
+                'author_name': self.author_name.value,
+                'available_slots': slots,
+                # Server info
+                'server_id': server_id,
+                # Campaign settings
+                'campaign_settings': {
+                    'auto_approve': False,
+                    'require_mutual_server': False
+                }
+            }
+            
+            # Log what we're sending (hide token)
+            logger.info(f"[SHOUTOUT_MODULE] Preparing to send campaign data")
+            for key, value in data.items():
+                if key == 'bot_token':
+                    logger.info(f"[SHOUTOUT_MODULE]   {key}: [hidden]")
+                else:
+                    logger.info(f"[SHOUTOUT_MODULE]   {key}: {value}")
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            logger.info(f"[SHOUTOUT_MODULE] Making POST request to: {url}")
+            
+            # Make the API request
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.post(url, json=data, headers=headers, timeout=timeout) as response:
+                logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                response_text = await response.text()
+                logger.info(f"[SHOUTOUT_MODULE] Response text (first 500): {response_text[:500]}")
                 
-                await interaction.followup.send(embed=embed, ephemeral=True)
-            else:
-                error_msg = result.get('message', 'Unknown error occurred')
-                logger.info(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
+                # Try to parse JSON response
+                try:
+                    result = json.loads(response_text)
+                    logger.info(f"[SHOUTOUT_MODULE] Parsed response: {json.dumps(result, indent=2)}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to parse JSON response: {e}")
+                    await interaction.followup.send(
+                        "❌ Server returned invalid response. Please try again.",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Handle response based on status
+                if response.status == 200 and result.get('success'):
+                    logger.info(f"[SHOUTOUT_MODULE] Campaign created successfully! ID: {result.get('campaign_id')}")
+                    
+                    embed = discord.Embed(
+                        title="✅ Campaign Created Successfully!",
+                        description=f"Your shoutout campaign for **{self.book_title.value}** has been created.",
+                        color=0x00A86B
+                    )
+                    embed.add_field(
+                        name="Campaign ID",
+                        value=result.get('campaign_id', 'Unknown'),
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="Available Slots",
+                        value=str(slots),
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="Platform",
+                        value=self.platform.value,
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="Book URL",
+                        value=f"[View Book]({self.book_url.value})",
+                        inline=False
+                    )
+                    embed.add_field(
+                        name="Next Steps",
+                        value=(
+                            "• Your campaign is now live\n"
+                            "• Use `/shoutout-my-campaigns` to manage applications\n"
+                            "• Share your campaign ID with potential participants"
+                        ),
+                        inline=False
+                    )
+                    
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    logger.info(f"[SHOUTOUT_MODULE] Success message sent to user")
+                else:
+                    error_msg = result.get('message', 'Unknown error occurred')
+                    logger.error(f"[SHOUTOUT_MODULE] Campaign creation failed: {error_msg}")
+                    await interaction.followup.send(
+                        f"❌ Failed to create campaign: {error_msg}",
+                        ephemeral=True
+                    )
+        
+        except aiohttp.ClientError as e:
+            logger.error(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
+            await interaction.followup.send(
+                "❌ Network error occurred. Please try again.",
+                ephemeral=True
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"[SHOUTOUT_MODULE] Request timeout")
+            await interaction.followup.send(
+                "❌ Request timed out. Please try again.",
+                ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Unexpected error in on_submit: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback:\n{traceback.format_exc()}")
+            
+            try:
                 await interaction.followup.send(
-                    f"❌ Failed to create campaign: {error_msg}",
+                    "❌ An error occurred while creating your campaign. Please try again.",
                     ephemeral=True
                 )
-    
-    except aiohttp.ClientError as e:
-        logger.info(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
-        await interaction.followup.send(
-            "❌ Network error occurred. Please try again.",
-            ephemeral=True
-        )
-    except asyncio.TimeoutError:
-        logger.info(f"[SHOUTOUT_MODULE] Request timeout")
-        await interaction.followup.send(
-            "❌ Request timed out. Please try again.",
-            ephemeral=True
-        )
-    except Exception as e:
-        logger.info(f"[SHOUTOUT_MODULE] Error creating campaign: {type(e).__name__}: {e}")
-        import traceback
-        logger.info(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+            except:
+                logger.error(f"[SHOUTOUT_MODULE] Failed to send error message to user")
         
-        await interaction.followup.send(
-            "❌ An error occurred while creating your campaign. Please try again.",
-            ephemeral=True
-        )
+        finally:
+            logger.info(f"[SHOUTOUT_MODULE] ========== MODAL SUBMIT END ==========")
