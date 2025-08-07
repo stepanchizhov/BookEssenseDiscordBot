@@ -240,6 +240,13 @@ class ShoutoutModule:
                 'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"
             }
             
+            # Add server_id if in a guild (important for filtering)
+            if interaction.guild:
+                params['server_id'] = str(interaction.guild.id)
+                logger.info(f"[SHOUTOUT_MODULE] Browsing from server: {interaction.guild.id}")
+            else:
+                logger.info(f"[SHOUTOUT_MODULE] Browsing from DMs")
+            
             # Add filters
             if genre:
                 params['genre'] = genre
@@ -249,8 +256,8 @@ class ShoutoutModule:
                 params['min_followers'] = min_followers
             if max_followers is not None:
                 params['max_followers'] = max_followers
-            if server_only and interaction.guild:
-                params['server_id'] = str(interaction.guild.id)
+            if server_only:
+                params['server_only'] = True
             
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
             headers = {
