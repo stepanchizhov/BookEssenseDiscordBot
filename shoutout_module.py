@@ -78,26 +78,30 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Failed to defer: {e}")
             deferred = False
             return
-
+    
         logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
         logger.info(f"[SHOUTOUT_MODULE] User: {interaction.user.id} ({interaction.user.name})")
         
         # Log server info
         if interaction.guild:
             logger.info(f"[SHOUTOUT_MODULE] Guild: {interaction.guild.id} ({interaction.guild.name})")
+            server_id = str(interaction.guild.id)
+            server_name = interaction.guild.name
         else:
             logger.info(f"[SHOUTOUT_MODULE] Guild: DM (no server)")
+            server_id = None
+            server_name = None
         
         try:
             # Build the request data
             discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
-            server_id = str(interaction.guild.id) if interaction.guild else None
             
             data = {
                 'bot_token': self.wp_bot_token,
                 'discord_user_id': str(interaction.user.id),
                 'discord_username': discord_username,
                 'server_id': server_id,
+                'server_name': server_name,  # Add server name
                 'check_tier_only': True  # Just checking tier first
             }
             
@@ -435,9 +439,16 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                 )
                 return
             
-            # Get server ID if in a guild (for DMs, it will be None)
-            server_id = str(interaction.guild.id) if interaction.guild else None
-            logger.info(f"[SHOUTOUT_MODULE] Server ID: {server_id}")
+            # Get server ID and name if in a guild (for DMs, they will be None)
+            if interaction.guild:
+                server_id = str(interaction.guild.id)
+                server_name = interaction.guild.name
+                logger.info(f"[SHOUTOUT_MODULE] Server ID: {server_id}")
+                logger.info(f"[SHOUTOUT_MODULE] Server Name: {server_name}")
+            else:
+                server_id = None
+                server_name = None
+                logger.info(f"[SHOUTOUT_MODULE] No server (DM)")
             
             # Get username in the correct format
             discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
@@ -454,8 +465,9 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                 'platform': self.platform.value.lower(),
                 'author_name': self.author_name.value,
                 'available_slots': slots,
-                # Server info
+                # Server info - including name
                 'server_id': server_id,
+                'server_name': server_name,  # Add server name
                 # Campaign settings
                 'campaign_settings': {
                     'auto_approve': False,
