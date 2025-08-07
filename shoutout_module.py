@@ -41,28 +41,17 @@ class ShoutoutModule:
         self.register_commands()
         logger.info(f"[SHOUTOUT_MODULE] Commands registered")
     
-    def register_commands(self):
+     def register_commands(self):
         """Register all shoutout-related commands with the bot"""
         
-        # Create campaign creation command
-        @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign (DM only)")
+        # Create campaign creation command - REMOVE DM restriction
+        @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign")
         async def shoutout_campaign_create(interaction: discord.Interaction):
-            """Create a new shoutout campaign - only works in DMs"""
-            # Check if in DM BEFORE deferring to respond faster
-            if interaction.guild is not None:
-                try:
-                    await interaction.response.send_message(
-                        "❌ Campaign creation only works in DMs for privacy. Please send me a direct message and try again!",
-                        ephemeral=True
-                    )
-                except:
-                    pass  # If interaction expired, just ignore
-                return
-            
-            # Now handle the actual campaign creation
+            """Create a new shoutout campaign - works anywhere"""
+            # No longer check if it's in DM - allow it everywhere
             await self.handle_campaign_create(interaction)
         
-        # Browse campaigns command
+        # Browse campaigns command - FIX the registration
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
         @discord.app_commands.describe(
             genre="Filter by genre",
@@ -79,7 +68,8 @@ class ShoutoutModule:
             max_followers: Optional[int] = None,
             server_only: Optional[bool] = False
         ):
-            await self.shoutout_browse(
+            # Call the method directly, don't call self.shoutout_browse
+            await self.handle_browse_campaigns(
                 interaction, genre, platform, min_followers, max_followers, server_only
             )
     
@@ -98,18 +88,21 @@ class ShoutoutModule:
         )
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
-        """Handle campaign creation workflow"""
-        # Try to defer immediately, but handle the case where it might fail
+        """Handle campaign creation workflow - works in servers and DMs"""
         try:
             await interaction.response.defer(ephemeral=True)
-            deferred = True
-        except discord.errors.NotFound:
-            # Interaction already expired, we can't do anything
-            logger.info(f"[SHOUTOUT_MODULE] Interaction expired before defer")
-            return
         except Exception as e:
-            logger.info(f"[SHOUTOUT_MODULE] Error deferring: {e}")
-            deferred = False
+            logger.error(f"[SHOUTOUT_MODULE] Failed to defer: {e}")
+            return
+
+        logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
+        logger.info(f"[SHOUTOUT_MODULE] User: {interaction.user.id} ({interaction.user.name})")
+        
+        # Log server info
+        if interaction.guild:
+            logger.info(f"[SHOUTOUT_MODULE] Guild: {interaction.guild.id} ({interaction.guild.name})")
+        else:
+            logger.info(f"[SHOUTOUT_MODULE] Guild: DM (no server)")
 
         logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE START ==========")
         logger.info(f"[SHOUTOUT_MODULE] User ID: {interaction.user.id}")
@@ -307,7 +300,15 @@ class ShoutoutModule:
         server_only: Optional[bool] = False
     ):
         """Handle browsing campaigns with filters"""
-        await interaction.response.defer()
+        # Defer immediately to avoid timeout
+        try:
+            await interaction.response.defer()
+            logger.info(f"[SHOUTOUT_MODULE] Browse campaigns - deferred response")
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Failed to defer browse response: {e}")
+            return
+        
+        logger.info(f"[SHOUTOUT_MODULE] Browse campaigns called by {interaction.user.id}")
         
         try:
             # Build API request
@@ -335,27 +336,45 @@ class ShoutoutModule:
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
-            async with self.session.get(url, params=params, headers=headers) as response:
+            logger.info(f"[SHOUTOUT_MODULE] Fetching campaigns from: {url}")
+            logger.debug(f"[SHOUTOUT_MODULE] Params: {params}")
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                logger.info(f"[SHOUTOUT_MODULE] Browse response status: {response.status}")
+                
                 if response.status == 200:
                     result = await response.json()
                     campaigns = result.get('campaigns', [])
+                    
+                    logger.info(f"[SHOUTOUT_MODULE] Found {len(campaigns)} campaigns")
                     
                     if campaigns:
                         embed = self.create_campaign_list_embed(campaigns)
                         await interaction.followup.send(embed=embed)
                     else:
                         await interaction.followup.send(
-                            "No campaigns found matching your criteria. Try adjusting your filters!",
+                            "No campaigns found matching your criteria. Try adjusting your filters or check back later!",
                             ephemeral=True
                         )
                 else:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to fetch campaigns: {response.status}")
                     await interaction.followup.send(
                         "❌ Failed to fetch campaigns. Please try again later.",
                         ephemeral=True
                     )
                     
+        except asyncio.TimeoutError:
+            logger.error(f"[SHOUTOUT_MODULE] Browse request timeout")
+            await interaction.followup.send(
+                "❌ Request timed out. Please try again.",
+                ephemeral=True
+            )
         except Exception as e:
-            logger.info(f"[SHOUTOUT_MODULE] Error browsing campaigns: {e}")
+            logger.error(f"[SHOUTOUT_MODULE] Error browsing campaigns: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback:\n{traceback.format_exc()}")
+            
             await interaction.followup.send(
                 "❌ An error occurred while fetching campaigns.",
                 ephemeral=True
