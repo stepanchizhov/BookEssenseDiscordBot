@@ -624,27 +624,27 @@ async def get_book_chart_data(book_input, days_param, session):
         elif isinstance(days_param, int):
             data['days'] = days_param
         
-        print(f"[CHART] Fetching chart data for book input: {book_input}")
-        print(f"[CHART] Days parameter: {days_param}")
-        print(f"[CHART] API request data: {data}")
-        print(f"[CHART] Request URL: {url}")
+        logger.info(f"[CHART] Fetching chart data for book input: {book_input}")
+        logger.info(f"[CHART] Days parameter: {days_param}")
+        logger.info(f"[CHART] API request data: {data}")
+        logger.info(f"[CHART] Request URL: {url}")
         
         async with session.post(url, json=data, headers=headers) as response:
             if response.status == 200:
                 result = await response.json()
-                print(f"[CHART] Successfully fetched chart data")
-                print(f"[CHART] Response keys: {list(result.keys())}")
+                logger.info(f"[CHART] Successfully fetched chart data")
+                logger.info(f"[CHART] Response keys: {list(result.keys())}")
                 if 'data_info' in result:
-                    print(f"[CHART] Total snapshots: {result['data_info'].get('total_snapshots', 'unknown')}")
-                    print(f"[CHART] Filter applied: {result['data_info'].get('filter_applied', 'unknown')}")
+                    logger.info(f"[CHART] Total snapshots: {result['data_info'].get('total_snapshots', 'unknown')}")
+                    logger.info(f"[CHART] Filter applied: {result['data_info'].get('filter_applied', 'unknown')}")
                 return result
             else:
                 error_text = await response.text()
-                print(f"[CHART] Failed to fetch chart data: {response.status} - {error_text}")
+                logger.info(f"[CHART] Failed to fetch chart data: {response.status} - {error_text}")
                 return None
                 
     except Exception as e:
-        print(f"[CHART] Exception fetching chart data: {e}")
+        logger.info(f"[CHART] Exception fetching chart data: {e}")
         return None
 
 def filter_zero_data_points(labels, data, timestamps=None):
@@ -825,7 +825,7 @@ def create_chart_image(chart_data, chart_type, book_title, days_param):
         return buffer
         
     except Exception as e:
-        print(f"[CHART] Error creating chart image: {e}")
+        logger.info(f"[CHART] Error creating chart image: {e}")
         plt.close()  # Ensure we clean up even on error
         return None
 
@@ -895,12 +895,12 @@ async def get_session():
 async def on_ready():
     global session, shoutout_module
     session = await get_session()
-    print(f'[READY] {bot.user} has connected to Discord!')
-    print(f'[READY] Bot is in {len(bot.guilds)} guilds')
+    logger.info(f'[READY] {bot.user} has connected to Discord!')
+    logger.info(f'[READY] Bot is in {len(bot.guilds)} guilds')
     
     # List all guilds
     for guild in bot.guilds:
-        print(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
+        logger.info(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
         
     try:
         # Initialize shoutout module WITHOUT get_user_info_for_shoutout function
@@ -924,24 +924,24 @@ async def on_ready():
             'User-Agent': 'Essence-Discord-Bot/1.0 (+https://stepan.chizhov.com)'
         }
         async with session.get(test_url, headers=headers) as response:
-            print(f'[TEST] WordPress health check: Status {response.status}')
+            logger.info(f'[TEST] WordPress health check: Status {response.status}')
             if response.status == 200:
                 print('[TEST] ✅ WordPress API is reachable!')
             else:
                 response_text = await response.text()
-                print(f'[TEST] ❌ WordPress API returned error status: {response_text[:200]}')
+                logger.info(f'[TEST] ❌ WordPress API returned error status: {response_text[:200]}')
     except Exception as e:
-        print(f'[TEST] ❌ Failed to reach WordPress: {e}')
+        logger.info(f'[TEST] ❌ Failed to reach WordPress: {e}')
     
     # Sync slash commands
     try:
         print('[SYNC] Starting command sync...')
         synced = await bot.tree.sync()
-        print(f'[SYNC] Successfully synced {len(synced)} command(s)')
+        logger.info(f'[SYNC] Successfully synced {len(synced)} command(s)')
         for cmd in synced:
-            print(f'[SYNC] - Command: {cmd.name}')
+            logger.info(f'[SYNC] - Command: {cmd.name}')
     except Exception as e:
-        print(f'[ERROR] Failed to sync commands: {e}')
+        logger.info(f'[ERROR] Failed to sync commands: {e}')
         import traceback
         traceback.print_exc()
 
@@ -953,7 +953,7 @@ async def on_disconnect():
 @bot.event
 async def on_error(event, *args, **kwargs):
     """Handle errors gracefully"""
-    print(f'[ERROR] Error in {event}')
+    logger.info(f'[ERROR] Error in {event}')
     import traceback
     traceback.print_exc()
 
@@ -973,8 +973,8 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-OTHERS-ALSO-LIKED-LIST] Command called by {interaction.user}")
-    print(f"[RR-OTHERS-ALSO-LIKED-LIST] Book input: '{book_input}'")
+    logger.info(f"\n[RR-OTHERS-ALSO-LIKED-LIST] Command called by {interaction.user}")
+    logger.info(f"[RR-OTHERS-ALSO-LIKED-LIST] Book input: '{book_input}'")
     
     await interaction.response.defer()
     
@@ -996,14 +996,14 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
             'X-Requested-With': 'XMLHttpRequest'
         }
         
-        print(f"[RR-OTHERS-ALSO-LIKED-LIST] Making API request to: {url}")
+        logger.info(f"[RR-OTHERS-ALSO-LIKED-LIST] Making API request to: {url}")
         
         # Set a longer timeout for this API call
         timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
         
         async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
             response_text = await response.text()
-            print(f"[RR-OTHERS-ALSO-LIKED-LIST] API Status: {response.status}")
+            logger.info(f"[RR-OTHERS-ALSO-LIKED-LIST] API Status: {response.status}")
             
             if response.status == 200:
                 result = json.loads(response_text)
@@ -1020,10 +1020,10 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
                     f"❌ Error {response.status} from the database!",
                     ephemeral=True
                 )
-                print(f"[ERROR] Others Also Liked List API returned status {response.status}")
+                logger.info(f"[ERROR] Others Also Liked List API returned status {response.status}")
                 
     except asyncio.TimeoutError:
-        print(f"[ERROR] API timeout in rr-others-also-liked-list command")
+        logger.info(f"[ERROR] API timeout in rr-others-also-liked-list command")
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(
@@ -1038,7 +1038,7 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
         except:
             print("[ERROR] Could not send timeout message")
     except Exception as e:
-        print(f"[ERROR] Exception in rr-others-also-liked-list command: {type(e).__name__}: {e}")
+        logger.info(f"[ERROR] Exception in rr-others-also-liked-list command: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1059,8 +1059,8 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-OTHERS-ALSO-LIKED] Command called by {interaction.user}")
-    print(f"[RR-OTHERS-ALSO-LIKED] Book input: '{book_input}'")
+    logger.info(f"\n[RR-OTHERS-ALSO-LIKED] Command called by {interaction.user}")
+    logger.info(f"[RR-OTHERS-ALSO-LIKED] Book input: '{book_input}'")
     
     await interaction.response.defer()
     
@@ -1082,14 +1082,14 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
             'X-Requested-With': 'XMLHttpRequest'
         }
         
-        print(f"[RR-OTHERS-ALSO-LIKED] Making API request to: {url}")
+        logger.info(f"[RR-OTHERS-ALSO-LIKED] Making API request to: {url}")
         
         # Set a longer timeout for this API call
         timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
         
         async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
             response_text = await response.text()
-            print(f"[RR-OTHERS-ALSO-LIKED] API Status: {response.status}")
+            logger.info(f"[RR-OTHERS-ALSO-LIKED] API Status: {response.status}")
             
             if response.status == 200:
                 result = json.loads(response_text)
@@ -1106,10 +1106,10 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
                     f"❌ Error {response.status} from the database!",
                     ephemeral=True
                 )
-                print(f"[ERROR] Others Also Liked API returned status {response.status}")
+                logger.info(f"[ERROR] Others Also Liked API returned status {response.status}")
                 
     except asyncio.TimeoutError:
-        print(f"[ERROR] API timeout in rr-others-also-liked command")
+        logger.info(f"[ERROR] API timeout in rr-others-also-liked command")
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(
@@ -1124,7 +1124,7 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
         except:
             print("[ERROR] Could not send timeout message")
     except Exception as e:
-        print(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
+        logger.info(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1146,15 +1146,15 @@ async def rr_average_views(interaction: discord.Interaction, book_input: str, da
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-AVERAGE-VIEWS] Command called by {interaction.user}")
-    print(f"[RR-AVERAGE-VIEWS] Book input: '{book_input}', Days: '{days}'")
+    logger.info(f"\n[RR-AVERAGE-VIEWS] Command called by {interaction.user}")
+    logger.info(f"[RR-AVERAGE-VIEWS] Book input: '{book_input}', Days: '{days}'")
     
     await interaction.response.defer()
     
     try:
         # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
-        print(f"[RR-AVERAGE-VIEWS] Parsed days parameter: {days_param}")
+        logger.info(f"[RR-AVERAGE-VIEWS] Parsed days parameter: {days_param}")
         
         # Fetch chart data - API handles ALL filtering
         global session
@@ -1178,8 +1178,8 @@ async def rr_average_views(interaction: discord.Interaction, book_input: str, da
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-AVERAGE-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
-        print(f"[RR-AVERAGE-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        logger.info(f"[RR-AVERAGE-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        logger.info(f"[RR-AVERAGE-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
@@ -1236,10 +1236,10 @@ async def rr_average_views(interaction: discord.Interaction, book_input: str, da
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-average-views")
         
         await interaction.followup.send(embed=embed, file=file)
-        print(f"[RR-AVERAGE-VIEWS] Successfully sent chart for book {book_id}")
+        logger.info(f"[RR-AVERAGE-VIEWS] Successfully sent chart for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-AVERAGE-VIEWS] Error: {e}")
+        logger.info(f"[RR-AVERAGE-VIEWS] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1261,15 +1261,15 @@ async def rr_ratings(interaction: discord.Interaction, book_input: str, days: st
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-RATINGS] Command called by {interaction.user}")
-    print(f"[RR-RATINGS] Book input: '{book_input}', Days: '{days}'")
+    logger.info(f"\n[RR-RATINGS] Command called by {interaction.user}")
+    logger.info(f"[RR-RATINGS] Book input: '{book_input}', Days: '{days}'")
     
     await interaction.response.defer()
     
     try:
         # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
-        print(f"[RR-RATINGS] Parsed days parameter: {days_param}")
+        logger.info(f"[RR-RATINGS] Parsed days parameter: {days_param}")
         
         # Fetch chart data - API handles ALL filtering
         global session
@@ -1293,8 +1293,8 @@ async def rr_ratings(interaction: discord.Interaction, book_input: str, days: st
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-RATINGS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
-        print(f"[RR-RATINGS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        logger.info(f"[RR-RATINGS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        logger.info(f"[RR-RATINGS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
@@ -1350,10 +1350,10 @@ async def rr_ratings(interaction: discord.Interaction, book_input: str, days: st
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-ratings")
         
         await interaction.followup.send(embed=embed, file=file)
-        print(f"[RR-RATINGS] Successfully sent chart for book {book_id}")
+        logger.info(f"[RR-RATINGS] Successfully sent chart for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-RATINGS] Error: {e}")
+        logger.info(f"[RR-RATINGS] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1375,10 +1375,10 @@ async def rr_ratings(interaction: discord.Interaction, book_input: str, days: st
 async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     """Combine two essence tags - accepts both URL format and display names"""
     
-    print(f"\n[COMMAND] Essence command called")
-    print(f"[COMMAND] User: {interaction.user} (ID: {interaction.user.id})")
-    print(f"[COMMAND] Guild: {interaction.guild.name if interaction.guild else 'DM'}")
-    print(f"[COMMAND] Raw input: '{tag1}' + '{tag2}'")
+    logger.info(f"\n[COMMAND] Essence command called")
+    logger.info(f"[COMMAND] User: {interaction.user} (ID: {interaction.user.id})")
+    logger.info(f"[COMMAND] Guild: {interaction.guild.name if interaction.guild else 'DM'}")
+    logger.info(f"[COMMAND] Raw input: '{tag1}' + '{tag2}'")
     
     # Defer the response FIRST before any processing
     await interaction.response.defer()
@@ -1392,7 +1392,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         normalized_tag1 = normalize_tag(tag1)
         normalized_tag2 = normalize_tag(tag2)
         
-        print(f"[COMMAND] Normalized: '{normalized_tag1}' + '{normalized_tag2}'")
+        logger.info(f"[COMMAND] Normalized: '{normalized_tag1}' + '{normalized_tag2}'")
         
         # Check if tags are valid
         if not normalized_tag1:
@@ -1429,8 +1429,8 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         }
         
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
-        print(f"[API] URL: {url}")
-        print(f"[API] Payload: {json.dumps(data)}")
+        logger.info(f"[API] URL: {url}")
+        logger.info(f"[API] Payload: {json.dumps(data)}")
         
         # Make API request
         headers = {
@@ -1441,8 +1441,8 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         
         async with session.post(url, json=data, headers=headers) as response:
             response_text = await response.text()
-            print(f"[API] Status: {response.status}")
-            print(f"[API] Response: {response_text[:500]}...")  # First 500 chars
+            logger.info(f"[API] Status: {response.status}")
+            logger.info(f"[API] Response: {response_text[:500]}...")  # First 500 chars
             
             if response.status == 200:
                 result = json.loads(response_text)
@@ -1456,10 +1456,10 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
                     f"Error {response.status} from the essence database!",
                     ephemeral=True
                 )
-                print(f"[ERROR] API returned status {response.status}")
+                logger.info(f"[ERROR] API returned status {response.status}")
     
     except Exception as e:
-        print(f"[ERROR] Exception in essence command: {type(e).__name__}: {e}")
+        logger.info(f"[ERROR] Exception in essence command: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         
@@ -1754,7 +1754,7 @@ def create_others_also_liked_embed(result, user):
 def create_ratings_chart_image(chart_data, book_title, days_param):
     """Create a ratings metrics chart with dual axis (matching admin dashboard) using matplotlib"""
     try:
-        print(f"[CHART DEBUG] Starting ratings chart creation for {book_title}")
+        logger.info(f"[CHART DEBUG] Starting ratings chart creation for {book_title}")
         
         # Set up the plot
         plt.style.use('default')
@@ -1766,7 +1766,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         overall_score_data = chart_data.get('overall_score', [])
         ratings_data = chart_data.get('ratings', [])
         
-        print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
+        logger.info(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, scores:{len(overall_score_data)}, ratings:{len(ratings_data)}")
         
         if not overall_score_data or not labels or not ratings_data or not timestamps:
             # Create a "no data" chart
@@ -1792,7 +1792,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
                     # Include ratings (we already filtered for > 0)
                     filtered_ratings.append(ratings_data[i])
             
-            print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, scores valid:{sum(1 for x in filtered_scores if x is not None)}, ratings valid:{sum(1 for x in filtered_ratings if x is not None)}")
+            logger.info(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, scores valid:{sum(1 for x in filtered_scores if x is not None)}, ratings valid:{sum(1 for x in filtered_ratings if x is not None)}")
             
             if not date_objects:
                 raise ValueError("No valid data points with timestamps")
@@ -1801,7 +1801,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             color1_hex = '#36A2EB'  # Blue for rating score (from admin.js)
             color2_hex = '#FFCE56'  # Yellow for ratings count (from admin.js)
             
-            print(f"[CHART DEBUG] Plotting overall score data with linear time axis")
+            logger.info(f"[CHART DEBUG] Plotting overall score data with linear time axis")
             # Plot overall score on primary axis (0-5 scale) - ADD FILL for better visibility
             ax1.set_xlabel('Date', fontsize=12)
             ax1.set_ylabel('Overall Rating Score', color=color1_hex, fontsize=12)
@@ -1817,7 +1817,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             ax1.tick_params(axis='y', labelcolor=color1_hex)
             ax1.grid(True, alpha=0.3)
             
-            print(f"[CHART DEBUG] Plotting ratings count data")
+            logger.info(f"[CHART DEBUG] Plotting ratings count data")
             # Create secondary axis for ratings count - MATCH STYLING
             ax2 = ax1.twinx()
             ax2.set_ylabel('Number of Ratings', color=color2_hex, fontsize=12)
@@ -1833,7 +1833,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
             # Add a thin yellow fill on top for better yellow visibility
             ax2.fill_between(date_objects, filtered_ratings, alpha=0.3, color='#FFCE56')
             
-            print(f"[CHART DEBUG] Added white+yellow layered fill to avoid color mixing")
+            logger.info(f"[CHART DEBUG] Added white+yellow layered fill to avoid color mixing")
             
             ax2.tick_params(axis='y', labelcolor=color2_hex)
             
@@ -1878,7 +1878,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         buffer.seek(0)
         
-        print(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
+        logger.info(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
         
         # Clean up
         plt.close()
@@ -1886,7 +1886,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
         return buffer
        
     except Exception as e:
-        print(f"[CHART DEBUG] ERROR in chart creation: {e}")
+        logger.info(f"[CHART DEBUG] ERROR in chart creation: {e}")
         import traceback
         traceback.print_exc()
         plt.close()  # Ensure we clean up even on error
@@ -1896,7 +1896,7 @@ def create_ratings_chart_image(chart_data, book_title, days_param):
 def create_average_views_chart_image(chart_data, book_title, days_param):
     """Create an average views chart with chapters reference using matplotlib"""
     try:
-        print(f"[CHART DEBUG] Starting chart creation for {book_title}")
+        logger.info(f"[CHART DEBUG] Starting chart creation for {book_title}")
         
         # Set up the plot
         plt.style.use('default')
@@ -1908,11 +1908,11 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         average_views_data = chart_data.get('average_views', [])
         chapters_data = chart_data.get('chapters', [])
         
-        print(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
+        logger.info(f"[CHART DEBUG] Initial data lengths - labels:{len(labels)}, avg_views:{len(average_views_data)}, chapters:{len(chapters_data)}")
         
         # Check if we have average_views data
         if not average_views_data or len(average_views_data) == 0:
-            print(f"[CHART DEBUG] No average_views data, trying to calculate from total_views/chapters")
+            logger.info(f"[CHART DEBUG] No average_views data, trying to calculate from total_views/chapters")
             # Try to calculate average views from total_views and chapters if possible
             total_views_data = chart_data.get('total_views', [])
             if total_views_data and chapters_data and len(total_views_data) == len(chapters_data):
@@ -1923,7 +1923,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                         average_views_data.append(int(avg_views))
                     else:
                         average_views_data.append(0)
-                print(f"[CHART DEBUG] Calculated {len(average_views_data)} average_views values")
+                logger.info(f"[CHART DEBUG] Calculated {len(average_views_data)} average_views values")
         
         if not average_views_data or not labels or not chapters_data or not timestamps:
             # Create a "no data" chart
@@ -1964,7 +1964,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                             filtered_avg_views.append(average_views_data[i])
                             filtered_chapters.append(chapters_data[i])
                 
-                print(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views:{len(filtered_avg_views)}, chapters:{len(filtered_chapters)}")
+                logger.info(f"[CHART DEBUG] After filtering - dates:{len(date_objects)}, avg_views:{len(filtered_avg_views)}, chapters:{len(filtered_chapters)}")
                 
                 if not date_objects:
                     raise ValueError("No valid data points with timestamps after filtering")
@@ -1973,7 +1973,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 color1 = '#9B59B6'  # Purple for average views
                 color2 = '#F39C12'  # Orange for chapters
                 
-                print(f"[CHART DEBUG] Plotting average views data with linear time axis")
+                logger.info(f"[CHART DEBUG] Plotting average views data with linear time axis")
                 # Plot average views on primary axis with linear time
                 ax1.set_xlabel('Date', fontsize=12)
                 ax1.set_ylabel('Average Views per Chapter', color=color1, fontsize=12)
@@ -1993,7 +1993,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
                 ax1.tick_params(axis='y', labelcolor=color1)
                 ax1.grid(True, alpha=0.3)
                 
-                print(f"[CHART DEBUG] Plotting chapters data")
+                logger.info(f"[CHART DEBUG] Plotting chapters data")
                 # Create secondary axis for chapters
                 ax2 = ax1.twinx()
                 ax2.set_ylabel('Total Chapters', color=color2, fontsize=12)
@@ -2042,7 +2042,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         buffer.seek(0)
         
-        print(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
+        logger.info(f"[CHART DEBUG] Chart created successfully, buffer size: {len(buffer.getvalue())} bytes")
         
         # Clean up
         plt.close()
@@ -2050,7 +2050,7 @@ def create_average_views_chart_image(chart_data, book_title, days_param):
         return buffer
        
     except Exception as e:
-        print(f"[CHART DEBUG] ERROR in chart creation: {e}")
+        logger.info(f"[CHART DEBUG] ERROR in chart creation: {e}")
         import traceback
         traceback.print_exc()
         plt.close()  # Ensure we clean up even on error
@@ -2359,15 +2359,15 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-FOLLOWERS] Command called by {interaction.user}")
-    print(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}'")
+    logger.info(f"\n[RR-FOLLOWERS] Command called by {interaction.user}")
+    logger.info(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}'")
     
     await interaction.response.defer()
     
     try:
         # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
-        print(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
+        logger.info(f"[RR-FOLLOWERS] Parsed days parameter: {days_param}")
         
         # Fetch chart data - API handles ALL filtering
         global session
@@ -2391,8 +2391,8 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-FOLLOWERS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
-        print(f"[RR-FOLLOWERS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        logger.info(f"[RR-FOLLOWERS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        logger.info(f"[RR-FOLLOWERS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
@@ -2444,10 +2444,10 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-views or /rr-followers")
         
         await interaction.followup.send(embed=embed, file=file)
-        print(f"[RR-FOLLOWERS] Successfully sent chart for book {book_id}")
+        logger.info(f"[RR-FOLLOWERS] Successfully sent chart for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-FOLLOWERS] Error: {e}")
+        logger.info(f"[RR-FOLLOWERS] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -2469,15 +2469,15 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-VIEWS] Command called by {interaction.user}")
-    print(f"[RR-VIEWS] Book input: '{book_input}', Days: '{days}'")
+    logger.info(f"\n[RR-VIEWS] Command called by {interaction.user}")
+    logger.info(f"[RR-VIEWS] Book input: '{book_input}', Days: '{days}'")
     
     await interaction.response.defer()
     
     try:
         # Parse days parameter (supports date ranges) - NOW DEFAULTS TO 'all'
         days_param = parse_days_parameter(days)
-        print(f"[RR-VIEWS] Parsed days parameter: {days_param}")
+        logger.info(f"[RR-VIEWS] Parsed days parameter: {days_param}")
         
         # Fetch chart data - API handles ALL filtering
         global session
@@ -2501,8 +2501,8 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         book_id = book_info.get('id', 'Unknown')
         book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
         
-        print(f"[RR-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
-        print(f"[RR-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
+        logger.info(f"[RR-VIEWS] API returned {data_info.get('total_snapshots', 'unknown')} snapshots")
+        logger.info(f"[RR-VIEWS] Filter applied: {data_info.get('filter_applied', 'unknown')}")
         
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
@@ -2554,10 +2554,10 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-views or /rr-followers")
         
         await interaction.followup.send(embed=embed, file=file)
-        print(f"[RR-VIEWS] Successfully sent chart for book {book_id}")
+        logger.info(f"[RR-VIEWS] Successfully sent chart for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-VIEWS] Error: {e}")
+        logger.info(f"[RR-VIEWS] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -2572,13 +2572,13 @@ async def rr_views(interaction: discord.Interaction, book_input: str, days: str 
 # Test command to verify bot is responding
 @bot.tree.command(name="ping", description="Test if the bot is responsive")
 async def ping(interaction: discord.Interaction):
-    print(f"[COMMAND] Ping command called by {interaction.user}")
+    logger.info(f"[COMMAND] Ping command called by {interaction.user}")
     await interaction.response.send_message("Pong! The bot is online.", ephemeral=True)
 
 # Test WordPress connection command
 @bot.tree.command(name="test", description="Test WordPress API connection")
 async def test(interaction: discord.Interaction):
-    print(f"[COMMAND] Test command called by {interaction.user}")
+    logger.info(f"[COMMAND] Test command called by {interaction.user}")
     await interaction.response.defer(ephemeral=True)
     
     session = await get_session()
@@ -2592,7 +2592,7 @@ async def test(interaction: discord.Interaction):
         async with session.get(health_url, headers=headers) as response:
             health_status = response.status
             health_text = await response.text()
-            print(f"[TEST] Health check: {health_status}")
+            logger.info(f"[TEST] Health check: {health_status}")
         
         # Test essence endpoint
         test_data = {
@@ -2614,7 +2614,7 @@ async def test(interaction: discord.Interaction):
         ) as response:
             essence_status = response.status
             essence_text = await response.text()
-            print(f"[TEST] Essence endpoint: {essence_status}")
+            logger.info(f"[TEST] Essence endpoint: {essence_status}")
         
         # Create response embed
         embed = discord.Embed(
@@ -2654,7 +2654,7 @@ async def test(interaction: discord.Interaction):
         await interaction.followup.send(embed=embed, ephemeral=True)
         
     except Exception as e:
-        print(f"[ERROR] Test command failed: {e}")
+        logger.info(f"[ERROR] Test command failed: {e}")
         await interaction.followup.send(
             f"❌ Test failed: {str(e)}",
             ephemeral=True
@@ -2664,9 +2664,9 @@ async def test(interaction: discord.Interaction):
 async def process_quick_essence(interaction: discord.Interaction, tags: str):
     """Process quick essence command with two tags in one input"""
     
-    print(f"\n[COMMAND] Quick essence command called")
-    print(f"[COMMAND] User: {interaction.user}")
-    print(f"[COMMAND] Input: '{tags}'")
+    logger.info(f"\n[COMMAND] Quick essence command called")
+    logger.info(f"[COMMAND] User: {interaction.user}")
+    logger.info(f"[COMMAND] Input: '{tags}'")
     
     # Split the input
     tag_list = tags.strip().split()
@@ -2697,7 +2697,7 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
         if possible_tags:
             # Use the first valid combination
             tag1_norm, tag2_norm, tag1_orig, tag2_orig = possible_tags[0]
-            print(f"[COMMAND] Interpreted as: '{tag1_orig}' + '{tag2_orig}'")
+            logger.info(f"[COMMAND] Interpreted as: '{tag1_orig}' + '{tag2_orig}'")
         else:
             await interaction.response.send_message(
                 f"Could not interpret '{tags}' as two valid tags.\nTry: `/e Fantasy Magic` or `/e female_lead strong_lead`\nTriads, Tetrads, and Pentads (or Trios, Quartets, and Quintets, I don't know what you like more) will become available in the future!",
@@ -2762,7 +2762,7 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
                 )
                 
     except Exception as e:
-        print(f"[ERROR] Exception in quick essence: {e}")
+        logger.info(f"[ERROR] Exception in quick essence: {e}")
         import traceback
         traceback.print_exc()
         
@@ -2799,8 +2799,8 @@ async def brag_command(interaction: discord.Interaction):
     global command_counter
     command_counter += 1
     
-    print(f"\n[BRAG] Command called by {interaction.user}")
-    print(f"[BRAG] User ID: {interaction.user.id}, Username: {interaction.user.name}#{interaction.user.discriminator}")
+    logger.info(f"\n[BRAG] Command called by {interaction.user}")
+    logger.info(f"[BRAG] User ID: {interaction.user.id}, Username: {interaction.user.name}#{interaction.user.discriminator}")
     
     await interaction.response.defer()
     
@@ -2825,8 +2825,8 @@ async def brag_command(interaction: discord.Interaction):
         
         async with session.post(url, json=data, headers=headers) as response:
             response_text = await response.text()
-            print(f"[BRAG] API Status: {response.status}")
-            print(f"[BRAG] API Response: {response_text[:300]}...")
+            logger.info(f"[BRAG] API Status: {response.status}")
+            logger.info(f"[BRAG] API Response: {response_text[:300]}...")
             
             if response.status == 200:
                 result = json.loads(response_text)
@@ -2860,10 +2860,10 @@ async def brag_command(interaction: discord.Interaction):
                     f"❌ Error {response.status} from the discovery database!",
                     ephemeral=True
                 )
-                print(f"[ERROR] Brag API returned status {response.status}")
+                logger.info(f"[ERROR] Brag API returned status {response.status}")
     
     except Exception as e:
-        print(f"[ERROR] Exception in brag command: {type(e).__name__}: {e}")
+        logger.info(f"[ERROR] Exception in brag command: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         
@@ -3035,7 +3035,7 @@ async def rr_stats_command(interaction: discord.Interaction):
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-STATS] Command called by {interaction.user}")
+    logger.info(f"\n[RR-STATS] Command called by {interaction.user}")
     
     await interaction.response.defer()
     
@@ -3056,8 +3056,8 @@ async def rr_stats_command(interaction: discord.Interaction):
         
         async with session.post(url, json=data, headers=headers) as response:
             response_text = await response.text()
-            print(f"[RR-STATS] API Status: {response.status}")
-            print(f"[RR-STATS] API Response: {response_text[:300]}...")
+            logger.info(f"[RR-STATS] API Status: {response.status}")
+            logger.info(f"[RR-STATS] API Response: {response_text[:300]}...")
             
             if response.status == 200:
                 result = json.loads(response_text)
@@ -3077,10 +3077,10 @@ async def rr_stats_command(interaction: discord.Interaction):
                     f"❌ Error {response.status} from the statistics database!",
                     ephemeral=True
                 )
-                print(f"[ERROR] RR-Stats API returned status {response.status}")
+                logger.info(f"[ERROR] RR-Stats API returned status {response.status}")
     
     except Exception as e:
-        print(f"[ERROR] Exception in rr-stats command: {type(e).__name__}: {e}")
+        logger.info(f"[ERROR] Exception in rr-stats command: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         
@@ -3344,7 +3344,7 @@ async def help_command(interaction: discord.Interaction):
 # Error handler
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
-    print(f"[ERROR] Command error: {type(error).__name__}: {error}")
+    logger.info(f"[ERROR] Command error: {type(error).__name__}: {error}")
     import traceback
     traceback.print_exc()
     
@@ -3390,7 +3390,6 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
-
 
 
 
