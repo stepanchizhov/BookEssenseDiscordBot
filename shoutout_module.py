@@ -445,7 +445,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
         label="Number of Shoutout Slots",
         placeholder="How many shoutouts can you offer? (minimum 1)",  # Updated placeholder
         required=True,
-        max_length=4  (up to 9999 slots)
+        max_length=4  #(up to 9999 slots)
     )
     
     def __init__(self, module: ShoutoutModule):
