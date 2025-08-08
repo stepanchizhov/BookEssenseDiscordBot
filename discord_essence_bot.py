@@ -3484,7 +3484,7 @@ async def rr_rs_chart(
             if rs_info.get('best_position'):
                 rs_lines.append(f"**Best Position:** #{rs_info['best_position']}")
             if rs_info.get('days_on_list'):
-                rs_lines.append(f"**Days on the List:** {rs_info['days_on_list']}")
+                rs_lines.append(f"**Days on List:** {rs_info['days_on_list']}")
             
             if rs_lines:
                 embed.add_field(
@@ -3613,14 +3613,14 @@ async def rr_rs_chart(
             # Show both types of increases
             if summary.get('total_increase_percentage') is not None:
                 total_inc = summary['total_increase_percentage']
-                summary_lines.append(f"**Total Follower Increase:** {total_inc:.0f}%")
+                summary_lines.append(f"**🎯 Total Follower Increase:** {total_inc:.0f}%")
             
             if summary.get('follower_boost_percentage') is not None:
                 boost = summary['follower_boost_percentage']
                 if boost > 0:
-                    summary_lines.append(f"**Growth Rate Boost:** +{boost:.0f}%")
+                    summary_lines.append(f"**📈 Growth Rate Boost:** +{boost:.0f}%")
                 else:
-                    summary_lines.append(f"**Growth Rate Change:** {boost:.0f}%")
+                    summary_lines.append(f"**📈 Growth Rate Change:** {boost:.0f}%")
             
             if summary.get('total_followers_gained') is not None:
                 total = summary['total_followers_gained']
@@ -3721,6 +3721,30 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
             y_pos = ax1.get_ylim()[1] * 0.95
             ax1.text(rs_start, y_pos, 'RS Start', rotation=90, verticalalignment='bottom', fontsize=8, color='green')
             ax1.text(rs_end, y_pos, 'RS End', rotation=90, verticalalignment='bottom', fontsize=8, color='red')
+            
+            # Highlight best position periods if available
+            if rs_info.get('best_position_dates'):
+                best_dates = rs_info['best_position_dates']
+                best_pos = rs_info.get('best_position', 1)
+                
+                for date_str in best_dates:
+                    best_date = datetime.strptime(date_str, '%Y-%m-%d')
+                    # Add a gold vertical line for best position
+                    ax1.axvline(x=best_date, color='gold', linestyle='-', alpha=0.7, linewidth=2)
+                
+                # Add a single annotation for best position (avoid clutter)
+                if best_dates:
+                    first_best = datetime.strptime(best_dates[0], '%Y-%m-%d')
+                    y_pos_best = ax1.get_ylim()[1] * 0.85
+                    ax1.text(first_best, y_pos_best, f'Peak #{best_pos}', 
+                            rotation=90, verticalalignment='bottom', 
+                            fontsize=8, color='darkgoldenrod', fontweight='bold')
+                    
+                    # If there are multiple best position dates, add a note
+                    if len(best_dates) > 1:
+                        ax1.text(0.02, 0.92, f'Gold lines: Days at peak position #{best_pos}', 
+                                transform=ax1.transAxes, fontsize=9, 
+                                bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
         
         # Format x-axis
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -4133,6 +4157,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
