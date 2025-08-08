@@ -3344,14 +3344,14 @@ async def help_command(interaction: discord.Interaction):
 @bot.tree.command(name="rr-rs-chart", description="Show growth chart around a book's Main Rising Stars appearance")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days_before="Days to show before RS appearance (default: 5)",
-    days_after="Days to show after RS run ends (default: 5)"
+    days_before="Days to show before RS appearance (default: 7)",
+    days_after="Days to show after RS run ends (default: 7)"
 )
 async def rr_rs_chart(
     interaction: discord.Interaction, 
     book_input: str,
-    days_before: int = 5,
-    days_after: int = 5
+    days_before: int = 7,
+    days_after: int = 7
 ):
     """Generate a chart showing growth around Main Rising Stars appearance"""
     global command_counter
@@ -3494,7 +3494,7 @@ async def rr_rs_chart(
                 )
         
         # Add growth analysis - BEFORE Rising Stars
-        if growth_analysis.get('before_rs'):
+        if growth_analysis.get('before_rs') and growth_analysis['before_rs'].get('has_data'):
             before = growth_analysis['before_rs']
             before_lines = []
             
@@ -3508,12 +3508,28 @@ async def rr_rs_chart(
                 rate = before['view_growth_rate']
                 before_lines.append(f"**View Growth:** {rate:,.0f}/day")
             
+            # Add comparison with week before if available
+            if before.get('prior_week_comparison'):
+                comp = before['prior_week_comparison']
+                if comp.get('growth_change_pct') is not None:
+                    change_pct = comp['growth_change_pct']
+                    if change_pct > 0:
+                        before_lines.append(f"**vs Prior Week:** +{change_pct:.0f}%")
+                    else:
+                        before_lines.append(f"**vs Prior Week:** {change_pct:.0f}%")
+            
             if before_lines:
                 embed.add_field(
                     name="📊 Before Rising Stars",
                     value="\n".join(before_lines),
                     inline=True
                 )
+        elif growth_analysis.get('before_rs') and not growth_analysis['before_rs'].get('has_data'):
+            embed.add_field(
+                name="📊 Before Rising Stars",
+                value="*No data available*\n(Book tracking may have started with RS)",
+                inline=True
+            )
         
         # Add growth analysis - DURING Rising Stars
         if growth_analysis.get('during_rs'):
@@ -4115,6 +4131,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
