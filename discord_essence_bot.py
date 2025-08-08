@@ -3407,16 +3407,36 @@ async def rr_rs_chart(
             headers=headers,
             timeout=30
         ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                print(f"[RR-RS-CHART] API error: {response.status} - {error_text}")
+            response_text = await response.text()
+            print(f"[RR-RS-CHART] API Response Status: {response.status}")
+            print(f"[RR-RS-CHART] API Response Headers: {response.headers}")
+            
+            if response.status == 403:
+                print(f"[RR-RS-CHART] 403 Forbidden - Authentication failed")
+                print(f"[RR-RS-CHART] Response body: {response_text[:500]}")
                 await interaction.followup.send(
-                    f"❌ API error: {response.status}",
+                    "❌ Authentication error. The bot token may be misconfigured.",
+                    ephemeral=True
+                )
+                return
+            elif response.status != 200:
+                print(f"[RR-RS-CHART] API error response: {response_text[:500]}")
+                await interaction.followup.send(
+                    f"❌ API error: {response.status}\nPlease contact support if this persists.",
                     ephemeral=True
                 )
                 return
             
-            data = await response.json()
+            try:
+                data = json.loads(response_text)
+            except json.JSONDecodeError as e:
+                print(f"[RR-RS-CHART] Failed to parse JSON: {e}")
+                print(f"[RR-RS-CHART] Raw response: {response_text[:500]}")
+                await interaction.followup.send(
+                    "❌ Invalid response from server. Please try again later.",
+                    ephemeral=True
+                )
+                return
         
         if not data.get('success'):
             error_msg = data.get('message', 'Unknown error occurred')
@@ -3504,19 +3524,28 @@ async def rr_rs_chart(
                 rate = during['follower_growth_rate']
                 during_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
                 
-                # Calculate percentage increase if we have before data
+                # Calculate percentage increase in growth RATE if we have before data
                 if growth_analysis.get('before_rs', {}).get('follower_growth_rate'):
                     before_rate = growth_analysis['before_rs']['follower_growth_rate']
                     if before_rate > 0:
                         pct_increase = ((rate - before_rate) / before_rate) * 100
                         if pct_increase > 0:
-                            during_lines.append(f"**Increase:** +{pct_increase:.0f}% vs before")
+                            during_lines.append(f"**Growth Rate Increase:** +{pct_increase:.0f}%")
                         else:
-                            during_lines.append(f"**Change:** {pct_increase:.0f}% vs before")
+                            during_lines.append(f"**Growth Rate Change:** {pct_increase:.0f}%")
             
             if during.get('total_follower_change') is not None:
                 change = during['total_follower_change']
-                during_lines.append(f"**Total Gained:** {change:+,}")
+                during_lines.append(f"**Total Gained:** +{change:,}")
+                
+                # Show percentage increase if we have start/end values
+                if during.get('start_followers') and during.get('end_followers'):
+                    start = during['start_followers']
+                    end = during['end_followers']
+                    if start > 0:
+                        total_pct = ((end - start) / start) * 100
+                        during_lines.append(f"**Total Increase:** {total_pct:.0f}%")
+            
             if during.get('view_growth_rate') is not None:
                 rate = during['view_growth_rate']
                 during_lines.append(f"**View Growth:** {rate:,.0f}/day")
@@ -3563,12 +3592,17 @@ async def rr_rs_chart(
             summary = growth_analysis['impact_summary']
             summary_lines = []
             
+            # Show both types of increases
+            if summary.get('total_increase_percentage') is not None:
+                total_inc = summary['total_increase_percentage']
+                summary_lines.append(f"**🎯 Total Follower Increase:** {total_inc:.0f}%")
+            
             if summary.get('follower_boost_percentage') is not None:
                 boost = summary['follower_boost_percentage']
                 if boost > 0:
-                    summary_lines.append(f"**🎯 RS Follower Boost:** +{boost:.0f}%")
+                    summary_lines.append(f"**📈 Growth Rate Boost:** +{boost:.0f}%")
                 else:
-                    summary_lines.append(f"**🎯 RS Follower Impact:** {boost:.0f}%")
+                    summary_lines.append(f"**📈 Growth Rate Change:** {boost:.0f}%")
             
             if summary.get('total_followers_gained') is not None:
                 total = summary['total_followers_gained']
@@ -4081,6 +4115,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
