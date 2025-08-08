@@ -3341,6 +3341,697 @@ async def help_command(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="rr-rs-chart", description="Show growth chart around a book's Main Rising Stars appearance")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    days_before="Days to show before RS appearance (default: 5)",
+    days_after="Days to show after RS run ends (default: 5)"
+)
+async def rr_rs_chart(
+    interaction: discord.Interaction, 
+    book_input: str,
+    days_before: int = 5,
+    days_after: int = 5
+):
+    """Generate a chart showing growth around Main Rising Stars appearance"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-RS-CHART] Command called by {interaction.user}")
+    print(f"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
+    
+    await interaction.response.defer()
+    
+    try:
+        # Parse book input to get book ID
+        book_id = None
+        if book_input.isdigit():
+            book_id = book_input
+        else:
+            # Extract book ID from URL
+            import re
+            match = re.search(r'/fiction/(\d+)', book_input)
+            if match:
+                book_id = match.group(1)
+            else:
+                await interaction.followup.send(
+                    "❌ Invalid book input. Please provide a book ID or Royal Road URL.",
+                    ephemeral=True
+                )
+                return
+        
+        # Call API to get Rising Stars chart data
+        global session
+        if session is None:
+            session = aiohttp.ClientSession()
+        
+        # Prepare request data
+        request_data = {
+            'book_id': book_id,
+            'days_before': days_before,
+            'days_after': days_after,
+            'bot_token': os.getenv('WP_BOT_TOKEN')
+        }
+        
+        headers = {
+            'User-Agent': 'RR-Discord-Bot/1.0',
+            'X-WP-Nonce': 'discord-bot-request',
+            'X-Forwarded-For': '127.0.0.1',
+            'X-Real-IP': '127.0.0.1'
+        }
+        
+        # Make API request
+        async with session.post(
+            f"{os.getenv('WP_API_URL')}/wp-json/rr-analytics/v1/rising-stars-chart",
+            json=request_data,
+            headers=headers,
+            timeout=30
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                print(f"[RR-RS-CHART] API error: {response.status} - {error_text}")
+                await interaction.followup.send(
+                    f"❌ API error: {response.status}",
+                    ephemeral=True
+                )
+                return
+            
+            data = await response.json()
+        
+        if not data.get('success'):
+            error_msg = data.get('message', 'Unknown error occurred')
+            await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
+            return
+        
+        # Extract data
+        book_info = data.get('book_info', {})
+        chart_data = data.get('chart_data', {})
+        rs_info = data.get('rs_info', {})
+        growth_analysis = data.get('growth_analysis', {})
+        
+        book_title = book_info.get('title', f'Book {book_id}')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
+        author = book_info.get('author_name', 'Unknown Author')
+        
+        # Create the chart
+        chart_buffer = create_rs_impact_chart(chart_data, rs_info, book_title)
+        
+        if not chart_buffer:
+            await interaction.followup.send(
+                "❌ Failed to generate chart. Please try again later.",
+                ephemeral=True
+            )
+            return
+        
+        # Create Discord file and embed
+        file = discord.File(chart_buffer, filename=f"rs_chart_{book_id}.png")
+        
+        embed = discord.Embed(
+            title="📈 Rising Stars Impact Analysis",
+            description=f"**[{book_title}]({book_url})**\nby {author}\n\nBook ID: {book_id}",
+            color=0x00A8FF
+        )
+        
+        embed.set_image(url=f"attachment://rs_chart_{book_id}.png")
+        
+        # Add Rising Stars run information
+        if rs_info:
+            rs_lines = []
+            if rs_info.get('first_appearance'):
+                rs_lines.append(f"**First on Main RS:** {rs_info['first_appearance']}")
+            if rs_info.get('last_appearance'):
+                rs_lines.append(f"**Last on Main RS:** {rs_info['last_appearance']}")
+            if rs_info.get('best_position'):
+                rs_lines.append(f"**Best Position:** #{rs_info['best_position']}")
+            if rs_info.get('days_on_list'):
+                rs_lines.append(f"**Days on List:** {rs_info['days_on_list']}")
+            
+            if rs_lines:
+                embed.add_field(
+                    name="⭐ Main Rising Stars Run",
+                    value="\n".join(rs_lines),
+                    inline=True
+                )
+        
+        # Add growth analysis - BEFORE Rising Stars
+        if growth_analysis.get('before_rs'):
+            before = growth_analysis['before_rs']
+            before_lines = []
+            
+            if before.get('follower_growth_rate') is not None:
+                rate = before['follower_growth_rate']
+                before_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
+            if before.get('total_follower_change') is not None:
+                change = before['total_follower_change']
+                before_lines.append(f"**Total Change:** {change:+,}")
+            if before.get('view_growth_rate') is not None:
+                rate = before['view_growth_rate']
+                before_lines.append(f"**View Growth:** {rate:,.0f}/day")
+            
+            if before_lines:
+                embed.add_field(
+                    name="📊 Before Rising Stars",
+                    value="\n".join(before_lines),
+                    inline=True
+                )
+        
+        # Add growth analysis - DURING Rising Stars
+        if growth_analysis.get('during_rs'):
+            during = growth_analysis['during_rs']
+            during_lines = []
+            
+            if during.get('follower_growth_rate') is not None:
+                rate = during['follower_growth_rate']
+                during_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
+                
+                # Calculate percentage increase if we have before data
+                if growth_analysis.get('before_rs', {}).get('follower_growth_rate'):
+                    before_rate = growth_analysis['before_rs']['follower_growth_rate']
+                    if before_rate > 0:
+                        pct_increase = ((rate - before_rate) / before_rate) * 100
+                        if pct_increase > 0:
+                            during_lines.append(f"**Increase:** +{pct_increase:.0f}% vs before")
+                        else:
+                            during_lines.append(f"**Change:** {pct_increase:.0f}% vs before")
+            
+            if during.get('total_follower_change') is not None:
+                change = during['total_follower_change']
+                during_lines.append(f"**Total Gained:** {change:+,}")
+            if during.get('view_growth_rate') is not None:
+                rate = during['view_growth_rate']
+                during_lines.append(f"**View Growth:** {rate:,.0f}/day")
+            
+            if during_lines:
+                embed.add_field(
+                    name="🚀 During Rising Stars",
+                    value="\n".join(during_lines),
+                    inline=True
+                )
+        
+        # Add growth analysis - AFTER Rising Stars (if applicable)
+        if growth_analysis.get('after_rs') and growth_analysis['after_rs'].get('has_data'):
+            after = growth_analysis['after_rs']
+            after_lines = []
+            
+            if after.get('follower_growth_rate') is not None:
+                rate = after['follower_growth_rate']
+                after_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
+                
+                # Compare to during RS period
+                if growth_analysis.get('during_rs', {}).get('follower_growth_rate'):
+                    during_rate = growth_analysis['during_rs']['follower_growth_rate']
+                    if during_rate > 0:
+                        pct_change = ((rate - during_rate) / during_rate) * 100
+                        if pct_change < 0:
+                            after_lines.append(f"**Drop:** {pct_change:.0f}% vs during RS")
+                        else:
+                            after_lines.append(f"**Change:** {pct_change:+.0f}% vs during RS")
+            
+            if after.get('total_follower_change') is not None:
+                change = after['total_follower_change']
+                after_lines.append(f"**Total Change:** {change:+,}")
+            
+            if after_lines:
+                embed.add_field(
+                    name="📉 After Rising Stars",
+                    value="\n".join(after_lines),
+                    inline=True
+                )
+        
+        # Add summary impact
+        if growth_analysis.get('impact_summary'):
+            summary = growth_analysis['impact_summary']
+            summary_lines = []
+            
+            if summary.get('follower_boost_percentage') is not None:
+                boost = summary['follower_boost_percentage']
+                if boost > 0:
+                    summary_lines.append(f"**🎯 RS Follower Boost:** +{boost:.0f}%")
+                else:
+                    summary_lines.append(f"**🎯 RS Follower Impact:** {boost:.0f}%")
+            
+            if summary.get('total_followers_gained') is not None:
+                total = summary['total_followers_gained']
+                summary_lines.append(f"**Total Followers Gained:** {total:,}")
+            
+            if summary.get('retention_rate') is not None:
+                retention = summary['retention_rate']
+                summary_lines.append(f"**Growth Retention:** {retention:.0f}%")
+            
+            if summary_lines:
+                embed.add_field(
+                    name="💫 Impact Summary",
+                    value="\n".join(summary_lines),
+                    inline=False
+                )
+        
+        # Add note about the chart
+        embed.add_field(
+            name="📊 Chart Details",
+            value=(
+                "• **Blue line:** Followers over time\n"
+                "• **Orange line:** Views over time (right axis)\n"
+                "• **Green shaded area:** Period on Main Rising Stars\n"
+                "• **Vertical lines:** RS appearance start/end dates"
+            ),
+            inline=False
+        )
+        
+        # Add promotional field
+        embed = add_promotional_field(embed)
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use the bot, start typing /rr-rs-chart")
+        
+        await interaction.followup.send(embed=embed, file=file)
+        print(f"[RR-RS-CHART] Successfully sent RS impact chart for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-RS-CHART] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while generating the Rising Stars impact chart.",
+                ephemeral=True
+            )
+        except:
+            pass
+
+def create_rs_impact_chart(chart_data, rs_info, book_title):
+    """Create a chart showing follower/view growth around Rising Stars appearance"""
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        from datetime import datetime
+        import numpy as np
+        
+        # Parse the data
+        dates = [datetime.strptime(d, '%Y-%m-%d') for d in chart_data['dates']]
+        followers = chart_data['followers']
+        views = chart_data['total_views']
+        
+        # Create figure with two y-axes
+        fig, ax1 = plt.subplots(figsize=(12, 6))
+        
+        # Set background color
+        fig.patch.set_facecolor('#f0f0f0')
+        ax1.set_facecolor('#ffffff')
+        
+        # Plot followers on primary axis
+        color1 = '#1E88E5'
+        ax1.set_xlabel('Date', fontsize=10)
+        ax1.set_ylabel('Followers', color=color1, fontsize=10)
+        line1 = ax1.plot(dates, followers, color=color1, linewidth=2, label='Followers', marker='o', markersize=3)
+        ax1.tick_params(axis='y', labelcolor=color1)
+        ax1.grid(True, alpha=0.3)
+        
+        # Create second y-axis for views
+        ax2 = ax1.twinx()
+        color2 = '#FF6B35'
+        ax2.set_ylabel('Total Views', color=color2, fontsize=10)
+        line2 = ax2.plot(dates, views, color=color2, linewidth=2, label='Views', linestyle='--', marker='s', markersize=3)
+        ax2.tick_params(axis='y', labelcolor=color2)
+        
+        # Highlight Rising Stars period if available
+        if rs_info and rs_info.get('first_appearance') and rs_info.get('last_appearance'):
+            rs_start = datetime.strptime(rs_info['first_appearance'], '%Y-%m-%d')
+            rs_end = datetime.strptime(rs_info['last_appearance'], '%Y-%m-%d')
+            
+            # Add shaded region for RS period
+            ax1.axvspan(rs_start, rs_end, alpha=0.2, color='green', label='On Main Rising Stars')
+            
+            # Add vertical lines at start and end
+            ax1.axvline(x=rs_start, color='green', linestyle=':', alpha=0.5, linewidth=1)
+            ax1.axvline(x=rs_end, color='red', linestyle=':', alpha=0.5, linewidth=1)
+            
+            # Add text annotations
+            y_pos = ax1.get_ylim()[1] * 0.95
+            ax1.text(rs_start, y_pos, 'RS Start', rotation=90, verticalalignment='bottom', fontsize=8, color='green')
+            ax1.text(rs_end, y_pos, 'RS End', rotation=90, verticalalignment='bottom', fontsize=8, color='red')
+        
+        # Format x-axis
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
+        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        
+        # Add title
+        ax1.set_title(f'Rising Stars Impact Analysis: {book_title}', fontsize=12, fontweight='bold', pad=20)
+        
+        # Combine legends
+        lines = line1 + line2
+        labels = [l.get_label() for l in lines]
+        
+        # Add RS period to legend if it exists
+        if rs_info and rs_info.get('first_appearance'):
+            ax1.legend(lines, labels, loc='upper left', fontsize=9)
+        else:
+            ax1.legend(lines, labels, loc='upper left', fontsize=9)
+        
+        # Add grid
+        ax1.grid(True, which='major', alpha=0.3)
+        ax1.grid(True, which='minor', alpha=0.1)
+        
+        # Adjust layout
+        plt.tight_layout()
+        
+        # Save to bytes buffer
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
+        buffer.seek(0)
+        plt.close()
+        
+        return buffer
+        
+    except Exception as e:
+        print(f"[RS-CHART] Error creating chart image: {e}")
+        import traceback
+        traceback.print_exc()
+        plt.close()
+        return None
+
+@bot.tree.command(name="rr-rs-run", description="Show Rising Stars appearance history for a Royal Road book")
+@discord.app_commands.describe(
+    book_input="Book ID or Royal Road URL",
+    tags="Comma-separated RS tags (e.g., 'main,fantasy,litrpg' or 'all'). Default: common tags"
+)
+async def rr_rs_run(
+    interaction: discord.Interaction, 
+    book_input: str,
+    tags: str = ""
+):
+    """Show Rising Stars run information for a book"""
+    global command_counter
+    command_counter += 1
+    
+    print(f"\n[RR-RS-RUN] Command called by {interaction.user}")
+    print(f"[RR-RS-RUN] Book input: '{book_input}', Tags: '{tags}'")
+    
+    await interaction.response.defer()
+    
+    try:
+        # All possible RS tags from the database
+        ALL_RS_TAGS = [
+            'main', 'action', 'adventure', 'anti-hero_lead', 'artificial_intelligence',
+            'attractive_lead', 'comedy', 'contemporary', 'cyberpunk', 'drama', 'dungeon',
+            'dystopia', 'fantasy', 'female_lead', 'first_contact', 'gamelit',
+            'gender_bender', 'genetically_engineered', 'grimdark', 'hard_sci-fi',
+            'harem', 'high_fantasy', 'historical', 'horror', 'litrpg', 'loop',
+            'low_fantasy', 'magic', 'male_lead', 'martial_arts', 'multiple_lead',
+            'mystery', 'mythos', 'non-human_lead', 'one_shot', 'post_apocalyptic',
+            'progression', 'psychological', 'reader_interactive', 'reincarnation',
+            'romance', 'ruling_class', 'satire', 'school_life', 'sci_fi',
+            'secret_identity', 'slice_of_life', 'soft_sci-fi', 'space_opera',
+            'sports', 'steampunk', 'strategy', 'strong_lead', 'summoned_hero',
+            'super_heroes', 'supernatural', 'technologically_engineered',
+            'time_travel', 'tragedy', 'urban_fantasy', 'villainous_lead',
+            'virtual_reality', 'war_and_military', 'wuxia', 'xianxia'
+        ]
+        
+        # Default tags to show if none specified
+        DEFAULT_TAGS = ['main', 'fantasy', 'sci_fi', 'litrpg', 'romance', 
+                       'action', 'adventure', 'comedy', 'drama', 'horror', 
+                       'mystery', 'psychological']
+        
+        # Parse the tags parameter
+        if tags:
+            tags_lower = tags.lower().strip()
+            
+            if tags_lower == 'all':
+                # Show all available tags
+                requested_tags = ALL_RS_TAGS
+            else:
+                # Split by comma and clean up each tag
+                input_tags = [tag.strip().lower().replace(' ', '_').replace('-', '_') 
+                             for tag in tags.split(',')]
+                
+                # Validate tags against known RS tags
+                requested_tags = []
+                invalid_tags = []
+                
+                for tag in input_tags:
+                    # Handle special cases and variations
+                    tag_normalized = tag.replace('sci-fi', 'sci_fi').replace('scifi', 'sci_fi')
+                    
+                    if tag_normalized in ALL_RS_TAGS:
+                        requested_tags.append(tag_normalized)
+                    else:
+                        invalid_tags.append(tag)
+                
+                if invalid_tags:
+                    await interaction.followup.send(
+                        f"⚠️ Unknown tags ignored: {', '.join(invalid_tags)}\n"
+                        f"Use 'all' to include all tags, or choose from available RS tags.",
+                        ephemeral=True
+                    )
+                    
+                if not requested_tags:
+                    requested_tags = DEFAULT_TAGS
+        else:
+            # Default to showing common tags
+            requested_tags = DEFAULT_TAGS
+        
+        print(f"[RR-RS-RUN] Requested tags: {requested_tags[:10]}..." if len(requested_tags) > 10 else f"[RR-RS-RUN] Requested tags: {requested_tags}")
+        
+        # Parse book input to get book ID
+        book_id = None
+        if book_input.isdigit():
+            book_id = book_input
+        else:
+            # Extract book ID from URL
+            import re
+            match = re.search(r'/fiction/(\d+)', book_input)
+            if match:
+                book_id = match.group(1)
+            else:
+                await interaction.followup.send(
+                    "❌ Invalid book input. Please provide a book ID or Royal Road URL.",
+                    ephemeral=True
+                )
+                return
+        
+        # Call API to get Rising Stars run data
+        global session
+        if session is None:
+            session = aiohttp.ClientSession()
+        
+        # Prepare request data
+        request_data = {
+            'book_id': book_id,
+            'tags': requested_tags,
+            'bot_token': os.getenv('WP_BOT_TOKEN')
+        }
+        
+        headers = {
+            'User-Agent': 'RR-Discord-Bot/1.0',
+            'X-WP-Nonce': 'discord-bot-request',
+            'X-Forwarded-For': '127.0.0.1',
+            'X-Real-IP': '127.0.0.1'
+        }
+        
+        # Make API request
+        async with session.post(
+            f"{os.getenv('WP_API_URL')}/wp-json/rr-analytics/v1/rising-stars-run",
+            json=request_data,
+            headers=headers,
+            timeout=30
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                print(f"[RR-RS-RUN] API error: {response.status} - {error_text}")
+                await interaction.followup.send(
+                    f"❌ API error: {response.status}",
+                    ephemeral=True
+                )
+                return
+            
+            data = await response.json()
+        
+        if not data.get('success'):
+            error_msg = data.get('message', 'Unknown error occurred')
+            await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
+            return
+        
+        # Extract book info and RS data
+        book_info = data.get('book_info', {})
+        rs_data = data.get('rising_stars_data', {})
+        
+        if not book_info:
+            await interaction.followup.send(
+                "❌ Book not found in database.",
+                ephemeral=True
+            )
+            return
+        
+        # Create embed
+        book_title = book_info.get('title', f'Book {book_id}')
+        book_url = book_info.get('url', f'https://www.royalroad.com/fiction/{book_id}')
+        author = book_info.get('author_name', 'Unknown Author')
+        
+        embed = discord.Embed(
+            title="🌟 Rising Stars Run History",
+            description=f"**[{book_title}]({book_url})**\nby {author}\n\nBook ID: {book_id}",
+            color=0x00A8FF
+        )
+        
+        # Track which tags have data
+        tags_with_data = []
+        
+        # Add RS appearance data for each list
+        if rs_data:
+            # Sort tags to show Main first, then alphabetically
+            sorted_tags = sorted(requested_tags, key=lambda x: (x != 'main', x))
+            
+            for tag_name in sorted_tags:
+                tag_data = rs_data.get(tag_name, {})
+                
+                if tag_data and tag_data.get('appearances', 0) > 0:
+                    tags_with_data.append(tag_name)
+                    
+                    # Build field value with RS statistics
+                    field_lines = []
+                    
+                    # First appearance
+                    if tag_data.get('first_seen'):
+                        field_lines.append(f"📅 **First:** {tag_data['first_seen']}")
+                    
+                    # Current position
+                    if tag_data.get('current_position'):
+                        field_lines.append(f"📍 **Now:** #{tag_data['current_position']}")
+                    else:
+                        field_lines.append(f"📍 **Now:** Not on list")
+                    
+                    # Best position
+                    if tag_data.get('best_position'):
+                        field_lines.append(f"🏆 **Best:** #{tag_data['best_position']}")
+                    
+                    # Time on list
+                    if tag_data.get('days_on_list'):
+                        field_lines.append(f"⏱️ **Days:** {tag_data['days_on_list']}")
+                    
+                    # Total appearances
+                    field_lines.append(f"📊 **Count:** {tag_data['appearances']}")
+                    
+                    # Trend indicator (compact)
+                    if tag_data.get('trend'):
+                        trend = tag_data['trend']
+                        if trend == 'rising':
+                            field_lines.append(f"📈 Rising")
+                        elif trend == 'falling':
+                            field_lines.append(f"📉 Falling")
+                        elif trend == 'stable':
+                            field_lines.append(f"➡️ Stable")
+                    
+                    # Format field name
+                    display_name = tag_name.replace('_', ' ').title()
+                    if tag_name == 'main':
+                        display_name = "⭐ Main"
+                    elif tag_name == 'sci_fi':
+                        display_name = "Sci-Fi"
+                    elif tag_name == 'litrpg':
+                        display_name = "LitRPG"
+                    elif tag_name == 'gamelit':
+                        display_name = "GameLit"
+                    elif tag_name == 'anti-hero_lead':
+                        display_name = "Anti-Hero Lead"
+                    elif tag_name == 'non-human_lead':
+                        display_name = "Non-Human Lead"
+                    
+                    # Add field to embed (inline for compact display)
+                    embed.add_field(
+                        name=display_name,
+                        value="\n".join(field_lines),
+                        inline=True
+                    )
+                    
+                    # Discord has a limit of 25 fields per embed
+                    if len(embed.fields) >= 24:  # Leave room for summary
+                        embed.add_field(
+                            name="...",
+                            value=f"*{len(sorted_tags) - len(embed.fields)} more tags hidden*",
+                            inline=True
+                        )
+                        break
+        
+        # If no RS data found for any requested lists
+        if not tags_with_data:
+            embed.add_field(
+                name="📊 No Rising Stars Data",
+                value="This book has not appeared on any of the selected Rising Stars lists.",
+                inline=False
+            )
+        else:
+            # Add summary statistics
+            total_appearances = sum(rs_data.get(tag, {}).get('appearances', 0) for tag in requested_tags)
+            lists_appeared_on = len(tags_with_data)
+            
+            summary_lines = [
+                f"**Total Appearances:** {total_appearances}",
+                f"**Lists Appeared On:** {lists_appeared_on}"
+            ]
+            
+            # Overall best position across all lists
+            best_positions = [(tag, rs_data.get(tag, {}).get('best_position', 999)) 
+                            for tag in requested_tags 
+                            if rs_data.get(tag, {}).get('best_position')]
+            if best_positions:
+                best_tag, overall_best = min(best_positions, key=lambda x: x[1])
+                display_name = best_tag.replace('_', ' ').title()
+                if best_tag == 'main':
+                    display_name = "Main"
+                summary_lines.append(f"**Overall Best:** #{overall_best} ({display_name})")
+            
+            # Currently on how many lists
+            current_lists = sum(1 for tag in requested_tags 
+                              if rs_data.get(tag, {}).get('current_position'))
+            if current_lists > 0:
+                summary_lines.append(f"**Currently On:** {current_lists} list(s)")
+            
+            embed.add_field(
+                name="📈 Summary",
+                value="\n".join(summary_lines),
+                inline=False
+            )
+        
+        # Add note about query
+        if len(requested_tags) == len(ALL_RS_TAGS):
+            query_note = "Showing: All Rising Stars lists"
+        elif requested_tags == DEFAULT_TAGS:
+            query_note = "Showing: Common Rising Stars lists\n*Use `tags:'all'` to see all lists*"
+        else:
+            shown = min(5, len(requested_tags))
+            tag_list = ', '.join(requested_tags[:shown])
+            if len(requested_tags) > shown:
+                tag_list += f" (+{len(requested_tags) - shown} more)"
+            query_note = f"Showing: {tag_list}"
+        
+        embed.add_field(
+            name="🔍 Query Info",
+            value=query_note,
+            inline=False
+        )
+        
+        # Add promotional field
+        embed = add_promotional_field(embed)
+        
+        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use: /rr-rs-run [book] tags:'all' or tags:'fantasy,litrpg,romance'")
+        
+        await interaction.followup.send(embed=embed)
+        print(f"[RR-RS-RUN] Successfully sent RS run data for book {book_id}")
+        
+    except Exception as e:
+        print(f"[RR-RS-RUN] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        try:
+            await interaction.followup.send(
+                "❌ An error occurred while fetching Rising Stars data.",
+                ephemeral=True
+            )
+        except:
+            pass
+
 # Error handler
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
@@ -3390,6 +4081,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
