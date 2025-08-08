@@ -3483,8 +3483,17 @@ async def rr_rs_chart(
                 rs_lines.append(f"**Last on Main RS:** {rs_info['last_appearance']}")
             if rs_info.get('best_position'):
                 rs_lines.append(f"**Best Position:** #{rs_info['best_position']}")
+                
+                # Add info about peak days if available
+                if rs_info.get('best_position_dates'):
+                    peak_days = len(rs_info['best_position_dates'])
+                    if peak_days == 1:
+                        rs_lines.append(f"**Peak Day:** {rs_info['best_position_dates'][0]}")
+                    else:
+                        rs_lines.append(f"**Days at Peak:** {peak_days}")
+            
             if rs_info.get('days_on_list'):
-                rs_lines.append(f"**Days on List:** {rs_info['days_on_list']}")
+                rs_lines.append(f"**Total Days on List:** {rs_info['days_on_list']}")
             
             if rs_lines:
                 embed.add_field(
@@ -3644,7 +3653,8 @@ async def rr_rs_chart(
                 "• **Blue line:** Followers over time\n"
                 "• **Orange line:** Views over time (right axis)\n"
                 "• **Green shaded area:** Period on Main Rising Stars\n"
-                "• **Vertical lines:** RS appearance start/end dates"
+                "• **Gold vertical lines:** Days at peak RS position\n"
+                "• **Dotted lines:** RS start (green) and end (red) dates"
             ),
             inline=False
         )
@@ -4157,6 +4167,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
