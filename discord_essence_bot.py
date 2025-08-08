@@ -3484,7 +3484,7 @@ async def rr_rs_chart(
             if rs_info.get('best_position'):
                 rs_lines.append(f"**Best Position:** #{rs_info['best_position']}")
             if rs_info.get('days_on_list'):
-                rs_lines.append(f"**Days on List:** {rs_info['days_on_list']}")
+                rs_lines.append(f"**Days on the List:** {rs_info['days_on_list']}")
             
             if rs_lines:
                 embed.add_field(
@@ -3532,17 +3532,18 @@ async def rr_rs_chart(
             )
         
         # Add growth analysis - DURING Rising Stars
-        if growth_analysis.get('during_rs'):
+        if growth_analysis.get('during_rs') and growth_analysis['during_rs']:
             during = growth_analysis['during_rs']
             during_lines = []
             
-            if during.get('follower_growth_rate') is not None:
+            if isinstance(during, dict) and during.get('follower_growth_rate') is not None:
                 rate = during['follower_growth_rate']
                 during_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
                 
                 # Calculate percentage increase in growth RATE if we have before data
-                if growth_analysis.get('before_rs', {}).get('follower_growth_rate'):
-                    before_rate = growth_analysis['before_rs']['follower_growth_rate']
+                before_rs = growth_analysis.get('before_rs')
+                if isinstance(before_rs, dict) and before_rs.get('has_data') and before_rs.get('follower_growth_rate'):
+                    before_rate = before_rs['follower_growth_rate']
                     if before_rate > 0:
                         pct_increase = ((rate - before_rate) / before_rate) * 100
                         if pct_increase > 0:
@@ -3550,7 +3551,7 @@ async def rr_rs_chart(
                         else:
                             during_lines.append(f"**Growth Rate Change:** {pct_increase:.0f}%")
             
-            if during.get('total_follower_change') is not None:
+            if isinstance(during, dict) and during.get('total_follower_change') is not None:
                 change = during['total_follower_change']
                 during_lines.append(f"**Total Gained:** +{change:,}")
                 
@@ -3562,7 +3563,7 @@ async def rr_rs_chart(
                         total_pct = ((end - start) / start) * 100
                         during_lines.append(f"**Total Increase:** {total_pct:.0f}%")
             
-            if during.get('view_growth_rate') is not None:
+            if isinstance(during, dict) and during.get('view_growth_rate') is not None:
                 rate = during['view_growth_rate']
                 during_lines.append(f"**View Growth:** {rate:,.0f}/day")
             
@@ -3574,7 +3575,7 @@ async def rr_rs_chart(
                 )
         
         # Add growth analysis - AFTER Rising Stars (if applicable)
-        if growth_analysis.get('after_rs') and growth_analysis['after_rs'].get('has_data'):
+        if growth_analysis.get('after_rs') and isinstance(growth_analysis['after_rs'], dict) and growth_analysis['after_rs'].get('has_data'):
             after = growth_analysis['after_rs']
             after_lines = []
             
@@ -3583,8 +3584,9 @@ async def rr_rs_chart(
                 after_lines.append(f"**Daily Growth:** {rate:.1f} followers/day")
                 
                 # Compare to during RS period
-                if growth_analysis.get('during_rs', {}).get('follower_growth_rate'):
-                    during_rate = growth_analysis['during_rs']['follower_growth_rate']
+                during_rs = growth_analysis.get('during_rs')
+                if isinstance(during_rs, dict) and during_rs.get('follower_growth_rate'):
+                    during_rate = during_rs['follower_growth_rate']
                     if during_rate > 0:
                         pct_change = ((rate - during_rate) / during_rate) * 100
                         if pct_change < 0:
@@ -3611,14 +3613,14 @@ async def rr_rs_chart(
             # Show both types of increases
             if summary.get('total_increase_percentage') is not None:
                 total_inc = summary['total_increase_percentage']
-                summary_lines.append(f"**🎯 Total Follower Increase:** {total_inc:.0f}%")
+                summary_lines.append(f"**Total Follower Increase:** {total_inc:.0f}%")
             
             if summary.get('follower_boost_percentage') is not None:
                 boost = summary['follower_boost_percentage']
                 if boost > 0:
-                    summary_lines.append(f"**📈 Growth Rate Boost:** +{boost:.0f}%")
+                    summary_lines.append(f"**Growth Rate Boost:** +{boost:.0f}%")
                 else:
-                    summary_lines.append(f"**📈 Growth Rate Change:** {boost:.0f}%")
+                    summary_lines.append(f"**Growth Rate Change:** {boost:.0f}%")
             
             if summary.get('total_followers_gained') is not None:
                 total = summary['total_followers_gained']
@@ -4131,6 +4133,7 @@ if __name__ == "__main__":
     
     print("[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
