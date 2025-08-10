@@ -331,20 +331,22 @@ class ShoutoutModule:
                 ephemeral=True
             )
     
-    # ORIGINAL METHOD - PRESERVED EXACTLY
+    # ORIGINAL METHOD - UPDATED to show campaign IDs and application instructions
     def create_campaign_list_embed(self, campaigns: List[Dict]) -> discord.Embed:
         """Create embed showing list of campaigns"""
         embed = discord.Embed(
             title="📚 Available Shoutout Campaigns",
-            description=f"Found {len(campaigns)} campaign(s)",
+            description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
             color=0x00A86B
         )
         
         for i, campaign in enumerate(campaigns[:10]):  # Show max 10
+            campaign_id = campaign.get('id', 'Unknown')
             field_value = (
+                f"**Campaign ID:** #{campaign_id}\n"
                 f"**Author:** {campaign.get('author_name', 'Unknown')}\n"
                 f"**Platform:** {campaign.get('platform', 'Unknown')}\n"
-                f"**Slots:** {campaign.get('available_slots', 0)}\n"
+                f"**Slots Available:** {campaign.get('available_slots', 0)}\n"
                 f"[View Book]({campaign.get('book_url', '#')})"
             )
             
@@ -361,7 +363,7 @@ class ShoutoutModule:
                 inline=False
             )
         
-        embed.set_footer(text="Use /shoutout-campaign-details [id] to see full details")
+        embed.set_footer(text="💡 Apply to any campaign using: /shoutout-apply [campaign_id]")
         
         return embed
     
@@ -976,7 +978,7 @@ class ApplicationReviewView(discord.ui.View):
             return
         
         app = self.applications[self.current_index]
-        await self.update_application_status(interaction, app.get('id'), 'approved')
+        await self.update_application_status(interaction, app.get('id'), 'approved', None)
     
     @discord.ui.button(label="❌ Decline", style=discord.ButtonStyle.danger)
     async def decline_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -985,7 +987,9 @@ class ApplicationReviewView(discord.ui.View):
             return
         
         app = self.applications[self.current_index]
-        await self.update_application_status(interaction, app.get('id'), 'declined')
+        # Show modal for decline reason
+        modal = DeclineReasonModal(self, app)
+        await interaction.response.send_modal(modal)
     
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -998,13 +1002,14 @@ class ApplicationReviewView(discord.ui.View):
         embed = self.create_application_embed(self.current_index)
         await interaction.response.edit_message(embed=embed, view=self)
     
-    async def update_application_status(self, interaction: discord.Interaction, app_id: int, status: str):
-        """Update application status via API"""
+    async def update_application_status(self, interaction: discord.Interaction, app_id: int, status: str, decline_reason: str = None):
+        """Update application status via API and notify applicant"""
         try:
             data = {
                 'bot_token': self.module.wp_bot_token,
                 'status': status,
-                'campaign_creator_id': str(interaction.user.id)
+                'campaign_creator_id': str(interaction.user.id),
+                'decline_reason': decline_reason
             }
             
             url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications/{app_id}/status"
@@ -1017,6 +1022,13 @@ class ApplicationReviewView(discord.ui.View):
             timeout = aiohttp.ClientTimeout(total=10)
             async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
+                    # Get the application data before removing it
+                    current_app = self.applications[self.current_index]
+                    
+                    # Send notification to applicant
+                    await self.notify_applicant(current_app, status, decline_reason)
+                    
+                    # Remove the application from the list
                     self.applications.pop(self.current_index)
                     
                     if not self.applications:
@@ -1031,7 +1043,7 @@ class ApplicationReviewView(discord.ui.View):
                         embed = self.create_application_embed(self.current_index)
                         
                         await interaction.response.edit_message(
-                            content=f"✅ Application {status}!",
+                            content=f"✅ Application {status}! Notification sent to applicant.",
                             embed=embed,
                             view=self
                         )
@@ -1047,6 +1059,83 @@ class ApplicationReviewView(discord.ui.View):
                 "❌ An error occurred while updating the application.",
                 ephemeral=True
             )
+    
+    async def notify_applicant(self, application: Dict, status: str, decline_reason: str = None):
+        """Send notification to applicant about their application status"""
+        try:
+            # Get applicant's Discord ID
+            applicant_id = application.get('discord_user_id')
+            if not applicant_id:
+                logger.error(f"[SHOUTOUT_MODULE] No Discord ID for applicant")
+                return
+            
+            # Try to get the user
+            try:
+                applicant = await self.module.bot.fetch_user(int(applicant_id))
+            except:
+                logger.error(f"[SHOUTOUT_MODULE] Could not find applicant with ID {applicant_id}")
+                return
+            
+            # Create notification embed based on status
+            if status == 'approved':
+                embed = discord.Embed(
+                    title="🎉 Application Approved!",
+                    description=f"Your application to **{self.campaign.get('book_title')}** has been approved!",
+                    color=0x00A86B
+                )
+                embed.add_field(
+                    name="Campaign Details",
+                    value=(
+                        f"**Book:** {self.campaign.get('book_title')}\n"
+                        f"**Author:** {self.campaign.get('discord_username', 'Unknown')}\n"
+                        f"**Platform:** {self.campaign.get('platform', 'Unknown')}"
+                    ),
+                    inline=False
+                )
+                embed.add_field(
+                    name="Next Steps",
+                    value=(
+                        "• The campaign creator will contact you with shoutout details\n"
+                        "• Coordinate the timing and placement of your shoutouts\n"
+                        "• Make sure to fulfill your shoutout commitment"
+                    ),
+                    inline=False
+                )
+            else:  # declined
+                embed = discord.Embed(
+                    title="📋 Application Update",
+                    description=f"Your application to **{self.campaign.get('book_title')}** was not accepted.",
+                    color=0xFFA500
+                )
+                
+                if decline_reason:
+                    embed.add_field(
+                        name="Feedback from Campaign Creator",
+                        value=decline_reason,
+                        inline=False
+                    )
+                
+                embed.add_field(
+                    name="Don't Give Up!",
+                    value=(
+                        "• Browse other campaigns with `/shoutout-browse`\n"
+                        "• Consider creating your own campaign\n"
+                        "• Keep improving and trying!"
+                    ),
+                    inline=False
+                )
+            
+            embed.set_footer(text=f"Campaign ID: #{self.campaign.get('id', 'Unknown')}")
+            
+            # Send DM
+            try:
+                await applicant.send(embed=embed)
+                logger.info(f"[SHOUTOUT_MODULE] Sent {status} notification to {applicant_id}")
+            except discord.Forbidden:
+                logger.info(f"[SHOUTOUT_MODULE] Could not DM applicant {applicant_id} - DMs disabled")
+                
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error notifying applicant: {e}")
 
 
 class ApplicationConfirmView(discord.ui.View):
@@ -1234,3 +1323,30 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error notifying creator: {e}")
+
+
+class DeclineReasonModal(discord.ui.Modal, title="Decline Application"):
+    """Modal for providing optional reason when declining an application"""
+    
+    reason = discord.ui.TextInput(
+        label="Reason for Declining (Optional)",
+        placeholder="Provide feedback to help the applicant improve (optional)",
+        required=False,
+        max_length=500,
+        style=discord.TextStyle.paragraph
+    )
+    
+    def __init__(self, review_view: ApplicationReviewView, application: Dict):
+        super().__init__()
+        self.review_view = review_view
+        self.application = application
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle decline with optional reason"""
+        reason_text = self.reason.value if self.reason.value else None
+        await self.review_view.update_application_status(
+            interaction, 
+            self.application.get('id'), 
+            'declined',
+            reason_text
+        )
