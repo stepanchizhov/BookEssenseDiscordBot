@@ -367,6 +367,44 @@ class ShoutoutModule:
         
         return embed
     
+    async def fetch_book_stats(self, book_url: str, campaign_rr_book_id: int = None) -> Optional[Dict]:
+        """Fetch book statistics from WordPress API"""
+        try:
+            # Extract RR book ID from URL if it's a Royal Road book
+            rr_book_id = None
+            if 'royalroad.com' in book_url:
+                import re
+                match = re.search(r'/fiction/(\d+)', book_url)
+                if match:
+                    rr_book_id = match.group(1)
+            
+            if not rr_book_id:
+                return None
+            
+            # Make API call to get book stats
+            params = {
+                'bot_token': self.wp_bot_token,
+                'rr_book_id': rr_book_id,
+                'campaign_rr_book_id': campaign_rr_book_id
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/book-stats"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    return await response.json()
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error fetching book stats: {e}")
+            return None
+    
     # NEW METHOD: Handle my campaigns
     async def handle_my_campaigns(self, interaction: discord.Interaction, filter_status: str = "active"):
         """Handle viewing and managing user's own campaigns"""
@@ -902,7 +940,7 @@ class ApplicationReviewView(discord.ui.View):
         self.update_buttons()
     
     def create_application_embed(self, index: int) -> discord.Embed:
-        """Create embed for a single application"""
+        """Create embed for a single application with book stats"""
         app = self.applications[index]
         book_data = app.get('participant_book_data', {})
         
@@ -912,14 +950,25 @@ class ApplicationReviewView(discord.ui.View):
             color=0x3498db
         )
         
-        embed.add_field(
-            name="Applicant",
-            value=app.get('discord_username', 'Unknown'),
-            inline=True
-        )
+        # Make applicant clickable
+        applicant_id = app.get('discord_user_id')
+        if applicant_id:
+            applicant_mention = f"<@{applicant_id}>"
+            embed.add_field(
+                name="Applicant",
+                value=f"{applicant_mention}\n({app.get('discord_username', 'Unknown')})",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="Applicant",
+                value=app.get('discord_username', 'Unknown'),
+                inline=True
+            )
+        
         embed.add_field(
             name="Book Title",
-            value=book_data.get('book_title', 'Unknown'),
+            value=f"[{book_data.get('book_title', 'Unknown')}]({book_data.get('book_url', '#')})",
             inline=True
         )
         embed.add_field(
@@ -932,16 +981,46 @@ class ApplicationReviewView(discord.ui.View):
             value=book_data.get('platform', 'Unknown'),
             inline=True
         )
-        embed.add_field(
-            name="Book URL",
-            value=f"[View Book]({book_data.get('book_url', '#')})",
-            inline=False
-        )
+        
+        # Add book stats if available (from the participant_book_data)
+        if app.get('book_stats'):
+            stats = app['book_stats']
+            stats_text = []
+            if stats.get('followers') is not None:
+                stats_text.append(f"**Followers:** {stats['followers']:,}")
+            if stats.get('rating'):
+                stats_text.append(f"**Rating:** ⭐ {stats['rating']:.1f}/5")
+            if stats.get('launch_date'):
+                stats_text.append(f"**Launched:** {stats['launch_date']}")
+            
+            if stats_text:
+                embed.add_field(
+                    name="Book Statistics",
+                    value="\n".join(stats_text),
+                    inline=False
+                )
+            
+            if stats.get('shared_tags'):
+                tags_list = ", ".join(stats['shared_tags'][:5])
+                if len(stats['shared_tags']) > 5:
+                    tags_list += f" (+{len(stats['shared_tags']) - 5} more)"
+                embed.add_field(
+                    name="Shared Tags with Your Book",
+                    value=tags_list,
+                    inline=False
+                )
         
         if book_data.get('pitch'):
             embed.add_field(
                 name="Pitch",
                 value=book_data.get('pitch', 'No pitch provided')[:500],
+                inline=False
+            )
+        
+        if book_data.get('notes'):
+            embed.add_field(
+                name="Additional Notes",
+                value=book_data.get('notes')[:300],
                 inline=False
             )
         
@@ -977,13 +1056,23 @@ class ApplicationReviewView(discord.ui.View):
             await interaction.response.send_message("You cannot approve this application.", ephemeral=True)
             return
         
+        if self.current_index >= len(self.applications):
+            await interaction.response.send_message("This application has already been processed.", ephemeral=True)
+            return
+        
         app = self.applications[self.current_index]
-        await self.update_application_status(interaction, app.get('id'), 'approved', None)
+        # Show modal for optional date/chapter assignment
+        modal = ApproveApplicationModal(self, app)
+        await interaction.response.send_modal(modal)
     
     @discord.ui.button(label="❌ Decline", style=discord.ButtonStyle.danger)
     async def decline_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("You cannot decline this application.", ephemeral=True)
+            return
+        
+        if self.current_index >= len(self.applications):
+            await interaction.response.send_message("This application has already been processed.", ephemeral=True)
             return
         
         app = self.applications[self.current_index]
@@ -1002,14 +1091,21 @@ class ApplicationReviewView(discord.ui.View):
         embed = self.create_application_embed(self.current_index)
         await interaction.response.edit_message(embed=embed, view=self)
     
-    async def update_application_status(self, interaction: discord.Interaction, app_id: int, status: str, decline_reason: str = None):
+    async def update_application_status(self, interaction: discord.Interaction, app_id: int, status: str, 
+                                       decline_reason: str = None, shout_date: str = None, chapter: str = None):
         """Update application status via API and notify applicant"""
         try:
+            # Defer the response first
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+            
             data = {
                 'bot_token': self.module.wp_bot_token,
                 'status': status,
                 'campaign_creator_id': str(interaction.user.id),
-                'decline_reason': decline_reason
+                'decline_reason': decline_reason,
+                'assigned_shout_date': shout_date,
+                'assigned_chapter': chapter
             }
             
             url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications/{app_id}/status"
@@ -1023,16 +1119,18 @@ class ApplicationReviewView(discord.ui.View):
             async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
                 if response.status == 200:
                     # Get the application data before removing it
-                    current_app = self.applications[self.current_index]
-                    
-                    # Send notification to applicant
-                    await self.notify_applicant(current_app, status, decline_reason)
-                    
-                    # Remove the application from the list
-                    self.applications.pop(self.current_index)
+                    if self.current_index < len(self.applications):
+                        current_app = self.applications[self.current_index]
+                        
+                        # Send notification to applicant
+                        await self.notify_applicant(current_app, status, decline_reason, shout_date, chapter)
+                        
+                        # Remove the application from the list
+                        self.applications.pop(self.current_index)
                     
                     if not self.applications:
-                        await interaction.response.edit_message(
+                        await interaction.followup.edit_message(
+                            message_id=interaction.message.id,
                             content="✅ All applications reviewed!",
                             embed=None,
                             view=None
@@ -1042,25 +1140,30 @@ class ApplicationReviewView(discord.ui.View):
                         self.update_buttons()
                         embed = self.create_application_embed(self.current_index)
                         
-                        await interaction.response.edit_message(
+                        await interaction.followup.edit_message(
+                            message_id=interaction.message.id,
                             content=f"✅ Application {status}! Notification sent to applicant.",
                             embed=embed,
                             view=self
                         )
                 else:
-                    await interaction.response.send_message(
+                    await interaction.followup.send(
                         f"❌ Failed to update application status.",
                         ephemeral=True
                     )
                     
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error updating application: {e}")
-            await interaction.response.send_message(
-                "❌ An error occurred while updating the application.",
-                ephemeral=True
-            )
+            try:
+                await interaction.followup.send(
+                    "❌ An error occurred while updating the application.",
+                    ephemeral=True
+                )
+            except:
+                pass
     
-    async def notify_applicant(self, application: Dict, status: str, decline_reason: str = None):
+    async def notify_applicant(self, application: Dict, status: str, decline_reason: str = None, 
+                              shout_date: str = None, chapter: str = None):
         """Send notification to applicant about their application status"""
         try:
             # Get applicant's Discord ID
@@ -1092,6 +1195,21 @@ class ApplicationReviewView(discord.ui.View):
                     ),
                     inline=False
                 )
+                
+                # Add schedule info if provided
+                if shout_date or chapter:
+                    schedule_info = []
+                    if shout_date:
+                        schedule_info.append(f"**Date:** {shout_date}")
+                    if chapter:
+                        schedule_info.append(f"**Chapter:** {chapter}")
+                    
+                    embed.add_field(
+                        name="📅 Shoutout Schedule",
+                        value="\n".join(schedule_info),
+                        inline=False
+                    )
+                
                 embed.add_field(
                     name="Next Steps",
                     value=(
@@ -1182,7 +1300,7 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
     
     book_url = discord.ui.TextInput(
         label="Book URL",
-        placeholder="Link to your book on the same platform",
+        placeholder="",  # Will be set in __init__
         required=True,
         max_length=500
     )
@@ -1208,6 +1326,10 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
         self.module = module
         self.campaign_id = campaign_id
         self.campaign = campaign
+        
+        # Set the placeholder based on campaign platform
+        platform = campaign.get('platform', 'Unknown')
+        self.book_url.placeholder = f"Link to your book on {platform}"
     
     async def on_submit(self, interaction: discord.Interaction):
         """Handle application submission"""
@@ -1325,6 +1447,48 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
             logger.error(f"[SHOUTOUT_MODULE] Error notifying creator: {e}")
 
 
+class ApproveApplicationModal(discord.ui.Modal, title="Approve Application"):
+    """Modal for approving application with optional date/chapter assignment"""
+    
+    shout_date = discord.ui.TextInput(
+        label="Shoutout Date (Optional)",
+        placeholder="e.g., December 15, 2024 or Next Monday",
+        required=False,
+        max_length=100
+    )
+    
+    chapter = discord.ui.TextInput(
+        label="Assigned Chapter (Optional)",
+        placeholder="e.g., Chapter 5, End of Book 1, Author's Note",
+        required=False,
+        max_length=200
+    )
+    
+    notes = discord.ui.TextInput(
+        label="Additional Instructions (Optional)",
+        placeholder="Any special instructions for the shoutout",
+        required=False,
+        max_length=500,
+        style=discord.TextStyle.paragraph
+    )
+    
+    def __init__(self, review_view: ApplicationReviewView, application: Dict):
+        super().__init__()
+        self.review_view = review_view
+        self.application = application
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle approval with optional scheduling"""
+        await self.review_view.update_application_status(
+            interaction,
+            self.application.get('id'),
+            'approved',
+            None,  # No decline reason for approval
+            self.shout_date.value if self.shout_date.value else None,
+            self.chapter.value if self.chapter.value else None
+        )
+
+
 class DeclineReasonModal(discord.ui.Modal, title="Decline Application"):
     """Modal for providing optional reason when declining an application"""
     
@@ -1348,5 +1512,7 @@ class DeclineReasonModal(discord.ui.Modal, title="Decline Application"):
             interaction, 
             self.application.get('id'), 
             'declined',
-            reason_text
+            reason_text,
+            None,  # No date for decline
+            None   # No chapter for decline
         )
