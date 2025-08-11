@@ -95,6 +95,24 @@ class ShoutoutModule:
             campaign_id: int
         ):
             await self.handle_apply_to_campaign(interaction, campaign_id)
+
+        # NEW: My applications command - Track applications to other campaigns
+        @self.bot.tree.command(name="shoutout-my-applications", description="View your applications to shoutout campaigns")
+        @discord.app_commands.describe(
+            filter_status="Filter by application status"
+        )
+        @discord.app_commands.choices(filter_status=[
+            discord.app_commands.Choice(name="All", value="all"),
+            discord.app_commands.Choice(name="Pending", value="pending"),
+            discord.app_commands.Choice(name="Approved", value="approved"),
+            discord.app_commands.Choice(name="Declined", value="declined"),
+            discord.app_commands.Choice(name="Completed", value="completed")
+        ])
+        async def shoutout_my_applications(
+            interaction: discord.Interaction,
+            filter_status: Optional[str] = "all"
+        ):
+            await self.handle_my_applications(interaction, filter_status)
     
     # ORIGINAL METHOD - PRESERVED EXACTLY
     async def handle_campaign_create(self, interaction: discord.Interaction):
@@ -534,6 +552,64 @@ class ShoutoutModule:
                     
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error applying to campaign: {e}")
+            await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+
+    # NEW METHOD: Handle my applications
+    async def handle_my_applications(self, interaction: discord.Interaction, filter_status: str = "all"):
+        """Handle viewing user's applications to other campaigns"""
+        # Works in both DMs and servers
+        try:
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] My applications request from {interaction.user.id}, filter: {filter_status}")
+            
+            # Build API request
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(interaction.user.id),
+                'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/my-applications/{interaction.user.id}"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    applications = result.get('applications', [])
+                    
+                    # Filter applications if requested
+                    if filter_status != 'all':
+                        applications = [app for app in applications if app.get('status') == filter_status]
+                    
+                    if not applications:
+                        status_text = f"{filter_status} " if filter_status != 'all' else ""
+                        await interaction.followup.send(
+                            f"You don't have any {status_text}applications. Use `/shoutout-browse` to find campaigns!",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Create paginated view
+                    view = MyApplicationsView(self, applications, interaction.user.id, filter_status)
+                    embed = view.create_application_embed(0)
+                    
+                    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                    
+                else:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to fetch user applications: {response.status}")
+                    await interaction.followup.send(
+                        "❌ Failed to fetch your applications. Please try again later.",
+                        ephemeral=True
+                    )
+                    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error in my_applications: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
     # Create my campaigns embed
@@ -1840,3 +1916,243 @@ class DeclineReasonModal(discord.ui.Modal, title="Decline Application"):
             None,  # No date for decline
             None   # No chapter for decline
         )
+
+class MyApplicationsView(discord.ui.View):
+    """View for navigating through user's applications to other campaigns"""
+    
+    def __init__(self, module: ShoutoutModule, applications: List[Dict], user_id: int, filter_status: str):
+        super().__init__(timeout=600)
+        self.module = module
+        self.applications = applications
+        self.user_id = user_id
+        self.filter_status = filter_status
+        self.current_index = 0
+        self.update_buttons()
+    
+    def create_application_embed(self, index: int) -> discord.Embed:
+        """Create embed for a single application"""
+        app = self.applications[index]
+        
+        # Determine color based on status
+        status_colors = {
+            'pending': 0xFFA500,  # Orange
+            'approved': 0x00A86B,  # Green
+            'declined': 0xFF6B6B,  # Red
+            'completed': 0x3498DB  # Blue
+        }
+        
+        embed = discord.Embed(
+            title=f"Application {index + 1}/{len(self.applications)}",
+            description=f"Campaign: **{app.get('campaign_book_title', 'Unknown')}**",
+            color=status_colors.get(app.get('status', 'pending'), 0x808080)
+        )
+        
+        # Campaign info
+        embed.add_field(
+            name="Campaign Author",
+            value=app.get('campaign_creator', 'Unknown'),
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Platform",
+            value=app.get('campaign_platform', 'Unknown'),
+            inline=True
+        )
+        
+        # Application status
+        status = app.get('status', 'pending')
+        status_display = {
+            'pending': '⏳ Pending Review',
+            'approved': '✅ Approved',
+            'declined': '❌ Declined',
+            'completed': '🏁 Completed'
+        }
+        
+        embed.add_field(
+            name="Status",
+            value=status_display.get(status, status.title()),
+            inline=True
+        )
+        
+        # Your book details
+        participant_data = app.get('participant_book_data', {})
+        embed.add_field(
+            name="Your Book",
+            value=f"**{participant_data.get('book_title', 'Unknown')}**\nby {participant_data.get('author_name', 'Unknown')}",
+            inline=False
+        )
+        
+        # If approved, show assignment details
+        if status == 'approved':
+            if app.get('assigned_shout_date') or app.get('assigned_chapter'):
+                assignment_info = []
+                if app.get('assigned_shout_date'):
+                    assignment_info.append(f"📅 **Date:** {app['assigned_shout_date']}")
+                if app.get('assigned_chapter'):
+                    assignment_info.append(f"📖 **Chapter:** {app['assigned_chapter']}")
+                
+                embed.add_field(
+                    name="Shoutout Assignment",
+                    value="\n".join(assignment_info),
+                    inline=False
+                )
+        
+        # If declined, show reason if available
+        elif status == 'declined' and app.get('notes'):
+            embed.add_field(
+                name="Feedback",
+                value=app['notes'],
+                inline=False
+            )
+        
+        # Application date
+        embed.add_field(
+            name="Applied",
+            value=app.get('application_date', 'Unknown'),
+            inline=True
+        )
+        
+        embed.set_footer(text=f"Application ID: {app.get('id', 'Unknown')}")
+        
+        return embed
+    
+    def update_buttons(self):
+        """Update button states based on current index"""
+        self.previous_button.disabled = self.current_index == 0
+        self.next_button.disabled = self.current_index >= len(self.applications) - 1
+        
+        # Update mark complete button visibility
+        if self.applications:
+            current_app = self.applications[self.current_index]
+            # Only show mark complete for approved applications that aren't already completed
+            self.mark_complete_button.disabled = (
+                current_app.get('status') != 'approved' or 
+                current_app.get('participant_shoutout_url') is not None
+            )
+    
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Go to previous application"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your application list.", ephemeral=True)
+            return
+        
+        self.current_index = max(0, self.current_index - 1)
+        self.update_buttons()
+        embed = self.create_application_embed(self.current_index)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="📝 Mark Complete", style=discord.ButtonStyle.success, row=1)
+    async def mark_complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Mark shoutout as completed"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your application.", ephemeral=True)
+            return
+        
+        current_app = self.applications[self.current_index]
+        if current_app.get('status') != 'approved':
+            await interaction.response.send_message(
+                "Only approved applications can be marked as complete.",
+                ephemeral=True
+            )
+            return
+        
+        # Show modal to collect completion details
+        modal = ApplicationCompleteModal(self, current_app)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Go to next application"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your application list.", ephemeral=True)
+            return
+        
+        self.current_index = min(len(self.applications) - 1, self.current_index + 1)
+        self.update_buttons()
+        embed = self.create_application_embed(self.current_index)
+        await interaction.response.edit_message(embed=embed, view=self)
+    
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary)
+    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Refresh application data"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your application list.", ephemeral=True)
+            return
+        
+        await interaction.response.send_message("♻️ Refreshing applications...", ephemeral=True)
+
+class ApplicationCompleteModal(discord.ui.Modal, title="Mark Shoutout Complete"):
+    """Modal for marking application as complete with shoutout URL"""
+    
+    shoutout_url = discord.ui.TextInput(
+        label="Your Shoutout URL",
+        placeholder="Link to where you posted the shoutout (e.g., chapter URL)",
+        required=True,
+        max_length=500
+    )
+    
+    notes = discord.ui.TextInput(
+        label="Additional Notes (Optional)",
+        placeholder="Any notes about the shoutout completion",
+        required=False,
+        max_length=300,
+        style=discord.TextStyle.paragraph
+    )
+    
+    def __init__(self, view: MyApplicationsView, application: Dict):
+        super().__init__()
+        self.view = view
+        self.application = application
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle completion submission"""
+        try:
+            await interaction.response.defer()
+            
+            # Update completion status via API
+            data = {
+                'bot_token': self.view.module.wp_bot_token,
+                'participant_shoutout_url': self.shoutout_url.value,
+                'completion_status': 'participant_completed'
+            }
+            
+            url = f"{self.view.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications/{self.application['id']}/complete"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.view.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.view.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    # Update local application data
+                    self.application['participant_shoutout_url'] = self.shoutout_url.value
+                    self.application['completion_status'] = 'participant_completed'
+                    
+                    # Refresh the view
+                    embed = self.view.create_application_embed(self.view.current_index)
+                    await interaction.followup.edit_message(
+                        message_id=interaction.message.id,
+                        embed=embed,
+                        view=self.view
+                    )
+                    
+                    await interaction.followup.send(
+                        "✅ Your shoutout has been marked as complete!",
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to update completion status.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error marking complete: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating.",
+                ephemeral=True
+            )
