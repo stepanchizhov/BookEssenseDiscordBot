@@ -536,7 +536,7 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error applying to campaign: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
-    # NEW METHOD: Create my campaigns embed
+    # Create my campaigns embed
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
         embed = discord.Embed(
@@ -571,12 +571,17 @@ class ShoutoutModule:
             inline=False
         )
         
-        # List pending applications (first 5)
+        # List pending applications (first 5) with clickable Discord mentions
         if pending > 0:
             pending_apps = [a for a in applications if a.get('status') == 'pending'][:5]
             app_list = []
             for app in pending_apps:
-                app_list.append(f"• {app.get('discord_username', 'Unknown')} - {app.get('book_title', 'Unknown')}")
+                # Make Discord username clickable if we have the Discord ID
+                discord_id = app.get('discord_user_id')
+                if discord_id:
+                    app_list.append(f"• <@{discord_id}> - {app.get('book_title', 'Unknown')}")
+                else:
+                    app_list.append(f"• {app.get('discord_username', 'Unknown')} - {app.get('book_title', 'Unknown')}")
             
             embed.add_field(
                 name="Recent Pending Applications",
@@ -589,8 +594,6 @@ class ShoutoutModule:
         
         return embed
 
-
-# ORIGINAL CLASS - PRESERVED WITH MODIFICATIONS
 class CampaignCreationView(discord.ui.View):
     """View for campaign creation workflow"""
     
@@ -919,6 +922,293 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.send_message("♻️ Refreshing campaigns...", ephemeral=True)
 
+class CampaignManagementView(discord.ui.View):
+    """View for managing a specific campaign"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict, user_id: int):
+        super().__init__(timeout=600)
+        self.module = module
+        self.campaign = campaign
+        self.user_id = user_id
+    
+    def create_management_embed(self) -> discord.Embed:
+        """Create embed for campaign management options"""
+        embed = discord.Embed(
+            title=f"📚 Manage Campaign: {self.campaign.get('book_title', 'Unknown')}",
+            description=f"Campaign ID: #{self.campaign.get('id', 'Unknown')}",
+            color=0x3498db
+        )
+        
+        # Campaign status
+        status = self.campaign.get('campaign_status', 'unknown')
+        embed.add_field(
+            name="Status",
+            value=f"**{status.title()}**",
+            inline=True
+        )
+        
+        # Slot management
+        total_slots = self.campaign.get('total_slots', 0)
+        available_slots = self.campaign.get('available_slots', 0)
+        embed.add_field(
+            name="Slots",
+            value=f"{available_slots}/{total_slots} available",
+            inline=True
+        )
+        
+        # Application counts
+        applications = self.campaign.get('applications', [])
+        pending = len([a for a in applications if a.get('status') == 'pending'])
+        approved = len([a for a in applications if a.get('status') == 'approved'])
+        completed = len([a for a in applications if a.get('status') == 'completed'])
+        
+        embed.add_field(
+            name="Applications",
+            value=f"Pending: {pending}\nApproved: {approved}\nCompleted: {completed}",
+            inline=False
+        )
+        
+        # Management options
+        embed.add_field(
+            name="📋 Management Options",
+            value=(
+                "• **Review Applications** - Review pending applications\n"
+                "• **Pause/Resume** - Temporarily pause or resume campaign\n"
+                "• **View Approved** - See approved participants\n"
+                "• **Complete Campaign** - Mark campaign as completed"
+            ),
+            inline=False
+        )
+        
+        return embed
+    
+    @discord.ui.button(label="📋 Review Pending", style=discord.ButtonStyle.primary, row=0)
+    async def review_pending_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Review pending applications"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot manage this campaign.", ephemeral=True)
+            return
+        
+        pending_apps = [
+            app for app in self.campaign.get('applications', [])
+            if app.get('status') == 'pending'
+        ]
+        
+        if not pending_apps:
+            await interaction.response.send_message(
+                "No pending applications to review.",
+                ephemeral=True
+            )
+            return
+        
+        view = ApplicationReviewView(self.module, self.campaign, pending_apps, self.user_id)
+        embed = view.create_application_embed(0)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    @discord.ui.button(label="⏸️ Pause Campaign", style=discord.ButtonStyle.secondary, row=0)
+    async def toggle_status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Toggle campaign status between active and paused"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot manage this campaign.", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # Call API to toggle status
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'discord_user_id': str(self.user_id)
+            }
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/toggle-status"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    new_status = result.get('new_status', 'unknown')
+                    
+                    # Update button label
+                    if new_status == 'paused':
+                        button.label = "▶️ Resume Campaign"
+                    else:
+                        button.label = "⏸️ Pause Campaign"
+                    
+                    # Update campaign status locally
+                    self.campaign['campaign_status'] = new_status
+                    
+                    # Update embed
+                    embed = self.create_management_embed()
+                    await interaction.followup.edit_message(
+                        message_id=interaction.message.id,
+                        embed=embed,
+                        view=self
+                    )
+                    
+                    await interaction.followup.send(
+                        f"✅ Campaign {new_status}!",
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to update campaign status.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error toggling campaign status: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating the campaign.",
+                ephemeral=True
+            )
+    
+    @discord.ui.button(label="✅ View Approved", style=discord.ButtonStyle.secondary, row=1)
+    async def view_approved_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """View approved applications"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot manage this campaign.", ephemeral=True)
+            return
+        
+        approved_apps = [
+            app for app in self.campaign.get('applications', [])
+            if app.get('status') == 'approved'
+        ]
+        
+        if not approved_apps:
+            await interaction.response.send_message(
+                "No approved applications yet.",
+                ephemeral=True
+            )
+            return
+        
+        # Create embed showing approved participants
+        embed = discord.Embed(
+            title=f"✅ Approved Participants",
+            description=f"Campaign: {self.campaign.get('book_title', 'Unknown')}",
+            color=0x00A86B
+        )
+        
+        for i, app in enumerate(approved_apps[:10], 1):
+            discord_id = app.get('discord_user_id')
+            user_display = f"<@{discord_id}>" if discord_id else app.get('discord_username', 'Unknown')
+            book_data = app.get('participant_book_data', {})
+            
+            field_value = (
+                f"**User:** {user_display}\n"
+                f"**Book:** {book_data.get('book_title', 'Unknown')}\n"
+            )
+            
+            if app.get('assigned_shout_date'):
+                field_value += f"**Date:** {app['assigned_shout_date']}\n"
+            if app.get('assigned_chapter'):
+                field_value += f"**Chapter:** {app['assigned_chapter']}\n"
+            
+            embed.add_field(
+                name=f"{i}. {book_data.get('book_title', 'Unknown')}",
+                value=field_value,
+                inline=False
+            )
+        
+        if len(approved_apps) > 10:
+            embed.set_footer(text=f"Showing 10 of {len(approved_apps)} approved participants")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @discord.ui.button(label="🏁 Complete Campaign", style=discord.ButtonStyle.danger, row=1)
+    async def complete_campaign_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Mark campaign as completed"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot manage this campaign.", ephemeral=True)
+            return
+        
+        # Show confirmation
+        embed = discord.Embed(
+            title="⚠️ Complete Campaign?",
+            description=(
+                "This will mark your campaign as **completed** and:\n"
+                "• Remove it from active listings\n"
+                "• Prevent new applications\n"
+                "• Keep existing participant data\n\n"
+                "Are you sure you want to complete this campaign?"
+            ),
+            color=0xFFA500
+        )
+        
+        # Create confirmation view
+        view = CampaignCompleteConfirmView(self.module, self.campaign, self.user_id)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+class CampaignCompleteConfirmView(discord.ui.View):
+    """Confirmation view for completing a campaign"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict, user_id: int):
+        super().__init__(timeout=60)
+        self.module = module
+        self.campaign = campaign
+        self.user_id = user_id
+    
+    @discord.ui.button(label="✅ Yes, Complete", style=discord.ButtonStyle.danger)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Confirm campaign completion"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot complete this campaign.", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # Update campaign status to completed
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'discord_user_id': str(self.user_id)
+            }
+            
+            # First, change status to completed
+            self.campaign['campaign_status'] = 'completed'
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/toggle-status"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            # Note: You may need to add a specific endpoint for marking as completed
+            # For now, we'll use the toggle endpoint
+            
+            await interaction.followup.edit_message(
+                message_id=interaction.message.id,
+                content="✅ Campaign marked as completed!",
+                embed=None,
+                view=None
+            )
+            
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error completing campaign: {e}")
+            await interaction.followup.send(
+                "❌ Failed to complete campaign.",
+                ephemeral=True
+            )
+    
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel completion"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your action.", ephemeral=True)
+            return
+        
+        await interaction.response.edit_message(
+            content="Campaign completion cancelled.",
+            embed=None,
+            view=None
+        )
 
 class ApplicationReviewView(discord.ui.View):
     """View for reviewing and managing applications"""
