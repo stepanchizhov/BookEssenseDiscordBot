@@ -885,17 +885,10 @@ class MyCampaignsView(discord.ui.View):
         
         current_campaign = self.campaigns[self.current_index]
         applications = current_campaign.get('applications', [])
-        pending_apps = [a for a in applications if a.get('status') == 'pending']
         
-        if not pending_apps:
-            await interaction.response.send_message(
-                "No pending applications to review for this campaign.",
-                ephemeral=True
-            )
-            return
-        
-        view = ApplicationReviewView(self.module, current_campaign, pending_apps, interaction.user.id)
-        embed = view.create_application_embed(0)
+        # Create comprehensive management view
+        view = CampaignManagementView(self.module, current_campaign, interaction.user.id)
+        embed = view.create_management_embed()
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     
@@ -1186,11 +1179,24 @@ class ApplicationReviewView(discord.ui.View):
                     description=f"Your application to **{self.campaign.get('book_title')}** has been approved!",
                     color=0x00A86B
                 )
+                
+                # Get campaign creator's Discord ID for mention
+                creator_id = self.campaign.get('discord_user_id')
+                creator_mention = f"<@{creator_id}>" if creator_id else self.campaign.get('discord_username', 'Unknown')
+                
+                # Make book title a link if URL exists
+                book_url = self.campaign.get('book_url')
+                book_title = self.campaign.get('book_title', 'Unknown')
+                if book_url:
+                    book_display = f"[{book_title}]({book_url})"
+                else:
+                    book_display = book_title
+                
                 embed.add_field(
                     name="Campaign Details",
                     value=(
-                        f"**Book:** {self.campaign.get('book_title')}\n"
-                        f"**Author:** {self.campaign.get('discord_username', 'Unknown')}\n"
+                        f"**Book:** {book_display}\n"
+                        f"**Author:** {creator_mention}\n"
                         f"**Platform:** {self.campaign.get('platform', 'Unknown')}"
                     ),
                     inline=False
@@ -1215,7 +1221,8 @@ class ApplicationReviewView(discord.ui.View):
                     value=(
                         "• The campaign creator will contact you with shoutout details\n"
                         "• Coordinate the timing and placement of your shoutouts\n"
-                        "• Make sure to fulfill your shoutout commitment"
+                        "• Make sure to fulfill your shoutout commitment\n"
+                        "• Use `/shoutout-my-applications` to track all your applications"
                     ),
                     inline=False
                 )
@@ -1238,8 +1245,14 @@ class ApplicationReviewView(discord.ui.View):
                     value=(
                         "• Browse other campaigns with `/shoutout-browse`\n"
                         "• Consider creating your own campaign\n"
-                        "• Keep improving and trying!"
+                        "• Keep writing and trying!"
                     ),
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="Track Your Applications",
+                    value="Use `/shoutout-my-applications` to see all your applications and their statuses",
                     inline=False
                 )
             
@@ -1452,9 +1465,10 @@ class ApproveApplicationModal(discord.ui.Modal, title="Approve Application"):
     
     shout_date = discord.ui.TextInput(
         label="Shoutout Date (Optional)",
-        placeholder="e.g., December 15, 2024 or Next Monday",
+        placeholder="YYYY-MM-DD (e.g., 2024-12-25)",
         required=False,
-        max_length=100
+        max_length=10,
+        min_length=10
     )
     
     chapter = discord.ui.TextInput(
@@ -1476,15 +1490,35 @@ class ApproveApplicationModal(discord.ui.Modal, title="Approve Application"):
         super().__init__()
         self.review_view = review_view
         self.application = application
+        
+        # Add helper text to date field
+        import datetime
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        self.shout_date.placeholder = f"YYYY-MM-DD (e.g., {tomorrow})"
     
     async def on_submit(self, interaction: discord.Interaction):
         """Handle approval with optional scheduling"""
+        # Validate date format if provided
+        formatted_date = None
+        if self.shout_date.value:
+            try:
+                # Parse the date to validate format
+                import datetime
+                date_obj = datetime.datetime.strptime(self.shout_date.value, '%Y-%m-%d')
+                formatted_date = date_obj.strftime('%Y-%m-%d')  # Ensure correct format for MySQL
+            except ValueError:
+                await interaction.response.send_message(
+                    "❌ Invalid date format. Please use YYYY-MM-DD (e.g., 2024-12-25)",
+                    ephemeral=True
+                )
+                return
+        
         await self.review_view.update_application_status(
             interaction,
             self.application.get('id'),
             'approved',
             None,  # No decline reason for approval
-            self.shout_date.value if self.shout_date.value else None,
+            formatted_date,
             self.chapter.value if self.chapter.value else None
         )
 
