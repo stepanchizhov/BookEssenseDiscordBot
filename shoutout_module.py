@@ -423,17 +423,10 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error fetching book stats: {e}")
             return None
     
-    # NEW METHOD: Handle my campaigns
+    # Handle my campaigns
     async def handle_my_campaigns(self, interaction: discord.Interaction, filter_status: str = "active"):
         """Handle viewing and managing user's own campaigns"""
-        # DMs only for privacy
-        if interaction.guild is not None:
-            await interaction.response.send_message(
-                "⚠️ This command only works in DMs for privacy. Please send me a direct message!",
-                ephemeral=True
-            )
-            return
-        
+        # Works anywhere since responses are ephemeral (only visible to the user)
         try:
             await interaction.response.defer(ephemeral=True)
             logger.info(f"[SHOUTOUT_MODULE] My campaigns request from {interaction.user.id}")
@@ -484,7 +477,7 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error in my_campaigns: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
-    # NEW METHOD: Handle apply to campaign
+    # Handle apply to campaign
     async def handle_apply_to_campaign(self, interaction: discord.Interaction, campaign_id: int):
         """Handle application to a specific campaign"""
         try:
