@@ -1315,6 +1315,468 @@ class CampaignManagementView(discord.ui.View):
         view = CampaignCompleteConfirmView(self.module, self.campaign, self.user_id)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
+class CampaignEditMenuView(discord.ui.View):
+    """Menu view for selecting what to edit in a campaign"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict, user_id: int):
+        super().__init__(timeout=300)
+        self.module = module
+        self.campaign = campaign
+        self.user_id = user_id
+    
+    def create_edit_menu_embed(self) -> discord.Embed:
+        """Create embed showing edit options"""
+        embed = discord.Embed(
+            title=f"📝 Edit Campaign: {self.campaign.get('book_title', 'Unknown')}",
+            description=f"Campaign ID: #{self.campaign.get('id', 'Unknown')}\nSelect what you want to edit:",
+            color=0x3498db
+        )
+        
+        embed.add_field(
+            name="📖 Book Details",
+            value="Title, Author, URL, Platform, Blurb",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⚙️ Campaign Settings",
+            value="Available slots, preferences",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="✨ Shoutout Info",
+            value="Shoutout code/URL, narrator, dates",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🌐 Server Visibility",
+            value="Which servers can see this campaign",
+            inline=False
+        )
+        
+        return embed
+    
+    @discord.ui.button(label="📖 Edit Book Details", style=discord.ButtonStyle.primary, row=0)
+    async def edit_book_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open modal to edit book details"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+            return
+        
+        modal = EditBookDetailsModal(self.module, self.campaign)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="⚙️ Edit Settings", style=discord.ButtonStyle.primary, row=1)
+    async def edit_settings_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open modal to edit campaign settings"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+            return
+        
+        modal = EditCampaignSettingsModal(self.module, self.campaign)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="✨ Edit Shoutout Info", style=discord.ButtonStyle.primary, row=2)
+    async def edit_shoutout_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open modal to edit shoutout details"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+            return
+        
+        modal = EditShoutoutDetailsModal(self.module, self.campaign)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="🌐 Edit Server Visibility", style=discord.ButtonStyle.primary, row=3)
+    async def edit_servers_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open modal to edit server visibility"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+            return
+        
+        modal = EditServerVisibilityModal(self.module, self.campaign)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=4)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel editing"""
+        await interaction.response.edit_message(
+            content="Edit cancelled.",
+            embed=None,
+            view=None
+        )
+
+
+class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
+    """Modal for editing book details"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict):
+        super().__init__()
+        self.module = module
+        self.campaign = campaign
+        
+        # Pre-fill with existing values
+        self.book_title.default = campaign.get('book_title', '')
+        self.author_name.default = campaign.get('author_name', '')
+        self.book_url.default = campaign.get('book_url', '')
+        self.platform.default = campaign.get('platform', '')
+        self.blurb.default = campaign.get('blurb', '')
+    
+    book_title = discord.ui.TextInput(
+        label="Book Title",
+        placeholder="Enter your book's title",
+        required=False,
+        max_length=200
+    )
+    
+    author_name = discord.ui.TextInput(
+        label="Author Name",
+        placeholder="Your pen name or author name",
+        required=False,
+        max_length=100
+    )
+    
+    book_url = discord.ui.TextInput(
+        label="Book URL",
+        placeholder="https://www.royalroad.com/fiction/...",
+        required=False,
+        max_length=500
+    )
+    
+    platform = discord.ui.TextInput(
+        label="Platform",
+        placeholder="Royal Road, Scribble Hub, Kindle, etc.",
+        required=False,
+        max_length=50
+    )
+    
+    blurb = discord.ui.TextInput(
+        label="Book Description/Blurb",
+        placeholder="A brief description of your book",
+        required=False,
+        max_length=1000,
+        style=discord.TextStyle.paragraph
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle book details update"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Build update data (only include changed fields)
+            update_data = {
+                'bot_token': self.module.wp_bot_token
+            }
+            
+            if self.book_title.value:
+                update_data['book_title'] = self.book_title.value
+            if self.author_name.value:
+                update_data['author_name'] = self.author_name.value
+            if self.book_url.value:
+                update_data['book_url'] = self.book_url.value
+            if self.platform.value:
+                update_data['platform'] = self.platform.value
+            if self.blurb.value:
+                update_data['blurb'] = self.blurb.value
+            
+            # Only proceed if there's something to update
+            if len(update_data) > 1:  # More than just bot_token
+                url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-book"
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.module.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                timeout = aiohttp.ClientTimeout(total=10)
+                async with self.module.session.put(url, json=update_data, headers=headers, timeout=timeout) as response:
+                    if response.status == 200:
+                        await interaction.followup.send(
+                            "✅ Book details updated successfully!",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(
+                            "❌ Failed to update book details.",
+                            ephemeral=True
+                        )
+            else:
+                await interaction.followup.send(
+                    "ℹ️ No changes made.",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error updating book details: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating book details.",
+                ephemeral=True
+            )
+
+
+class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"):
+    """Modal for editing campaign settings"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict):
+        super().__init__()
+        self.module = module
+        self.campaign = campaign
+        
+        # Pre-fill with existing values
+        self.available_slots.default = str(campaign.get('total_slots', 1))
+    
+    available_slots = discord.ui.TextInput(
+        label="Total Shoutout Slots",
+        placeholder="How many total shoutouts can you offer?",
+        required=True,
+        max_length=5
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle settings update"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Validate slots
+            try:
+                slots = int(self.available_slots.value)
+                if slots < 1:
+                    await interaction.followup.send(
+                        "❌ You must offer at least 1 shoutout slot.",
+                        ephemeral=True
+                    )
+                    return
+            except ValueError:
+                await interaction.followup.send(
+                    "❌ Please enter a valid number for slots.",
+                    ephemeral=True
+                )
+                return
+            
+            # Update settings
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'available_slots': slots
+            }
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-settings"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    await interaction.followup.send(
+                        f"✅ Campaign settings updated! Total slots: {slots}",
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to update campaign settings.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error updating settings: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating settings.",
+                ephemeral=True
+            )
+
+
+class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
+    """Modal for editing shoutout-specific details"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict):
+        super().__init__()
+        self.module = module
+        self.campaign = campaign
+        
+        # Pre-fill with existing values if available
+        self.shoutout_code.default = campaign.get('shoutout_code', '')
+        self.narrator.default = campaign.get('narrator', '')
+        self.publication_date.default = campaign.get('publication_date', '')
+        self.available_dates.default = campaign.get('available_dates', '')
+    
+    shoutout_code = discord.ui.TextInput(
+        label="Your Shoutout Code/URL",
+        placeholder="URL where others will place their shoutouts",
+        required=False,
+        max_length=500
+    )
+    
+    narrator = discord.ui.TextInput(
+        label="Narrator (for Audiobooks)",
+        placeholder="Narrator name if applicable",
+        required=False,
+        max_length=200
+    )
+    
+    publication_date = discord.ui.TextInput(
+        label="Publication Date",
+        placeholder="YYYY-MM-DD",
+        required=False,
+        max_length=10
+    )
+    
+    available_dates = discord.ui.TextInput(
+        label="Available Shoutout Dates",
+        placeholder="When can you post shoutouts? (e.g., Mondays, after Ch 50)",
+        required=False,
+        max_length=500,
+        style=discord.TextStyle.paragraph
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle shoutout details update"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Build update data
+            update_data = {
+                'bot_token': self.module.wp_bot_token
+            }
+            
+            if self.shoutout_code.value:
+                update_data['shoutout_code'] = self.shoutout_code.value
+            if self.narrator.value:
+                update_data['narrator'] = self.narrator.value
+            if self.publication_date.value:
+                # Validate date format
+                import re
+                if not re.match(r'^\d{4}-\d{2}-\d{2}$', self.publication_date.value):
+                    await interaction.followup.send(
+                        "❌ Invalid date format. Please use YYYY-MM-DD",
+                        ephemeral=True
+                    )
+                    return
+                update_data['publication_date'] = self.publication_date.value
+            if self.available_dates.value:
+                update_data['available_dates'] = self.available_dates.value
+            
+            if len(update_data) > 1:  # More than just bot_token
+                url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-shoutout"
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.module.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                timeout = aiohttp.ClientTimeout(total=10)
+                async with self.module.session.put(url, json=update_data, headers=headers, timeout=timeout) as response:
+                    if response.status == 200:
+                        await interaction.followup.send(
+                            "✅ Shoutout details updated successfully!",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(
+                            "❌ Failed to update shoutout details.",
+                            ephemeral=True
+                        )
+            else:
+                await interaction.followup.send(
+                    "ℹ️ No changes made.",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error updating shoutout details: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating shoutout details.",
+                ephemeral=True
+            )
+
+
+class EditServerVisibilityModal(discord.ui.Modal, title="Edit Server Visibility"):
+    """Modal for editing which servers can see the campaign"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict):
+        super().__init__()
+        self.module = module
+        self.campaign = campaign
+        
+        # Pre-fill with existing values
+        allowed_servers = campaign.get('allowed_servers')
+        if allowed_servers:
+            try:
+                servers_list = json.loads(allowed_servers) if isinstance(allowed_servers, str) else allowed_servers
+                self.server_ids.default = ', '.join(servers_list) if isinstance(servers_list, list) else ''
+            except:
+                self.server_ids.default = ''
+    
+    server_ids = discord.ui.TextInput(
+        label="Allowed Server IDs",
+        placeholder="Leave empty for all servers, or enter comma-separated server IDs",
+        required=False,
+        max_length=500,
+        style=discord.TextStyle.paragraph
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle server visibility update"""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Parse server IDs
+            if self.server_ids.value:
+                # Split by comma and clean up
+                server_list = [s.strip() for s in self.server_ids.value.split(',') if s.strip()]
+                # Validate they look like Discord IDs (numeric strings)
+                for server_id in server_list:
+                    if not server_id.isdigit():
+                        await interaction.followup.send(
+                            f"❌ Invalid server ID: {server_id}. Server IDs should be numeric.",
+                            ephemeral=True
+                        )
+                        return
+                
+                allowed_servers = json.dumps(server_list)
+            else:
+                # Empty means visible to all
+                allowed_servers = None
+            
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'allowed_servers': allowed_servers
+            }
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-servers"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    if allowed_servers:
+                        await interaction.followup.send(
+                            f"✅ Server visibility updated! Campaign visible to {len(server_list)} server(s).",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(
+                            "✅ Server visibility updated! Campaign visible to all servers.",
+                            ephemeral=True
+                        )
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to update server visibility.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error updating server visibility: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating server visibility.",
+                ephemeral=True
+            )
 
 class PublicCampaignView(discord.ui.View):
     """View for public campaign announcements with Apply button"""
