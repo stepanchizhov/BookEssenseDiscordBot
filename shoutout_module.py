@@ -670,19 +670,26 @@ class CampaignCreationView(discord.ui.View):
             await interaction.response.send_message("This campaign creation is for another user.", ephemeral=True)
             return
         
-        modal = BookDetailsModal(self.module)
+        modal = EnhancedBookDetailsModal(self.module)
         await interaction.response.send_modal(modal)
-        logger.info(f"[SHOUTOUT_MODULE] Book details modal sent to user {interaction.user.id}")
+        logger.info(f"[SHOUTOUT_MODULE] Enhanced book details modal sent to user {interaction.user.id}")
 
 
-class BookDetailsModal(discord.ui.Modal, title="Book Details"):
-    """Modal for entering book details"""
+class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
+    """Enhanced modal for campaign creation with shoutout code"""
     
     book_title = discord.ui.TextInput(
         label="Book Title",
         placeholder="Enter your book's title",
         required=True,
         max_length=200
+    )
+    
+    author_name = discord.ui.TextInput(
+        label="Author Name",
+        placeholder="Your pen name or author name",
+        required=True,
+        max_length=100
     )
     
     book_url = discord.ui.TextInput(
@@ -699,13 +706,6 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
         max_length=50
     )
     
-    author_name = discord.ui.TextInput(
-        label="Author Name",
-        placeholder="Your pen name or author name",
-        required=True,
-        max_length=100
-    )
-    
     available_slots = discord.ui.TextInput(
         label="Number of Shoutout Slots",
         placeholder="How many shoutouts can you offer? (minimum 1)",
@@ -716,11 +716,11 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     def __init__(self, module):
         super().__init__()
         self.module = module
-        logger.info(f"[SHOUTOUT_MODULE] BookDetailsModal initialized")
+        logger.info(f"[SHOUTOUT_MODULE] EnhancedBookDetailsModal initialized")
     
     async def on_submit(self, interaction: discord.Interaction):
-        """Handle modal submission - properly send all book data"""
-        logger.info(f"[SHOUTOUT_MODULE] ========== MODAL SUBMIT START ==========")
+        """Handle modal submission with enhanced data"""
+        logger.info(f"[SHOUTOUT_MODULE] ========== ENHANCED MODAL SUBMIT START ==========")
         logger.info(f"[SHOUTOUT_MODULE] Modal submitted by {interaction.user.id}")
         
         try:
@@ -855,7 +855,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                         value=(
                             "• Your campaign is now live\n"
                             "• Use `/shoutout-my-campaigns` to manage applications\n"
-                            "• Share your campaign ID with potential participants"
+                            "• Click 'Announce' to share your campaign publicly"
                         ),
                         inline=False
                     )
@@ -896,7 +896,7 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
                 logger.error(f"[SHOUTOUT_MODULE] Failed to send error message to user")
         
         finally:
-            logger.info(f"[SHOUTOUT_MODULE] ========== MODAL SUBMIT END ==========")
+            logger.info(f"[SHOUTOUT_MODULE] ========== ENHANCED MODAL SUBMIT END ==========")
 
 
 class MyCampaignsView(discord.ui.View):
@@ -918,9 +918,10 @@ class MyCampaignsView(discord.ui.View):
         if self.campaigns:
             current_campaign = self.campaigns[self.current_index]
             self.manage_button.label = f"Manage #{current_campaign.get('id', '?')}"
+            self.edit_button.label = f"Edit #{current_campaign.get('id', '?')}"
             self.announce_button.label = f"Announce #{current_campaign.get('id', '?')}"
     
-    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, custom_id="prev")
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, custom_id="prev", row=0)
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Go to previous campaign"""
         if interaction.user.id != self.user_id:
@@ -938,7 +939,7 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.edit_message(embed=embed, view=self)
     
-    @discord.ui.button(label="Manage", style=discord.ButtonStyle.primary, custom_id="manage")
+    @discord.ui.button(label="Manage", style=discord.ButtonStyle.primary, custom_id="manage", row=1)
     async def manage_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Open management view for current campaign"""
         if interaction.user.id != self.user_id:
@@ -953,7 +954,22 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     
-    @discord.ui.button(label="📢 Announce", style=discord.ButtonStyle.success, custom_id="announce")
+    @discord.ui.button(label="Edit", style=discord.ButtonStyle.secondary, custom_id="edit", row=1)
+    async def edit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open edit view for current campaign"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your campaign.", ephemeral=True)
+            return
+        
+        current_campaign = self.campaigns[self.current_index]
+        
+        # Create edit menu view
+        view = CampaignEditMenuView(self.module, current_campaign, interaction.user.id)
+        embed = view.create_edit_menu_embed()
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    @discord.ui.button(label="📢 Announce", style=discord.ButtonStyle.success, custom_id="announce", row=1)
     async def announce_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Create public announcement for current campaign"""
         if interaction.user.id != self.user_id:
@@ -1049,7 +1065,7 @@ class MyCampaignsView(discord.ui.View):
         
         return embed
     
-    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="next")
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="next", row=0)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Go to next campaign"""
         if interaction.user.id != self.user_id:
@@ -1067,7 +1083,7 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.edit_message(embed=embed, view=self)
     
-    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, custom_id="refresh")
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, custom_id="refresh", row=2)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Refresh campaign data"""
         if interaction.user.id != self.user_id:
@@ -1312,6 +1328,15 @@ class PublicCampaignView(discord.ui.View):
     @discord.ui.button(label="📝 Apply to Campaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Show application modal when Apply is clicked"""
+        # Check if user is trying to apply to their own campaign
+        campaign_creator_id = self.campaign.get('discord_user_id')
+        if campaign_creator_id and str(interaction.user.id) == str(campaign_creator_id):
+            await interaction.response.send_message(
+                "❌ You cannot apply to your own campaign!",
+                ephemeral=True
+            )
+            return
+        
         # Check if campaign is still active and has slots
         if self.campaign.get('available_slots', 0) <= 0:
             await interaction.response.send_message(
@@ -1487,12 +1512,20 @@ class ApplicationReviewView(discord.ui.View):
         # Show shoutout code if provided
         if book_data.get('shoutout_code'):
             shoutout_url = book_data['shoutout_code']
-            display_text = shoutout_url[:50] + "..." if len(shoutout_url) > 50 else shoutout_url
-            embed.add_field(
-                name="✨ Shoutout Code Provided",
-                value=f"[{display_text}]({shoutout_url})",
-                inline=False
-            )
+            # Truncate for display but keep URL intact
+            if len(shoutout_url) > 50:
+                display_text = shoutout_url[:50] + "..."
+                embed.add_field(
+                    name="✨ Shoutout Code Provided",
+                    value=f"[{display_text}]({shoutout_url})",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="✨ Shoutout Code Provided",
+                    value=shoutout_url,
+                    inline=False
+                )
         
         # Add book stats if available
         if app.get('book_stats'):
@@ -1809,6 +1842,15 @@ class ApplicationConfirmView(discord.ui.View):
     @discord.ui.button(label="📝 Apply Now", style=discord.ButtonStyle.primary)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Show application modal"""
+        # Check if user is trying to apply to their own campaign
+        campaign_creator_id = self.campaign.get('discord_user_id')
+        if campaign_creator_id and str(interaction.user.id) == str(campaign_creator_id):
+            await interaction.response.send_message(
+                "❌ You cannot apply to your own campaign!",
+                ephemeral=True
+            )
+            return
+        
         modal = ApplicationModal(self.module, self.campaign_id, self.campaign)
         await interaction.response.send_modal(modal)
     
@@ -2163,7 +2205,15 @@ class MyApplicationsView(discord.ui.View):
             inline=False
         )
         
-        # If approved, show assignment details
+        # Show your shoutout code if provided
+        if participant_data.get('shoutout_code'):
+            embed.add_field(
+                name="Your Shoutout Code",
+                value=participant_data['shoutout_code'],
+                inline=False
+            )
+        
+        # If approved, show assignment details and campaign creator's shoutout code
         if status == 'approved':
             if app.get('assigned_shout_date') or app.get('assigned_chapter'):
                 assignment_info = []
@@ -2175,6 +2225,14 @@ class MyApplicationsView(discord.ui.View):
                 embed.add_field(
                     name="Shoutout Assignment",
                     value="\n".join(assignment_info),
+                    inline=False
+                )
+            
+            # Show campaign creator's shoutout code if available
+            if app.get('creator_shoutout_code'):
+                embed.add_field(
+                    name="Campaign Creator's Shoutout Location",
+                    value=app['creator_shoutout_code'],
                     inline=False
                 )
         
