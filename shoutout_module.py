@@ -1,7 +1,7 @@
 """
-Discord Bot Shoutout Swap System Module - Complete Enhanced Version
+Discord Bot Shoutout Swap System Module - Complete Unified Version
 Modular extension for the existing Discord Essence Bot
-Preserves all original functionality and adds new commands
+Includes all original functionality plus announcement features with no duplication
 """
 
 import discord
@@ -41,13 +41,13 @@ class ShoutoutModule:
     def register_commands(self):
         """Register all shoutout-related commands with the bot"""
         
-        # ORIGINAL: Create campaign command - works everywhere
+        # Create campaign command - works everywhere
         @self.bot.tree.command(name="shoutout-campaign-create", description="Create a new shoutout campaign")
         async def shoutout_campaign_create(interaction: discord.Interaction):
             """Create a new shoutout campaign - works anywhere"""
             await self.handle_campaign_create(interaction)
         
-        # ORIGINAL: Browse campaigns command
+        # Browse campaigns command
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
         @discord.app_commands.describe(
             genre="Filter by genre",
@@ -68,7 +68,7 @@ class ShoutoutModule:
                 interaction, genre, platform, min_followers, max_followers, server_only
             )
         
-        # NEW: My campaigns command - DMs only
+        # My campaigns command - works everywhere (no DM restriction)
         @self.bot.tree.command(name="shoutout-my-campaigns", description="Manage your shoutout campaigns")
         @discord.app_commands.describe(
             filter_status="Filter by campaign status (active, paused, completed, all)"
@@ -85,7 +85,7 @@ class ShoutoutModule:
         ):
             await self.handle_my_campaigns(interaction, filter_status)
         
-        # NEW: Apply to campaign command
+        # Apply to campaign command
         @self.bot.tree.command(name="shoutout-apply", description="Apply to a specific shoutout campaign")
         @discord.app_commands.describe(
             campaign_id="The ID of the campaign to apply to"
@@ -96,7 +96,7 @@ class ShoutoutModule:
         ):
             await self.handle_apply_to_campaign(interaction, campaign_id)
 
-        # NEW: My applications command - Track applications to other campaigns
+        # My applications command - Track applications to other campaigns
         @self.bot.tree.command(name="shoutout-my-applications", description="View your applications to shoutout campaigns")
         @discord.app_commands.describe(
             filter_status="Filter by application status"
@@ -114,7 +114,6 @@ class ShoutoutModule:
         ):
             await self.handle_my_applications(interaction, filter_status)
     
-    # ORIGINAL METHOD - PRESERVED EXACTLY
     async def handle_campaign_create(self, interaction: discord.Interaction):
         """Handle campaign creation workflow - works in servers and DMs"""
         try:
@@ -253,7 +252,6 @@ class ShoutoutModule:
         finally:
             logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
     
-    # ORIGINAL METHOD - PRESERVED EXACTLY
     async def handle_browse_campaigns(
         self,
         interaction: discord.Interaction,
@@ -349,7 +347,6 @@ class ShoutoutModule:
                 ephemeral=True
             )
     
-    # ORIGINAL METHOD - UPDATED to show campaign IDs and application instructions
     def create_campaign_list_embed(self, campaigns: List[Dict]) -> discord.Embed:
         """Create embed showing list of campaigns"""
         embed = discord.Embed(
@@ -423,10 +420,8 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error fetching book stats: {e}")
             return None
     
-    # Handle my campaigns
     async def handle_my_campaigns(self, interaction: discord.Interaction, filter_status: str = "active"):
-        """Handle viewing and managing user's own campaigns"""
-        # Works anywhere since responses are ephemeral (only visible to the user)
+        """Handle viewing and managing user's own campaigns - works everywhere"""
         try:
             await interaction.response.defer(ephemeral=True)
             logger.info(f"[SHOUTOUT_MODULE] My campaigns request from {interaction.user.id}")
@@ -477,7 +472,6 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error in my_campaigns: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
-    # Handle apply to campaign
     async def handle_apply_to_campaign(self, interaction: discord.Interaction, campaign_id: int):
         """Handle application to a specific campaign"""
         try:
@@ -523,7 +517,7 @@ class ShoutoutModule:
                         inline=False
                     )
                     
-                    # Add confirmation view
+                    # Use unified application view
                     view = ApplicationConfirmView(self, campaign_id, campaign)
                     
                     await interaction.followup.send(
@@ -547,10 +541,8 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error applying to campaign: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
 
-    # NEW METHOD: Handle my applications
     async def handle_my_applications(self, interaction: discord.Interaction, filter_status: str = "all"):
         """Handle viewing user's applications to other campaigns"""
-        # Works in both DMs and servers
         try:
             await interaction.response.defer(ephemeral=True)
             logger.info(f"[SHOUTOUT_MODULE] My applications request from {interaction.user.id}, filter: {filter_status}")
@@ -605,7 +597,6 @@ class ShoutoutModule:
             logger.error(f"[SHOUTOUT_MODULE] Error in my_applications: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
-    # Create my campaigns embed
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
         embed = discord.Embed(
@@ -645,7 +636,6 @@ class ShoutoutModule:
             pending_apps = [a for a in applications if a.get('status') == 'pending'][:5]
             app_list = []
             for app in pending_apps:
-                # Make Discord username clickable if we have the Discord ID
                 discord_id = app.get('discord_user_id')
                 if discord_id:
                     app_list.append(f"• <@{discord_id}> - {app.get('book_title', 'Unknown')}")
@@ -662,6 +652,7 @@ class ShoutoutModule:
                 embed.set_footer(text=f"And {pending - 5} more pending applications...")
         
         return embed
+
 
 class CampaignCreationView(discord.ui.View):
     """View for campaign creation workflow"""
@@ -684,7 +675,6 @@ class CampaignCreationView(discord.ui.View):
         logger.info(f"[SHOUTOUT_MODULE] Book details modal sent to user {interaction.user.id}")
 
 
-# ORIGINAL CLASS - PRESERVED EXACTLY
 class BookDetailsModal(discord.ui.Modal, title="Book Details"):
     """Modal for entering book details"""
     
@@ -909,7 +899,6 @@ class BookDetailsModal(discord.ui.Modal, title="Book Details"):
             logger.info(f"[SHOUTOUT_MODULE] ========== MODAL SUBMIT END ==========")
 
 
-# NEW CLASSES for enhanced functionality
 class MyCampaignsView(discord.ui.View):
     """View for navigating through user's campaigns"""
     
@@ -956,7 +945,6 @@ class MyCampaignsView(discord.ui.View):
             return
         
         current_campaign = self.campaigns[self.current_index]
-        applications = current_campaign.get('applications', [])
         
         # Create comprehensive management view
         view = CampaignManagementView(self.module, current_campaign, interaction.user.id)
@@ -991,8 +979,9 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.send_message("♻️ Refreshing campaigns...", ephemeral=True)
 
+
 class CampaignManagementView(discord.ui.View):
-    """View for managing a specific campaign"""
+    """View for managing a specific campaign with announce feature"""
     
     def __init__(self, module: ShoutoutModule, campaign: Dict, user_id: int):
         super().__init__(timeout=600)
@@ -1042,12 +1031,70 @@ class CampaignManagementView(discord.ui.View):
             name="📋 Management Options",
             value=(
                 "• **Review Applications** - Review pending applications\n"
+                "• **Announce** - Create a public announcement for this campaign\n"
                 "• **Pause/Resume** - Temporarily pause or resume campaign\n"
                 "• **View Approved** - See approved participants\n"
                 "• **Complete Campaign** - Mark campaign as completed"
             ),
             inline=False
         )
+        
+        return embed
+    
+    def create_public_announcement_embed(self) -> discord.Embed:
+        """Create embed for public campaign announcement"""
+        embed = discord.Embed(
+            title=f"📖 {self.campaign.get('book_title', 'Unknown')}",
+            description=f"by **{self.campaign.get('author_name', 'Unknown')}**",
+            color=0x00A86B
+        )
+        
+        # Add book URL if available
+        book_url = self.campaign.get('book_url')
+        if book_url:
+            embed.add_field(
+                name="📚 Book Link",
+                value=f"[Read on {self.campaign.get('platform', 'Platform')}]({book_url})",
+                inline=False
+            )
+        
+        # Campaign details
+        embed.add_field(
+            name="Platform",
+            value=self.campaign.get('platform', 'Unknown'),
+            inline=True
+        )
+        
+        available_slots = self.campaign.get('available_slots', 0)
+        total_slots = self.campaign.get('total_slots', 0)
+        embed.add_field(
+            name="Available Slots",
+            value=f"{available_slots}/{total_slots}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Campaign ID",
+            value=f"#{self.campaign.get('id', 'Unknown')}",
+            inline=True
+        )
+        
+        # Add blurb if available
+        blurb = self.campaign.get('blurb')
+        if blurb:
+            embed.add_field(
+                name="About the Book",
+                value=blurb[:500] if len(blurb) > 500 else blurb,
+                inline=False
+            )
+        
+        embed.add_field(
+            name="How to Apply",
+            value="Click the **Apply** button below to submit your application!",
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Campaign by {self.campaign.get('discord_username', 'Unknown')}")
         
         return embed
     
@@ -1073,6 +1120,27 @@ class CampaignManagementView(discord.ui.View):
         view = ApplicationReviewView(self.module, self.campaign, pending_apps, self.user_id)
         embed = view.create_application_embed(0)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    @discord.ui.button(label="📢 Announce", style=discord.ButtonStyle.success, row=0)
+    async def announce_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Create public announcement for campaign"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot announce this campaign.", ephemeral=True)
+            return
+        
+        # Create public announcement embed
+        embed = self.create_public_announcement_embed()
+        
+        # Create view with Apply button for the public announcement
+        view = PublicCampaignView(self.module, self.campaign)
+        
+        # Send as a new public message (not ephemeral)
+        await interaction.response.send_message(
+            content="📢 **New Shoutout Campaign Available!**",
+            embed=embed,
+            view=view,
+            ephemeral=False  # Make it public
+        )
     
     @discord.ui.button(label="⏸️ Pause Campaign", style=discord.ButtonStyle.secondary, row=0)
     async def toggle_status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1214,6 +1282,72 @@ class CampaignManagementView(discord.ui.View):
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
+class PublicCampaignView(discord.ui.View):
+    """View for public campaign announcements with Apply button"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict):
+        super().__init__(timeout=None)  # No timeout for public views
+        self.module = module
+        self.campaign = campaign
+        self.campaign_id = campaign.get('id')
+    
+    @discord.ui.button(label="📝 Apply to Campaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
+    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Show application modal when Apply is clicked"""
+        # Check if campaign is still active and has slots
+        if self.campaign.get('available_slots', 0) <= 0:
+            await interaction.response.send_message(
+                "❌ This campaign has no available slots.",
+                ephemeral=True
+            )
+            return
+        
+        # Use the unified application modal
+        modal = ApplicationModal(self.module, self.campaign_id, self.campaign)
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="📊 View Details", style=discord.ButtonStyle.secondary, custom_id="view_details")
+    async def details_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Show detailed campaign information"""
+        embed = discord.Embed(
+            title=f"Campaign Details: {self.campaign.get('book_title', 'Unknown')}",
+            color=0x3498db
+        )
+        
+        # Add all campaign details
+        embed.add_field(
+            name="Campaign Creator",
+            value=f"<@{self.campaign.get('discord_user_id')}>" if self.campaign.get('discord_user_id') else self.campaign.get('discord_username', 'Unknown'),
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Campaign ID",
+            value=f"#{self.campaign_id}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Status",
+            value=self.campaign.get('campaign_status', 'active').title(),
+            inline=True
+        )
+        
+        # Add instructions
+        embed.add_field(
+            name="How Shoutout Swaps Work",
+            value=(
+                "1. Apply with your book details\n"
+                "2. If approved, exchange shoutouts with the campaign creator\n"
+                "3. Both authors promote each other's books\n"
+                "4. Track progress with `/shoutout-my-applications`"
+            ),
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 class CampaignCompleteConfirmView(discord.ui.View):
     """Confirmation view for completing a campaign"""
     
@@ -1249,9 +1383,6 @@ class CampaignCompleteConfirmView(discord.ui.View):
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
-            # Note: You may need to add a specific endpoint for marking as completed
-            # For now, we'll use the toggle endpoint
-            
             await interaction.followup.edit_message(
                 message_id=interaction.message.id,
                 content="✅ Campaign marked as completed!",
@@ -1279,6 +1410,7 @@ class CampaignCompleteConfirmView(discord.ui.View):
             view=None
         )
 
+
 class ApplicationReviewView(discord.ui.View):
     """View for reviewing and managing applications"""
     
@@ -1292,7 +1424,7 @@ class ApplicationReviewView(discord.ui.View):
         self.update_buttons()
     
     def create_application_embed(self, index: int) -> discord.Embed:
-        """Create embed for a single application with book stats"""
+        """Create embed for a single application with book stats and shoutout code"""
         app = self.applications[index]
         book_data = app.get('participant_book_data', {})
         
@@ -1334,7 +1466,17 @@ class ApplicationReviewView(discord.ui.View):
             inline=True
         )
         
-        # Add book stats if available (from the participant_book_data)
+        # Show shoutout code if provided
+        if book_data.get('shoutout_code'):
+            shoutout_url = book_data['shoutout_code']
+            display_text = shoutout_url[:50] + "..." if len(shoutout_url) > 50 else shoutout_url
+            embed.add_field(
+                name="✨ Shoutout Code Provided",
+                value=f"[{display_text}]({shoutout_url})",
+                inline=False
+            )
+        
+        # Add book stats if available
         if app.get('book_stats'):
             stats = app['book_stats']
             stats_text = []
@@ -1561,6 +1703,15 @@ class ApplicationReviewView(discord.ui.View):
                     inline=False
                 )
                 
+                # Show shoutout code if applicant provided one
+                book_data = application.get('participant_book_data', {})
+                if book_data.get('shoutout_code'):
+                    embed.add_field(
+                        name="✅ Your Shoutout Code",
+                        value=f"You provided: {book_data['shoutout_code']}",
+                        inline=False
+                    )
+                
                 # Add schedule info if provided
                 if shout_date or chapter:
                     schedule_info = []
@@ -1629,7 +1780,7 @@ class ApplicationReviewView(discord.ui.View):
 
 
 class ApplicationConfirmView(discord.ui.View):
-    """View for confirming application to a campaign"""
+    """Unified view for confirming application to a campaign"""
     
     def __init__(self, module: ShoutoutModule, campaign_id: int, campaign: Dict):
         super().__init__(timeout=300)
@@ -1654,7 +1805,7 @@ class ApplicationConfirmView(discord.ui.View):
 
 
 class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
-    """Modal for submitting application details"""
+    """Unified modal for submitting application with optional shoutout code"""
     
     book_title = discord.ui.TextInput(
         label="Your Book Title",
@@ -1672,8 +1823,15 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
     
     book_url = discord.ui.TextInput(
         label="Book URL",
-        placeholder="",  # Will be set in __init__
+        placeholder="",
         required=True,
+        max_length=500
+    )
+    
+    shoutout_code = discord.ui.TextInput(
+        label="Your Shoutout Code/URL (Optional)",
+        placeholder="URL where you'll place the shoutout (e.g., chapter link)",
+        required=False,
         max_length=500
     )
     
@@ -1682,14 +1840,6 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
         placeholder="Brief pitch about your book and why you're a good match",
         required=True,
         max_length=500,
-        style=discord.TextStyle.paragraph
-    )
-    
-    notes = discord.ui.TextInput(
-        label="Additional Notes (Optional)",
-        placeholder="Any additional information for the campaign creator",
-        required=False,
-        max_length=300,
         style=discord.TextStyle.paragraph
     )
     
@@ -1714,7 +1864,8 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 'book_url': self.book_url.value,
                 'platform': self.campaign.get('platform'),
                 'pitch': self.pitch.value,
-                'notes': self.notes.value if self.notes.value else None
+                'shoutout_code': self.shoutout_code.value if self.shoutout_code.value else None,
+                'notes': None
             }
             
             data = {
@@ -1742,6 +1893,20 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                         description=f"Your application for **{self.campaign.get('book_title')}** has been submitted.",
                         color=0x00A86B
                     )
+                    
+                    embed.add_field(
+                        name="Your Book",
+                        value=f"**{self.book_title.value}**\nby {self.author_name.value}",
+                        inline=False
+                    )
+                    
+                    if self.shoutout_code.value:
+                        embed.add_field(
+                            name="Shoutout Location",
+                            value=f"[{self.shoutout_code.value[:50]}...]({self.shoutout_code.value})" if len(self.shoutout_code.value) > 50 else self.shoutout_code.value,
+                            inline=False
+                        )
+                    
                     embed.add_field(
                         name="What's Next?",
                         value=(
@@ -1749,11 +1914,6 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                             "• You'll receive a DM when your application is reviewed\n"
                             "• Use `/shoutout-my-applications` to track your applications"
                         ),
-                        inline=False
-                    )
-                    embed.add_field(
-                        name="Your Book",
-                        value=f"**{self.book_title.value}**\nby {self.author_name.value}",
                         inline=False
                     )
                     
@@ -1804,6 +1964,14 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 value=self.book_title.value,
                 inline=True
             )
+            
+            if self.shoutout_code.value:
+                embed.add_field(
+                    name="✨ Shoutout Code Provided",
+                    value="The applicant has already provided their shoutout location!",
+                    inline=False
+                )
+            
             embed.add_field(
                 name="Review Applications",
                 value="Use `/shoutout-my-campaigns` to review and manage applications",
@@ -1864,7 +2032,7 @@ class ApproveApplicationModal(discord.ui.Modal, title="Approve Application"):
                 # Parse the date to validate format
                 import datetime
                 date_obj = datetime.datetime.strptime(self.shout_date.value, '%Y-%m-%d')
-                formatted_date = date_obj.strftime('%Y-%m-%d')  # Ensure correct format for MySQL
+                formatted_date = date_obj.strftime('%Y-%m-%d')
             except ValueError:
                 await interaction.response.send_message(
                     "❌ Invalid date format. Please use YYYY-MM-DD (e.g., 2024-12-25)",
@@ -1876,7 +2044,7 @@ class ApproveApplicationModal(discord.ui.Modal, title="Approve Application"):
             interaction,
             self.application.get('id'),
             'approved',
-            None,  # No decline reason for approval
+            None,
             formatted_date,
             self.chapter.value if self.chapter.value else None
         )
@@ -1906,9 +2074,10 @@ class DeclineReasonModal(discord.ui.Modal, title="Decline Application"):
             self.application.get('id'), 
             'declined',
             reason_text,
-            None,  # No date for decline
-            None   # No chapter for decline
+            None,
+            None
         )
+
 
 class MyApplicationsView(discord.ui.View):
     """View for navigating through user's applications to other campaigns"""
@@ -1928,10 +2097,10 @@ class MyApplicationsView(discord.ui.View):
         
         # Determine color based on status
         status_colors = {
-            'pending': 0xFFA500,  # Orange
-            'approved': 0x00A86B,  # Green
-            'declined': 0xFF6B6B,  # Red
-            'completed': 0x3498DB  # Blue
+            'pending': 0xFFA500,
+            'approved': 0x00A86B,
+            'declined': 0xFF6B6B,
+            'completed': 0x3498DB
         }
         
         embed = discord.Embed(
@@ -2014,15 +2183,6 @@ class MyApplicationsView(discord.ui.View):
         """Update button states based on current index"""
         self.previous_button.disabled = self.current_index == 0
         self.next_button.disabled = self.current_index >= len(self.applications) - 1
-        
-        # Update mark complete button visibility
-        if self.applications:
-            current_app = self.applications[self.current_index]
-            # Only show mark complete for approved applications that aren't already completed
-            self.mark_complete_button.disabled = (
-                current_app.get('status') != 'approved' or 
-                current_app.get('participant_shoutout_url') is not None
-            )
     
     @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2035,25 +2195,6 @@ class MyApplicationsView(discord.ui.View):
         self.update_buttons()
         embed = self.create_application_embed(self.current_index)
         await interaction.response.edit_message(embed=embed, view=self)
-
-    @discord.ui.button(label="📝 Mark Complete", style=discord.ButtonStyle.success, row=1)
-    async def mark_complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Mark shoutout as completed"""
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This is not your application.", ephemeral=True)
-            return
-        
-        current_app = self.applications[self.current_index]
-        if current_app.get('status') != 'approved':
-            await interaction.response.send_message(
-                "Only approved applications can be marked as complete.",
-                ephemeral=True
-            )
-            return
-        
-        # Show modal to collect completion details
-        modal = ApplicationCompleteModal(self, current_app)
-        await interaction.response.send_modal(modal)
     
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2075,77 +2216,3 @@ class MyApplicationsView(discord.ui.View):
             return
         
         await interaction.response.send_message("♻️ Refreshing applications...", ephemeral=True)
-
-class ApplicationCompleteModal(discord.ui.Modal, title="Mark Shoutout Complete"):
-    """Modal for marking application as complete with shoutout URL"""
-    
-    shoutout_url = discord.ui.TextInput(
-        label="Your Shoutout URL",
-        placeholder="Link to where you posted the shoutout (e.g., chapter URL)",
-        required=True,
-        max_length=500
-    )
-    
-    notes = discord.ui.TextInput(
-        label="Additional Notes (Optional)",
-        placeholder="Any notes about the shoutout completion",
-        required=False,
-        max_length=300,
-        style=discord.TextStyle.paragraph
-    )
-    
-    def __init__(self, view: MyApplicationsView, application: Dict):
-        super().__init__()
-        self.view = view
-        self.application = application
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        """Handle completion submission"""
-        try:
-            await interaction.response.defer()
-            
-            # Update completion status via API
-            data = {
-                'bot_token': self.view.module.wp_bot_token,
-                'participant_shoutout_url': self.shoutout_url.value,
-                'completion_status': 'participant_completed'
-            }
-            
-            url = f"{self.view.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications/{self.application['id']}/complete"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.view.module.wp_bot_token}',
-                'User-Agent': 'Essence-Discord-Bot/1.0'
-            }
-            
-            timeout = aiohttp.ClientTimeout(total=10)
-            async with self.view.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
-                if response.status == 200:
-                    # Update local application data
-                    self.application['participant_shoutout_url'] = self.shoutout_url.value
-                    self.application['completion_status'] = 'participant_completed'
-                    
-                    # Refresh the view
-                    embed = self.view.create_application_embed(self.view.current_index)
-                    await interaction.followup.edit_message(
-                        message_id=interaction.message.id,
-                        embed=embed,
-                        view=self.view
-                    )
-                    
-                    await interaction.followup.send(
-                        "✅ Your shoutout has been marked as complete!",
-                        ephemeral=True
-                    )
-                else:
-                    await interaction.followup.send(
-                        "❌ Failed to update completion status.",
-                        ephemeral=True
-                    )
-                    
-        except Exception as e:
-            logger.error(f"[SHOUTOUT_MODULE] Error marking complete: {e}")
-            await interaction.followup.send(
-                "❌ An error occurred while updating.",
-                ephemeral=True
-            )
