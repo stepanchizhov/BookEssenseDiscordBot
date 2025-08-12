@@ -49,24 +49,28 @@ class ShoutoutModule:
         
         # Browse campaigns command - filters temporarily disabled
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
-        # @discord.app_commands.describe(
-        #     genre="Filter by genre",
-        #     platform="Filter by platform (Royal Road, Scribble Hub, Kindle, Audible, etc.)",
-        #     min_followers="Minimum follower count",
-        #     max_followers="Maximum follower count",
-        #     server_only="Show only campaigns from this server"
-        # )
+        @discord.app_commands.describe(
+            genre="Filter by genre/tag"
+            # platform="Filter by platform (Royal Road, Scribble Hub, Kindle, Audible, etc.)",
+            # min_followers="Minimum follower count",
+            # max_followers="Maximum follower count",
+            # server_only="Show only campaigns from this server"
+        )
         async def shoutout_browse(
             interaction: discord.Interaction,
-            # genre: Optional[str] = None,
+            genre: Optional[str] = None
             # platform: Optional[str] = None,
             # min_followers: Optional[int] = None,
             # max_followers: Optional[int] = None,
             # server_only: Optional[bool] = False
         ):
             await self.handle_browse_campaigns(
-                interaction, None, None, None, None, False
+                interaction, genre, None, None, None, False
             )
+        
+        # Add autocomplete for genre if tag_autocomplete function is available
+        if self.tag_autocomplete:
+            shoutout_browse.autocomplete('genre')(self.tag_autocomplete)
         
         # My campaigns command - works everywhere (no DM restriction)
         @self.bot.tree.command(name="shoutout-my-campaigns", description="Manage your shoutout campaigns")
