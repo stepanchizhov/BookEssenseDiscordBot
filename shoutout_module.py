@@ -47,25 +47,25 @@ class ShoutoutModule:
             """Create a new shoutout campaign - works anywhere"""
             await self.handle_campaign_create(interaction)
         
-        # Browse campaigns command
+        # Browse campaigns command - filters temporarily disabled
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
-        @discord.app_commands.describe(
-            genre="Filter by genre",
-            platform="Filter by platform (Royal Road, Scribble Hub, Kindle, Audible, etc.)",
-            min_followers="Minimum follower count",
-            max_followers="Maximum follower count",
-            server_only="Show only campaigns from this server"
-        )
+        # @discord.app_commands.describe(
+        #     genre="Filter by genre",
+        #     platform="Filter by platform (Royal Road, Scribble Hub, Kindle, Audible, etc.)",
+        #     min_followers="Minimum follower count",
+        #     max_followers="Maximum follower count",
+        #     server_only="Show only campaigns from this server"
+        # )
         async def shoutout_browse(
             interaction: discord.Interaction,
-            genre: Optional[str] = None,
-            platform: Optional[str] = None,
-            min_followers: Optional[int] = None,
-            max_followers: Optional[int] = None,
-            server_only: Optional[bool] = False
+            # genre: Optional[str] = None,
+            # platform: Optional[str] = None,
+            # min_followers: Optional[int] = None,
+            # max_followers: Optional[int] = None,
+            # server_only: Optional[bool] = False
         ):
             await self.handle_browse_campaigns(
-                interaction, genre, platform, min_followers, max_followers, server_only
+                interaction, None, None, None, None, False
             )
         
         # My campaigns command - works everywhere (no DM restriction)
@@ -917,7 +917,8 @@ class MyCampaignsView(discord.ui.View):
         
         if self.campaigns:
             current_campaign = self.campaigns[self.current_index]
-            self.manage_button.label = f"Manage Campaign #{current_campaign.get('id', '?')}"
+            self.manage_button.label = f"Manage #{current_campaign.get('id', '?')}"
+            self.announce_button.label = f"Announce #{current_campaign.get('id', '?')}"
     
     @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, custom_id="prev")
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -937,7 +938,7 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.edit_message(embed=embed, view=self)
     
-    @discord.ui.button(label="Manage Campaign", style=discord.ButtonStyle.primary, custom_id="manage")
+    @discord.ui.button(label="Manage", style=discord.ButtonStyle.primary, custom_id="manage")
     async def manage_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Open management view for current campaign"""
         if interaction.user.id != self.user_id:
@@ -951,6 +952,102 @@ class MyCampaignsView(discord.ui.View):
         embed = view.create_management_embed()
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    
+    @discord.ui.button(label="📢 Announce", style=discord.ButtonStyle.success, custom_id="announce")
+    async def announce_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Create public announcement for current campaign"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your campaign.", ephemeral=True)
+            return
+        
+        current_campaign = self.campaigns[self.current_index]
+        
+        # Check if campaign is active
+        if current_campaign.get('campaign_status') != 'active':
+            await interaction.response.send_message(
+                "⚠️ Only active campaigns can be announced. Please resume your campaign first.",
+                ephemeral=True
+            )
+            return
+        
+        # Check if there are available slots
+        if current_campaign.get('available_slots', 0) <= 0:
+            await interaction.response.send_message(
+                "⚠️ This campaign has no available slots. Consider increasing slots before announcing.",
+                ephemeral=True
+            )
+            return
+        
+        # Create public announcement embed
+        embed = self.create_public_announcement_embed(current_campaign)
+        
+        # Create view with Apply button for the public announcement
+        view = PublicCampaignView(self.module, current_campaign)
+        
+        # Send as a new public message (not ephemeral)
+        await interaction.response.send_message(
+            content="📢 **New Shoutout Campaign Available!**",
+            embed=embed,
+            view=view,
+            ephemeral=False  # Make it public
+        )
+    
+    def create_public_announcement_embed(self, campaign: Dict) -> discord.Embed:
+        """Create embed for public campaign announcement"""
+        embed = discord.Embed(
+            title=f"📖 {campaign.get('book_title', 'Unknown')}",
+            description=f"by **{campaign.get('author_name', 'Unknown')}**",
+            color=0x00A86B
+        )
+        
+        # Add book URL if available
+        book_url = campaign.get('book_url')
+        if book_url:
+            embed.add_field(
+                name="📚 Book Link",
+                value=f"[Read on {campaign.get('platform', 'Platform')}]({book_url})",
+                inline=False
+            )
+        
+        # Campaign details
+        embed.add_field(
+            name="Platform",
+            value=campaign.get('platform', 'Unknown'),
+            inline=True
+        )
+        
+        available_slots = campaign.get('available_slots', 0)
+        total_slots = campaign.get('total_slots', 0)
+        embed.add_field(
+            name="Available Slots",
+            value=f"{available_slots}/{total_slots}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Campaign ID",
+            value=f"#{campaign.get('id', 'Unknown')}",
+            inline=True
+        )
+        
+        # Add blurb if available
+        blurb = campaign.get('blurb')
+        if blurb:
+            embed.add_field(
+                name="About the Book",
+                value=blurb[:500] if len(blurb) > 500 else blurb,
+                inline=False
+            )
+        
+        embed.add_field(
+            name="How to Apply",
+            value="Click the **Apply** button below to submit your application!",
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Campaign by {campaign.get('discord_username', 'Unknown')}")
+        
+        return embed
     
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="next")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -981,7 +1078,7 @@ class MyCampaignsView(discord.ui.View):
 
 
 class CampaignManagementView(discord.ui.View):
-    """View for managing a specific campaign with announce feature"""
+    """View for managing a specific campaign (without announce button - moved to main view)"""
     
     def __init__(self, module: ShoutoutModule, campaign: Dict, user_id: int):
         super().__init__(timeout=600)
@@ -1031,70 +1128,12 @@ class CampaignManagementView(discord.ui.View):
             name="📋 Management Options",
             value=(
                 "• **Review Applications** - Review pending applications\n"
-                "• **Announce** - Create a public announcement for this campaign\n"
                 "• **Pause/Resume** - Temporarily pause or resume campaign\n"
                 "• **View Approved** - See approved participants\n"
                 "• **Complete Campaign** - Mark campaign as completed"
             ),
             inline=False
         )
-        
-        return embed
-    
-    def create_public_announcement_embed(self) -> discord.Embed:
-        """Create embed for public campaign announcement"""
-        embed = discord.Embed(
-            title=f"📖 {self.campaign.get('book_title', 'Unknown')}",
-            description=f"by **{self.campaign.get('author_name', 'Unknown')}**",
-            color=0x00A86B
-        )
-        
-        # Add book URL if available
-        book_url = self.campaign.get('book_url')
-        if book_url:
-            embed.add_field(
-                name="📚 Book Link",
-                value=f"[Read on {self.campaign.get('platform', 'Platform')}]({book_url})",
-                inline=False
-            )
-        
-        # Campaign details
-        embed.add_field(
-            name="Platform",
-            value=self.campaign.get('platform', 'Unknown'),
-            inline=True
-        )
-        
-        available_slots = self.campaign.get('available_slots', 0)
-        total_slots = self.campaign.get('total_slots', 0)
-        embed.add_field(
-            name="Available Slots",
-            value=f"{available_slots}/{total_slots}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Campaign ID",
-            value=f"#{self.campaign.get('id', 'Unknown')}",
-            inline=True
-        )
-        
-        # Add blurb if available
-        blurb = self.campaign.get('blurb')
-        if blurb:
-            embed.add_field(
-                name="About the Book",
-                value=blurb[:500] if len(blurb) > 500 else blurb,
-                inline=False
-            )
-        
-        embed.add_field(
-            name="How to Apply",
-            value="Click the **Apply** button below to submit your application!",
-            inline=False
-        )
-        
-        embed.set_footer(text=f"Campaign by {self.campaign.get('discord_username', 'Unknown')}")
         
         return embed
     
@@ -1120,27 +1159,6 @@ class CampaignManagementView(discord.ui.View):
         view = ApplicationReviewView(self.module, self.campaign, pending_apps, self.user_id)
         embed = view.create_application_embed(0)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-    
-    @discord.ui.button(label="📢 Announce", style=discord.ButtonStyle.success, row=0)
-    async def announce_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Create public announcement for campaign"""
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("You cannot announce this campaign.", ephemeral=True)
-            return
-        
-        # Create public announcement embed
-        embed = self.create_public_announcement_embed()
-        
-        # Create view with Apply button for the public announcement
-        view = PublicCampaignView(self.module, self.campaign)
-        
-        # Send as a new public message (not ephemeral)
-        await interaction.response.send_message(
-            content="📢 **New Shoutout Campaign Available!**",
-            embed=embed,
-            view=view,
-            ephemeral=False  # Make it public
-        )
     
     @discord.ui.button(label="⏸️ Pause Campaign", style=discord.ButtonStyle.secondary, row=0)
     async def toggle_status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
