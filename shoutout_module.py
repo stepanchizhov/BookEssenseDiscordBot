@@ -1323,6 +1323,7 @@ class CampaignEditMenuView(discord.ui.View):
         self.module = module
         self.campaign = campaign
         self.user_id = user_id
+        logger.info(f"[SHOUTOUT_MODULE] CampaignEditMenuView initialized for campaign {campaign.get('id')} by user {user_id}")
     
     def create_edit_menu_embed(self) -> discord.Embed:
         """Create embed showing edit options"""
@@ -1340,7 +1341,7 @@ class CampaignEditMenuView(discord.ui.View):
         
         embed.add_field(
             name="⚙️ Campaign Settings",
-            value="Available slots, preferences",
+            value="Available slots, auto-approve, mutual server requirement",
             inline=False
         )
         
@@ -1361,53 +1362,96 @@ class CampaignEditMenuView(discord.ui.View):
     @discord.ui.button(label="📖 Edit Book Details", style=discord.ButtonStyle.primary, row=0)
     async def edit_book_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Open modal to edit book details"""
+        logger.info(f"[SHOUTOUT_MODULE] Edit Book Details clicked by {interaction.user.id} for campaign {self.campaign.get('id')}")
+        
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
             return
         
         modal = EditBookDetailsModal(self.module, self.campaign)
         await interaction.response.send_modal(modal)
+        logger.info(f"[SHOUTOUT_MODULE] Book details modal shown")
     
     @discord.ui.button(label="⚙️ Edit Settings", style=discord.ButtonStyle.primary, row=1)
     async def edit_settings_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Open modal to edit campaign settings"""
+        logger.info(f"[SHOUTOUT_MODULE] Edit Settings clicked by {interaction.user.id} for campaign {self.campaign.get('id')}")
+        
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
             return
         
         modal = EditCampaignSettingsModal(self.module, self.campaign)
         await interaction.response.send_modal(modal)
+        logger.info(f"[SHOUTOUT_MODULE] Settings modal shown")
     
     @discord.ui.button(label="✨ Edit Shoutout Info", style=discord.ButtonStyle.primary, row=2)
     async def edit_shoutout_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Open modal to edit shoutout details"""
+        logger.info(f"[SHOUTOUT_MODULE] Edit Shoutout Info clicked by {interaction.user.id} for campaign {self.campaign.get('id')}")
+        
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
             return
         
         modal = EditShoutoutDetailsModal(self.module, self.campaign)
         await interaction.response.send_modal(modal)
+        logger.info(f"[SHOUTOUT_MODULE] Shoutout details modal shown")
     
     @discord.ui.button(label="🌐 Edit Server Visibility", style=discord.ButtonStyle.primary, row=3)
     async def edit_servers_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Open modal to edit server visibility"""
+        """Show server selection view instead of modal"""
+        logger.info(f"[SHOUTOUT_MODULE] Edit Server Visibility clicked by {interaction.user.id} for campaign {self.campaign.get('id')}")
+        
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
             return
         
-        modal = EditServerVisibilityModal(self.module, self.campaign)
-        await interaction.response.send_modal(modal)
+        # Get mutual servers (servers where both bot and user are members)
+        try:
+            mutual_servers = []
+            for guild in self.module.bot.guilds:
+                member = guild.get_member(interaction.user.id)
+                if member:
+                    mutual_servers.append({
+                        'id': str(guild.id),
+                        'name': guild.name,
+                        'member_count': guild.member_count
+                    })
+                    logger.info(f"[SHOUTOUT_MODULE] Found mutual server: {guild.name} ({guild.id})")
+            
+            logger.info(f"[SHOUTOUT_MODULE] Total mutual servers found: {len(mutual_servers)}")
+            
+            if not mutual_servers:
+                await interaction.response.send_message(
+                    "❌ No mutual servers found. Make sure you're in servers where this bot is present.",
+                    ephemeral=True
+                )
+                return
+            
+            # Create server selection view
+            view = ServerSelectionView(self.module, self.campaign, mutual_servers, interaction.user.id)
+            embed = view.create_server_selection_embed()
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] Server selection view shown with {len(mutual_servers)} servers")
+            
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error getting mutual servers: {e}")
+            await interaction.response.send_message(
+                "❌ An error occurred while fetching server list.",
+                ephemeral=True
+            )
     
     @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=4)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Cancel editing"""
+        logger.info(f"[SHOUTOUT_MODULE] Edit cancelled by {interaction.user.id} for campaign {self.campaign.get('id')}")
         await interaction.response.edit_message(
             content="Edit cancelled.",
             embed=None,
             view=None
         )
-
-
+        
 class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
     """Modal for editing book details"""
     
@@ -1422,6 +1466,8 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
         self.book_url.default = campaign.get('book_url', '')
         self.platform.default = campaign.get('platform', '')
         self.blurb.default = campaign.get('blurb', '')
+        
+        logger.info(f"[SHOUTOUT_MODULE] EditBookDetailsModal initialized with campaign {campaign.get('id')}")
     
     book_title = discord.ui.TextInput(
         label="Book Title",
@@ -1461,6 +1507,7 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
     
     async def on_submit(self, interaction: discord.Interaction):
         """Handle book details update"""
+        logger.info(f"[SHOUTOUT_MODULE] Book details form submitted for campaign {self.campaign.get('id')}")
         await interaction.response.defer(ephemeral=True)
         
         try:
@@ -1471,14 +1518,19 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
             
             if self.book_title.value:
                 update_data['book_title'] = self.book_title.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating book_title: {self.book_title.value}")
             if self.author_name.value:
                 update_data['author_name'] = self.author_name.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating author_name: {self.author_name.value}")
             if self.book_url.value:
                 update_data['book_url'] = self.book_url.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating book_url: {self.book_url.value}")
             if self.platform.value:
                 update_data['platform'] = self.platform.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating platform: {self.platform.value}")
             if self.blurb.value:
                 update_data['blurb'] = self.blurb.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating blurb (length: {len(self.blurb.value)})")
             
             # Only proceed if there's something to update
             if len(update_data) > 1:  # More than just bot_token
@@ -1489,34 +1541,45 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
                     'User-Agent': 'Essence-Discord-Bot/1.0'
                 }
                 
+                logger.info(f"[SHOUTOUT_MODULE] Sending PUT request to {url}")
+                logger.info(f"[SHOUTOUT_MODULE] Update data fields: {list(update_data.keys())}")
+                
                 timeout = aiohttp.ClientTimeout(total=10)
                 async with self.module.session.put(url, json=update_data, headers=headers, timeout=timeout) as response:
+                    logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                    
                     if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"[SHOUTOUT_MODULE] Book details updated successfully: {result}")
                         await interaction.followup.send(
                             "✅ Book details updated successfully!",
                             ephemeral=True
                         )
                     else:
+                        error_text = await response.text()
+                        logger.error(f"[SHOUTOUT_MODULE] Failed to update book details. Status: {response.status}, Error: {error_text}")
                         await interaction.followup.send(
                             "❌ Failed to update book details.",
                             ephemeral=True
                         )
             else:
+                logger.info(f"[SHOUTOUT_MODULE] No changes made - all fields empty")
                 await interaction.followup.send(
                     "ℹ️ No changes made.",
                     ephemeral=True
                 )
                 
         except Exception as e:
-            logger.error(f"[SHOUTOUT_MODULE] Error updating book details: {e}")
+            logger.error(f"[SHOUTOUT_MODULE] Error updating book details: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             await interaction.followup.send(
                 "❌ An error occurred while updating book details.",
                 ephemeral=True
             )
 
-
 class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"):
-    """Modal for editing campaign settings"""
+    """Modal for editing campaign settings including preferences"""
     
     def __init__(self, module: ShoutoutModule, campaign: Dict):
         super().__init__()
@@ -1525,6 +1588,20 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
         
         # Pre-fill with existing values
         self.available_slots.default = str(campaign.get('total_slots', 1))
+        
+        # Parse campaign settings for auto_approve and require_mutual_server
+        settings = campaign.get('campaign_settings', {})
+        if isinstance(settings, str):
+            try:
+                settings = json.loads(settings)
+            except:
+                settings = {}
+        
+        self.auto_approve.default = "yes" if settings.get('auto_approve', False) else "no"
+        self.require_mutual_server.default = "yes" if settings.get('require_mutual_server', False) else "no"
+        
+        logger.info(f"[SHOUTOUT_MODULE] EditCampaignSettingsModal initialized with campaign {campaign.get('id')}")
+        logger.info(f"[SHOUTOUT_MODULE] Current settings: slots={self.available_slots.default}, auto_approve={self.auto_approve.default}, mutual_server={self.require_mutual_server.default}")
     
     available_slots = discord.ui.TextInput(
         label="Total Shoutout Slots",
@@ -1533,8 +1610,25 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
         max_length=5
     )
     
+    auto_approve = discord.ui.TextInput(
+        label="Auto-Approve Applications",
+        placeholder="Type 'yes' or 'no'",
+        required=True,
+        max_length=3,
+        min_length=2
+    )
+    
+    require_mutual_server = discord.ui.TextInput(
+        label="Require Mutual Server",
+        placeholder="Type 'yes' or 'no' - Require applicants to share a server with you?",
+        required=True,
+        max_length=3,
+        min_length=2
+    )
+    
     async def on_submit(self, interaction: discord.Interaction):
         """Handle settings update"""
+        logger.info(f"[SHOUTOUT_MODULE] Settings form submitted for campaign {self.campaign.get('id')}")
         await interaction.response.defer(ephemeral=True)
         
         try:
@@ -1542,22 +1636,55 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
             try:
                 slots = int(self.available_slots.value)
                 if slots < 1:
+                    logger.warning(f"[SHOUTOUT_MODULE] Invalid slots value: {slots}")
                     await interaction.followup.send(
                         "❌ You must offer at least 1 shoutout slot.",
                         ephemeral=True
                     )
                     return
+                logger.info(f"[SHOUTOUT_MODULE] Slots validated: {slots}")
             except ValueError:
+                logger.error(f"[SHOUTOUT_MODULE] Invalid slots value: {self.available_slots.value}")
                 await interaction.followup.send(
                     "❌ Please enter a valid number for slots.",
                     ephemeral=True
                 )
                 return
             
+            # Validate yes/no fields
+            auto_approve_value = self.auto_approve.value.lower().strip()
+            mutual_server_value = self.require_mutual_server.value.lower().strip()
+            
+            if auto_approve_value not in ['yes', 'no']:
+                logger.warning(f"[SHOUTOUT_MODULE] Invalid auto_approve value: {auto_approve_value}")
+                await interaction.followup.send(
+                    "❌ Auto-approve must be 'yes' or 'no'",
+                    ephemeral=True
+                )
+                return
+            
+            if mutual_server_value not in ['yes', 'no']:
+                logger.warning(f"[SHOUTOUT_MODULE] Invalid require_mutual_server value: {mutual_server_value}")
+                await interaction.followup.send(
+                    "❌ Require mutual server must be 'yes' or 'no'",
+                    ephemeral=True
+                )
+                return
+            
+            # Convert to boolean
+            auto_approve_bool = auto_approve_value == 'yes'
+            mutual_server_bool = mutual_server_value == 'yes'
+            
+            logger.info(f"[SHOUTOUT_MODULE] Settings parsed: auto_approve={auto_approve_bool}, mutual_server={mutual_server_bool}")
+            
             # Update settings
             data = {
                 'bot_token': self.module.wp_bot_token,
-                'available_slots': slots
+                'available_slots': slots,
+                'campaign_settings': {
+                    'auto_approve': auto_approve_bool,
+                    'require_mutual_server': mutual_server_bool
+                }
             }
             
             url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-settings"
@@ -1567,26 +1694,40 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
+            logger.info(f"[SHOUTOUT_MODULE] Sending PUT request to {url}")
+            logger.info(f"[SHOUTOUT_MODULE] Update data: {json.dumps(data, indent=2)}")
+            
             timeout = aiohttp.ClientTimeout(total=10)
             async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                
                 if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"[SHOUTOUT_MODULE] Settings updated successfully: {result}")
+                    
                     await interaction.followup.send(
-                        f"✅ Campaign settings updated! Total slots: {slots}",
+                        f"✅ Campaign settings updated!\n"
+                        f"• Total slots: {slots}\n"
+                        f"• Auto-approve: {'Enabled' if auto_approve_bool else 'Disabled'}\n"
+                        f"• Require mutual server: {'Yes' if mutual_server_bool else 'No'}",
                         ephemeral=True
                     )
                 else:
+                    error_text = await response.text()
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to update settings. Status: {response.status}, Error: {error_text}")
                     await interaction.followup.send(
                         "❌ Failed to update campaign settings.",
                         ephemeral=True
                     )
                     
         except Exception as e:
-            logger.error(f"[SHOUTOUT_MODULE] Error updating settings: {e}")
+            logger.error(f"[SHOUTOUT_MODULE] Error updating settings: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             await interaction.followup.send(
                 "❌ An error occurred while updating settings.",
                 ephemeral=True
             )
-
 
 class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
     """Modal for editing shoutout-specific details"""
@@ -1601,10 +1742,12 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
         self.narrator.default = campaign.get('narrator', '')
         self.publication_date.default = campaign.get('publication_date', '')
         self.available_dates.default = campaign.get('available_dates', '')
+        
+        logger.info(f"[SHOUTOUT_MODULE] EditShoutoutDetailsModal initialized with campaign {campaign.get('id')}")
     
     shoutout_code = discord.ui.TextInput(
         label="Your Shoutout Code/URL",
-        placeholder="URL where others will place their shoutouts",
+        placeholder="Your shoutout code URL",
         required=False,
         max_length=500
     )
@@ -1633,6 +1776,7 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
     
     async def on_submit(self, interaction: discord.Interaction):
         """Handle shoutout details update"""
+        logger.info(f"[SHOUTOUT_MODULE] Shoutout details form submitted for campaign {self.campaign.get('id')}")
         await interaction.response.defer(ephemeral=True)
         
         try:
@@ -1643,20 +1787,25 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
             
             if self.shoutout_code.value:
                 update_data['shoutout_code'] = self.shoutout_code.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating shoutout_code: {self.shoutout_code.value}")
             if self.narrator.value:
                 update_data['narrator'] = self.narrator.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating narrator: {self.narrator.value}")
             if self.publication_date.value:
                 # Validate date format
                 import re
                 if not re.match(r'^\d{4}-\d{2}-\d{2}$', self.publication_date.value):
+                    logger.warning(f"[SHOUTOUT_MODULE] Invalid date format: {self.publication_date.value}")
                     await interaction.followup.send(
                         "❌ Invalid date format. Please use YYYY-MM-DD",
                         ephemeral=True
                     )
                     return
                 update_data['publication_date'] = self.publication_date.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating publication_date: {self.publication_date.value}")
             if self.available_dates.value:
                 update_data['available_dates'] = self.available_dates.value
+                logger.info(f"[SHOUTOUT_MODULE] Updating available_dates: {self.available_dates.value}")
             
             if len(update_data) > 1:  # More than just bot_token
                 url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-shoutout"
@@ -1666,32 +1815,251 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
                     'User-Agent': 'Essence-Discord-Bot/1.0'
                 }
                 
+                logger.info(f"[SHOUTOUT_MODULE] Sending PUT request to {url}")
+                logger.info(f"[SHOUTOUT_MODULE] Update data fields: {list(update_data.keys())}")
+                
                 timeout = aiohttp.ClientTimeout(total=10)
                 async with self.module.session.put(url, json=update_data, headers=headers, timeout=timeout) as response:
+                    logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                    
                     if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"[SHOUTOUT_MODULE] Shoutout details updated successfully: {result}")
                         await interaction.followup.send(
                             "✅ Shoutout details updated successfully!",
                             ephemeral=True
                         )
                     else:
+                        error_text = await response.text()
+                        logger.error(f"[SHOUTOUT_MODULE] Failed to update shoutout details. Status: {response.status}, Error: {error_text}")
                         await interaction.followup.send(
                             "❌ Failed to update shoutout details.",
                             ephemeral=True
                         )
             else:
+                logger.info(f"[SHOUTOUT_MODULE] No changes made - all fields empty")
                 await interaction.followup.send(
                     "ℹ️ No changes made.",
                     ephemeral=True
                 )
                 
         except Exception as e:
-            logger.error(f"[SHOUTOUT_MODULE] Error updating shoutout details: {e}")
+            logger.error(f"[SHOUTOUT_MODULE] Error updating shoutout details: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             await interaction.followup.send(
                 "❌ An error occurred while updating shoutout details.",
                 ephemeral=True
             )
 
+class ServerSelectionView(discord.ui.View):
+    """View for selecting which servers can see the campaign"""
+    
+    def __init__(self, module: ShoutoutModule, campaign: Dict, mutual_servers: List[Dict], user_id: int):
+        super().__init__(timeout=300)
+        self.module = module
+        self.campaign = campaign
+        self.mutual_servers = mutual_servers
+        self.user_id = user_id
+        
+        # Parse current allowed servers
+        allowed_servers = campaign.get('allowed_servers')
+        if allowed_servers:
+            try:
+                if isinstance(allowed_servers, str):
+                    self.selected_servers = set(json.loads(allowed_servers))
+                else:
+                    self.selected_servers = set(allowed_servers)
+            except:
+                self.selected_servers = set()
+        else:
+            self.selected_servers = set()
+        
+        logger.info(f"[SHOUTOUT_MODULE] ServerSelectionView initialized with {len(mutual_servers)} servers")
+        logger.info(f"[SHOUTOUT_MODULE] Currently selected servers: {self.selected_servers}")
+        
+        # Create dropdown
+        self.add_item(ServerSelectDropdown(self.mutual_servers, self.selected_servers))
+    
+    def create_server_selection_embed(self) -> discord.Embed:
+        """Create embed for server selection"""
+        embed = discord.Embed(
+            title="🌐 Edit Server Visibility",
+            description=(
+                "Select which servers can see your campaign.\n"
+                "• **No selection** = Campaign visible in all servers\n"
+                "• **Select servers** = Campaign only visible in selected servers\n\n"
+                f"Found **{len(self.mutual_servers)}** mutual servers."
+            ),
+            color=0x3498db
+        )
+        
+        if self.selected_servers:
+            selected_names = []
+            for server_id in self.selected_servers:
+                server = next((s for s in self.mutual_servers if s['id'] == server_id), None)
+                if server:
+                    selected_names.append(server['name'])
+            
+            if selected_names:
+                embed.add_field(
+                    name="Currently Selected",
+                    value="\n".join(f"• {name}" for name in selected_names[:10]),
+                    inline=False
+                )
+                if len(selected_names) > 10:
+                    embed.set_footer(text=f"And {len(selected_names) - 10} more...")
+        else:
+            embed.add_field(
+                name="Currently Selected",
+                value="None (visible in all servers)",
+                inline=False
+            )
+        
+        return embed
+    
+    @discord.ui.button(label="💾 Save Changes", style=discord.ButtonStyle.success, row=4)
+    async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Save selected servers"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+            return
+        
+        logger.info(f"[SHOUTOUT_MODULE] Saving server visibility for campaign {self.campaign.get('id')}")
+        logger.info(f"[SHOUTOUT_MODULE] Selected servers: {self.selected_servers}")
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # Prepare data
+            if self.selected_servers:
+                allowed_servers = json.dumps(list(self.selected_servers))
+            else:
+                allowed_servers = None
+            
+            data = {
+                'bot_token': self.module.wp_bot_token,
+                'allowed_servers': allowed_servers
+            }
+            
+            url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign['id']}/edit-servers"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            logger.info(f"[SHOUTOUT_MODULE] Sending PUT request to {url}")
+            logger.info(f"[SHOUTOUT_MODULE] Allowed servers data: {allowed_servers}")
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.put(url, json=data, headers=headers, timeout=timeout) as response:
+                logger.info(f"[SHOUTOUT_MODULE] Response status: {response.status}")
+                
+                if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"[SHOUTOUT_MODULE] Server visibility updated successfully: {result}")
+                    
+                    if self.selected_servers:
+                        await interaction.followup.send(
+                            f"✅ Server visibility updated! Campaign visible to {len(self.selected_servers)} server(s).",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(
+                            "✅ Server visibility updated! Campaign visible to all servers.",
+                            ephemeral=True
+                        )
+                else:
+                    error_text = await response.text()
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to update server visibility. Status: {response.status}, Error: {error_text}")
+                    await interaction.followup.send(
+                        "❌ Failed to update server visibility.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error updating server visibility: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+            await interaction.followup.send(
+                "❌ An error occurred while updating server visibility.",
+                ephemeral=True
+            )
+    
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=4)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel server selection"""
+        logger.info(f"[SHOUTOUT_MODULE] Server selection cancelled for campaign {self.campaign.get('id')}")
+        await interaction.response.edit_message(
+            content="Server selection cancelled.",
+            embed=None,
+            view=None
+        )
 
+
+class ServerSelectDropdown(discord.ui.Select):
+    """Dropdown for selecting servers"""
+    
+    def __init__(self, mutual_servers: List[Dict], selected_servers: set):
+        self.mutual_servers = mutual_servers
+        self.parent_view = None  # Will be set when added to view
+        
+        # Create options (max 25 for Discord)
+        options = []
+        for server in mutual_servers[:24]:  # Leave room for "Clear All" option
+            options.append(
+                discord.SelectOption(
+                    label=server['name'][:100],  # Discord max label length
+                    value=server['id'],
+                    description=f"{server['member_count']} members",
+                    default=server['id'] in selected_servers
+                )
+            )
+        
+        # Add clear all option
+        options.append(
+            discord.SelectOption(
+                label="🗑️ Clear All Selections",
+                value="CLEAR_ALL",
+                description="Make campaign visible in all servers",
+                emoji="🗑️"
+            )
+        )
+        
+        super().__init__(
+            placeholder=f"Select servers ({len(selected_servers)} selected)",
+            min_values=0,
+            max_values=len(options),
+            options=options
+        )
+        
+        logger.info(f"[SHOUTOUT_MODULE] ServerSelectDropdown created with {len(options)} options")
+    
+    async def callback(self, interaction: discord.Interaction):
+        """Handle server selection"""
+        if not self.view:
+            await interaction.response.send_message("Error: View not properly initialized", ephemeral=True)
+            return
+        
+        if interaction.user.id != self.view.user_id:
+            await interaction.response.send_message("You cannot edit this selection.", ephemeral=True)
+            return
+        
+        logger.info(f"[SHOUTOUT_MODULE] Server selection changed. Selected values: {self.values}")
+        
+        # Check if clear all was selected
+        if "CLEAR_ALL" in self.values:
+            self.view.selected_servers.clear()
+            logger.info(f"[SHOUTOUT_MODULE] Cleared all server selections")
+        else:
+            self.view.selected_servers = set(self.values)
+            logger.info(f"[SHOUTOUT_MODULE] Updated selected servers: {self.view.selected_servers}")
+        
+        # Update the embed
+        embed = self.view.create_server_selection_embed()
+        await interaction.response.edit_message(embed=embed, view=self.view)
+        
 class EditServerVisibilityModal(discord.ui.Modal, title="Edit Server Visibility"):
     """Modal for editing which servers can see the campaign"""
     
