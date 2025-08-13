@@ -365,79 +365,80 @@ class ShoutoutModule:
                 ephemeral=True
             )
     
-    def create_campaign_list_embed(self, campaigns: List[Dict]) -> discord.Embed:
-        """Create embed showing list of campaigns"""
-        embed = discord.Embed(
-            title="📚 Available Shoutout Campaigns",
-            description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
-            color=0x00A86B
-        )
+def create_campaign_list_embed(self, campaigns: List[Dict]) -> discord.Embed:
+    """Create embed showing list of campaigns"""
+    embed = discord.Embed(
+        title="📚 Available Shoutout Campaigns",
+        description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
+        color=0x00A86B
+    )
+    
+    for i, campaign in enumerate(campaigns[:10]):  # Show max 10
+        campaign_id = campaign.get('id', 'Unknown')
+        book_url = campaign.get('book_url', '#')
+        book_title = campaign.get('book_title', 'Unknown Book')
         
-        for i, campaign in enumerate(campaigns[:10]):  # Show max 10
-            campaign_id = campaign.get('id', 'Unknown')
-            book_url = campaign.get('book_url', '#')
-            book_title = campaign.get('book_title', 'Unknown Book')
-            
-            # Handle available_dates - show first one if it's a list
-            available_dates_str = ""
-            available_dates = campaign.get('available_dates')
-            if available_dates:
-                try:
-                    # Try to parse as JSON if it's a string
-                    if isinstance(available_dates, str):
-                        import json
-                        dates_list = json.loads(available_dates)
+        # Handle available_dates - show first one if it's a list
+        available_dates_str = ""
+        available_dates = campaign.get('available_dates')
+        if available_dates:
+            try:
+                # Try to parse as JSON if it's a string
+                if isinstance(available_dates, str):
+                    import json
+                    dates_list = json.loads(available_dates)
+                else:
+                    dates_list = available_dates
+                
+                if isinstance(dates_list, list) and dates_list:
+                    if len(dates_list) > 1:
+                        available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)"
                     else:
-                        dates_list = available_dates
-                    
-                    if isinstance(dates_list, list) and dates_list:
-                        if len(dates_list) > 1:
-                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)\n"
-                        else:
-                            available_dates_str = f"**Available:** {dates_list[0]}\n"
-                    elif isinstance(dates_list, str):
-                        available_dates_str = f"**Available:** {dates_list}\n"
-                except:
-                    # If parsing fails, just use as string
-                    if available_dates:
-                        available_dates_str = f"**Available:** {available_dates}\n"
-            
-            # Build field value with book link at the top
-            field_value_parts = []
-            
-            # Add book link if available
-            if book_url and book_url != '#':
-                field_value_parts.append(f"[View Book]({book_url})")
-            
-            field_value_parts.extend([
-                f"**Campaign ID:** #{campaign_id}",
-                f"**Author:** {campaign.get('author_name', 'Unknown')}",
-                # f"**Platform:** {campaign.get('platform', 'Unknown')}",  # Commented out
-                f"**Slots Available:** {campaign.get('available_slots', 0)}"
-            ])
-            
-            if available_dates_str:
-                field_value_parts.append(available_dates_str.rstrip())
-            
-            field_value = "\n".join(field_value_parts)
-            
-            # Use plain text for field name (no markdown)
-            embed.add_field(
-                name=f"{i+1}. {book_title}",  # Plain text title
-                value=field_value,
-                inline=False
-            )
+                        available_dates_str = f"**Available:** {dates_list[0]}"
+                elif isinstance(dates_list, str):
+                    available_dates_str = f"**Available:** {dates_list}"
+            except:
+                # If parsing fails, just use as string
+                if available_dates:
+                    available_dates_str = f"**Available:** {available_dates}"
         
-        if len(campaigns) > 10:
-            embed.add_field(
-                name="More campaigns available",
-                value=f"Showing 10 of {len(campaigns)} campaigns. Use filters to narrow results.",
-                inline=False
-            )
+        # Build field value with book link at the top
+        field_value_parts = []
         
-        embed.set_footer(text="💡 Apply to any campaign using: /shoutout-apply [campaign_id]")
+        # Add book link if available
+        if book_url and book_url != '#':
+            field_value_parts.append(f"[View Book]({book_url})")
         
-        return embed
+        field_value_parts.extend([
+            f"**Campaign ID:** #{campaign_id}",
+            f"**Author:** {campaign.get('author_name', 'Unknown')}",
+            # f"**Platform:** {campaign.get('platform', 'Unknown')}",  # Future functionality
+            f"**Slots Available:** {campaign.get('available_slots', 0)}"
+        ])
+        
+        # Add available dates if present
+        if available_dates_str:
+            field_value_parts.append(available_dates_str)
+        
+        field_value = "\n".join(field_value_parts)
+        
+        # Use plain text for field name (no markdown)
+        embed.add_field(
+            name=f"{i+1}. {book_title}",  # Plain text title
+            value=field_value,
+            inline=False
+        )
+    
+    if len(campaigns) > 10:
+        embed.add_field(
+            name="More campaigns available",
+            value=f"Showing 10 of {len(campaigns)} campaigns. Use filters to narrow results",
+            inline=False
+        )
+    
+    embed.set_footer(text="💡 Apply to any campaign using: /shoutout-apply [campaign_id]")
+    
+    return embed
     
     async def fetch_book_stats(self, book_url: str, campaign_rr_book_id: int = None) -> Optional[Dict]:
         """Fetch book statistics from WordPress API"""
@@ -1130,6 +1131,42 @@ class MyCampaignsView(discord.ui.View):
             value=f"#{campaign.get('id', 'Unknown')}",
             inline=True
         )
+        
+        # Add available dates
+        available_dates = campaign.get('available_dates')
+        if available_dates:
+            try:
+                # Try to parse as JSON if it's a string
+                if isinstance(available_dates, str):
+                    import json
+                    dates_list = json.loads(available_dates)
+                else:
+                    dates_list = available_dates
+                
+                if isinstance(dates_list, list) and dates_list:
+                    if len(dates_list) > 1:
+                        dates_str = f"{dates_list[0]} (+{len(dates_list)-1} more dates)"
+                    else:
+                        dates_str = dates_list[0]
+                    embed.add_field(
+                        name="📅 Shoutout Dates",
+                        value=dates_str,
+                        inline=False
+                    )
+                elif isinstance(dates_list, str):
+                    embed.add_field(
+                        name="📅 Shoutout Dates",
+                        value=dates_list,
+                        inline=False
+                    )
+            except:
+                # If parsing fails, just use as string
+                if available_dates:
+                    embed.add_field(
+                        name="📅 Shoutout Dates",
+                        value=available_dates,
+                        inline=False
+                    )
         
         # Add blurb if available
         blurb = campaign.get('blurb')
