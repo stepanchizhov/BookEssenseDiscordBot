@@ -3357,8 +3357,8 @@ async def rr_rs_chart(
     global command_counter
     command_counter += 1
     
-    logger.info(ff"\n[RR-RS-CHART] Command called by {interaction.user}")
-    logger.info(ff"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
+    logger.info(f"\n[RR-RS-CHART] Command called by {interaction.user}")
+    logger.info(f"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
     
     await interaction.response.defer()
     
@@ -3408,19 +3408,19 @@ async def rr_rs_chart(
             timeout=30
         ) as response:
             response_text = await response.text()
-            logger.info(ff"[RR-RS-CHART] API Response Status: {response.status}")
-            logger.info(ff"[RR-RS-CHART] API Response Headers: {response.headers}")
+            logger.info(f"[RR-RS-CHART] API Response Status: {response.status}")
+            logger.info(f"[RR-RS-CHART] API Response Headers: {response.headers}")
             
             if response.status == 403:
-                logger.info(ff"[RR-RS-CHART] 403 Forbidden - Authentication failed")
-                logger.info(ff"[RR-RS-CHART] Response body: {response_text[:500]}")
+                logger.info(f"[RR-RS-CHART] 403 Forbidden - Authentication failed")
+                logger.info(f"[RR-RS-CHART] Response body: {response_text[:500]}")
                 await interaction.followup.send(
                     "❌ Authentication error. The bot token may be misconfigured.",
                     ephemeral=True
                 )
                 return
             elif response.status != 200:
-                logger.info(ff"[RR-RS-CHART] API error response: {response_text[:500]}")
+                logger.info(f"[RR-RS-CHART] API error response: {response_text[:500]}")
                 await interaction.followup.send(
                     f"❌ API error: {response.status}\nPlease contact support if this persists.",
                     ephemeral=True
@@ -3430,8 +3430,8 @@ async def rr_rs_chart(
             try:
                 data = json.loads(response_text)
             except json.JSONDecodeError as e:
-                logger.info(ff"[RR-RS-CHART] Failed to parse JSON: {e}")
-                logger.info(ff"[RR-RS-CHART] Raw response: {response_text[:500]}")
+                logger.info(f"[RR-RS-CHART] Failed to parse JSON: {e}")
+                logger.info(f"[RR-RS-CHART] Raw response: {response_text[:500]}")
                 await interaction.followup.send(
                     "❌ Invalid response from server. Please try again later.",
                     ephemeral=True
@@ -3665,10 +3665,10 @@ async def rr_rs_chart(
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use the bot, start typing /rr-rs-chart")
         
         await interaction.followup.send(embed=embed, file=file)
-        logger.info(ff"[RR-RS-CHART] Successfully sent RS impact chart for book {book_id}")
+        logger.info(f"[RR-RS-CHART] Successfully sent RS impact chart for book {book_id}")
         
     except Exception as e:
-        logger.info(ff"[RR-RS-CHART] Error: {e}")
+        logger.info(f"[RR-RS-CHART] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -3790,7 +3790,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
         return buffer
         
     except Exception as e:
-        logger.info(ff"[RS-CHART] Error creating chart image: {e}")
+        logger.info(f"[RS-CHART] Error creating chart image: {e}")
         import traceback
         traceback.print_exc()
         plt.close()
@@ -3810,8 +3810,8 @@ async def rr_rs_run(
     global command_counter
     command_counter += 1
     
-    logger.info(ff"\n[RR-RS-RUN] Command called by {interaction.user}")
-    logger.info(ff"[RR-RS-RUN] Book input: '{book_input}', Tags: '{tags}'")
+    logger.info(f"\n[RR-RS-RUN] Command called by {interaction.user}")
+    logger.info(f"[RR-RS-RUN] Book input: '{book_input}', Tags: '{tags}'")
     
     await interaction.response.defer()
     
@@ -3877,7 +3877,7 @@ async def rr_rs_run(
             # Default to showing common tags
             requested_tags = DEFAULT_TAGS
         
-        logger.info(ff"[RR-RS-RUN] Requested tags: {requested_tags[:10]}..." if len(requested_tags) > 10 else f"[RR-RS-RUN] Requested tags: {requested_tags}")
+        logger.info(f"[RR-RS-RUN] Requested tags: {requested_tags[:10]}..." if len(requested_tags) > 10 else f"[RR-RS-RUN] Requested tags: {requested_tags}")
         
         # Parse book input to get book ID
         book_id = None
@@ -4107,10 +4107,10 @@ async def rr_rs_run(
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use: /rr-rs-run [book] tags:'all' or tags:'fantasy,litrpg,romance'")
         
         await interaction.followup.send(embed=embed)
-        logger.info(ff"[RR-RS-RUN] Successfully sent RS run data for book {book_id}")
+        logger.info(f"[RR-RS-RUN] Successfully sent RS run data for book {book_id}")
         
     except Exception as e:
-        logger.info(ff"[RR-RS-RUN] Error: {e}")
+        logger.info(f"[RR-RS-RUN] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -4171,6 +4171,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
