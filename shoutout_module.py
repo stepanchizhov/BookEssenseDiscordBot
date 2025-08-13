@@ -394,15 +394,15 @@ class ShoutoutModule:
                     
                     if isinstance(dates_list, list) and dates_list:
                         if len(dates_list) > 1:
-                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)"
+                            available_dates_str = f"**Dates available:** {dates_list[0]} (+{len(dates_list)-1} more)"
                         else:
-                            available_dates_str = f"**Available:** {dates_list[0]}"
+                            available_dates_str = f"**Dates available:** {dates_list[0]}"
                     elif isinstance(dates_list, str):
-                        available_dates_str = f"**Available:** {dates_list}"
+                        available_dates_str = f"**Dates available:** {dates_list}"
                 except:
                     # If parsing fails, just use as string
                     if available_dates:
-                        available_dates_str = f"**Available:** {available_dates}"
+                        available_dates_str = f"**Dates available:** {available_dates}"
             
             # Build field value with book link at the top
             field_value_parts = []
@@ -1151,13 +1151,13 @@ class MyCampaignsView(discord.ui.View):
                     else:
                         dates_str = dates_list[0]
                     embed.add_field(
-                        name="📅 Shoutout Dates",
+                        name="📅 Shoutout Dates Available",
                         value=dates_str,
                         inline=False
                     )
                 elif isinstance(dates_list, str):
                     embed.add_field(
-                        name="📅 Shoutout Dates",
+                        name="📅 Shoutout Dates Available",
                         value=dates_list,
                         inline=False
                     )
@@ -1165,7 +1165,7 @@ class MyCampaignsView(discord.ui.View):
                 # If parsing fails, just use as string
                 if available_dates:
                     embed.add_field(
-                        name="📅 Shoutout Dates",
+                        name="📅 Shoutout Dates Available",
                         value=available_dates,
                         inline=False
                     )
@@ -2416,7 +2416,7 @@ class PublicCampaignView(discord.ui.View):
         self.campaign = campaign
         self.campaign_id = campaign.get('id')
     
-    @discord.ui.button(label="📝 Apply to theCampaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
+    @discord.ui.button(label="📝 Apply to the Campaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Show application modal when Apply is clicked"""
         # Check if user is trying to apply to their own campaign
