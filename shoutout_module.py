@@ -272,7 +272,8 @@ class ShoutoutModule:
         platform: Optional[str] = None,
         min_followers: Optional[int] = None,
         max_followers: Optional[int] = None,
-        server_only: Optional[bool] = False
+        server_only: Optional[bool] = False,
+        show_mine: Optional[bool] = False
     ):
         """Handle browsing campaigns with filters"""
         try:
