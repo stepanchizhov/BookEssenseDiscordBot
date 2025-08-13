@@ -442,220 +442,220 @@ class ShoutoutModule:
         
         return embed
         
-        async def fetch_book_stats(self, book_url: str, campaign_rr_book_id: int = None) -> Optional[Dict]:
-            """Fetch book statistics from WordPress API"""
-            try:
-                # Extract RR book ID from URL if it's a Royal Road book
-                rr_book_id = None
-                if 'royalroad.com' in book_url:
-                    import re
-                    match = re.search(r'/fiction/(\d+)', book_url)
-                    if match:
-                        rr_book_id = match.group(1)
-                
-                if not rr_book_id:
-                    return None
-                
-                # Make API call to get book stats
-                params = {
-                    'bot_token': self.wp_bot_token,
-                    'rr_book_id': rr_book_id,
-                    'campaign_rr_book_id': campaign_rr_book_id
-                }
-                
-                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/book-stats"
-                headers = {
-                    'Authorization': f'Bearer {self.wp_bot_token}',
-                    'User-Agent': 'Essence-Discord-Bot/1.0'
-                }
-                
-                timeout = aiohttp.ClientTimeout(total=5)
-                async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
-                    if response.status == 200:
-                        return await response.json()
-                
+    async def fetch_book_stats(self, book_url: str, campaign_rr_book_id: int = None) -> Optional[Dict]:
+        """Fetch book statistics from WordPress API"""
+        try:
+            # Extract RR book ID from URL if it's a Royal Road book
+            rr_book_id = None
+            if 'royalroad.com' in book_url:
+                import re
+                match = re.search(r'/fiction/(\d+)', book_url)
+                if match:
+                    rr_book_id = match.group(1)
+            
+            if not rr_book_id:
                 return None
-                
-            except Exception as e:
-                logger.error(f"[SHOUTOUT_MODULE] Error fetching book stats: {e}")
-                return None
-        
-        async def handle_my_campaigns(self, interaction: discord.Interaction, filter_status: str = "active"):
-            """Handle viewing and managing user's own campaigns - works everywhere"""
-            try:
-                await interaction.response.defer(ephemeral=True)
-                logger.info(f"[SHOUTOUT_MODULE] My campaigns request from {interaction.user.id}")
-                
-                # Build API request
-                params = {
-                    'bot_token': self.wp_bot_token,
-                    'discord_user_id': str(interaction.user.id),
-                    'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}",
-                    'filter_status': filter_status
-                }
-                
-                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/my-campaigns/{interaction.user.id}"
-                headers = {
-                    'Authorization': f'Bearer {self.wp_bot_token}',
-                    'User-Agent': 'Essence-Discord-Bot/1.0'
-                }
-                
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        campaigns = result.get('campaigns', [])
-                        
-                        if not campaigns:
-                            await interaction.followup.send(
-                                f"You don't have any {filter_status} campaigns. Use `/shoutout-campaign-create` to create one!",
-                                ephemeral=True
-                            )
-                            return
-                        
-                        # Create paginated view
-                        view = MyCampaignsView(self, campaigns, interaction.user.id)
-                        embed = self.create_my_campaigns_embed(campaigns[0], 0, len(campaigns))
-                        
-                        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-                        
-                    else:
-                        logger.error(f"[SHOUTOUT_MODULE] Failed to fetch user campaigns: {response.status}")
-                        await interaction.followup.send(
-                            "❌ Failed to fetch your campaigns. Please try again later.",
-                            ephemeral=True
-                        )
-                        
-            except asyncio.TimeoutError:
-                await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
-            except Exception as e:
-                logger.error(f"[SHOUTOUT_MODULE] Error in my_campaigns: {e}")
-                await interaction.followup.send("❌ An error occurred.", ephemeral=True)
-        
-        async def handle_apply_to_campaign(self, interaction: discord.Interaction, campaign_id: int):
-            """Handle application to a specific campaign"""
-            try:
-                await interaction.response.defer(ephemeral=True)
-                logger.info(f"[SHOUTOUT_MODULE] Apply request from {interaction.user.id} for campaign {campaign_id}")
-                
-                # First, get campaign details
-                params = {
-                    'bot_token': self.wp_bot_token,
-                    'discord_user_id': str(interaction.user.id)
-                }
-                
-                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{campaign_id}/details"
-                headers = {
-                    'Authorization': f'Bearer {self.wp_bot_token}',
-                    'User-Agent': 'Essence-Discord-Bot/1.0'
-                }
-                
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
-                    if response.status == 200:
-                        campaign = await response.json()
-                        
-                        # Show campaign details and confirm application
-                        embed = discord.Embed(
-                            title=f"Apply to: {campaign.get('book_title', 'Unknown')}",
-                            description=f"By {campaign.get('author_name', 'Unknown')}",
-                            color=0x00A86B
-                        )
-                        embed.add_field(
-                            name="Platform",
-                            value=campaign.get('platform', 'Unknown'),
-                            inline=True
-                        )
-                        embed.add_field(
-                            name="Available Slots",
-                            value=f"{campaign.get('available_slots', 0)} remaining",
-                            inline=True
-                        )
-                        embed.add_field(
-                            name="Book URL",
-                            value=f"[View Book]({campaign.get('book_url', '#')})",
-                            inline=False
-                        )
-                        
-                        # Use unified application view
-                        view = ApplicationConfirmView(self, campaign_id, campaign)
-                        
-                        await interaction.followup.send(
-                            embed=embed,
-                            view=view,
-                            ephemeral=True
-                        )
-                        
-                    elif response.status == 404:
-                        await interaction.followup.send(
-                            f"❌ Campaign #{campaign_id} not found or is no longer active.",
-                            ephemeral=True
-                        )
-                    else:
-                        await interaction.followup.send(
-                            "❌ Failed to fetch campaign details.",
-                            ephemeral=True
-                        )
-                        
-            except Exception as e:
-                logger.error(f"[SHOUTOUT_MODULE] Error applying to campaign: {e}")
-                await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+            
+            # Make API call to get book stats
+            params = {
+                'bot_token': self.wp_bot_token,
+                'rr_book_id': rr_book_id,
+                'campaign_rr_book_id': campaign_rr_book_id
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/book-stats"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    return await response.json()
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error fetching book stats: {e}")
+            return None
     
-        async def handle_my_applications(self, interaction: discord.Interaction, filter_status: str = "all"):
-            """Handle viewing user's applications to other campaigns"""
-            try:
-                await interaction.response.defer(ephemeral=True)
-                logger.info(f"[SHOUTOUT_MODULE] My applications request from {interaction.user.id}, filter: {filter_status}")
-                
-                # Build API request
-                params = {
-                    'bot_token': self.wp_bot_token,
-                    'discord_user_id': str(interaction.user.id),
-                    'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"
-                }
-                
-                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/my-applications/{interaction.user.id}"
-                headers = {
-                    'Authorization': f'Bearer {self.wp_bot_token}',
-                    'User-Agent': 'Essence-Discord-Bot/1.0'
-                }
-                
-                timeout = aiohttp.ClientTimeout(total=10)
-                async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        applications = result.get('applications', [])
-                        
-                        # Filter applications if requested
-                        if filter_status != 'all':
-                            applications = [app for app in applications if app.get('status') == filter_status]
-                        
-                        if not applications:
-                            status_text = f"{filter_status} " if filter_status != 'all' else ""
-                            await interaction.followup.send(
-                                f"You don't have any {status_text}applications. Use `/shoutout-browse` to find campaigns!",
-                                ephemeral=True
-                            )
-                            return
-                        
-                        # Create paginated view
-                        view = MyApplicationsView(self, applications, interaction.user.id, filter_status)
-                        embed = view.create_application_embed(0)
-                        
-                        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-                        
-                    else:
-                        logger.error(f"[SHOUTOUT_MODULE] Failed to fetch user applications: {response.status}")
+    async def handle_my_campaigns(self, interaction: discord.Interaction, filter_status: str = "active"):
+        """Handle viewing and managing user's own campaigns - works everywhere"""
+        try:
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] My campaigns request from {interaction.user.id}")
+            
+            # Build API request
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(interaction.user.id),
+                'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}",
+                'filter_status': filter_status
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/my-campaigns/{interaction.user.id}"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    campaigns = result.get('campaigns', [])
+                    
+                    if not campaigns:
                         await interaction.followup.send(
-                            "❌ Failed to fetch your applications. Please try again later.",
+                            f"You don't have any {filter_status} campaigns. Use `/shoutout-campaign-create` to create one!",
                             ephemeral=True
                         )
-                        
-            except asyncio.TimeoutError:
-                await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
-            except Exception as e:
-                logger.error(f"[SHOUTOUT_MODULE] Error in my_applications: {e}")
-                await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+                        return
+                    
+                    # Create paginated view
+                    view = MyCampaignsView(self, campaigns, interaction.user.id)
+                    embed = self.create_my_campaigns_embed(campaigns[0], 0, len(campaigns))
+                    
+                    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                    
+                else:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to fetch user campaigns: {response.status}")
+                    await interaction.followup.send(
+                        "❌ Failed to fetch your campaigns. Please try again later.",
+                        ephemeral=True
+                    )
+                    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error in my_campaigns: {e}")
+            await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+    
+    async def handle_apply_to_campaign(self, interaction: discord.Interaction, campaign_id: int):
+        """Handle application to a specific campaign"""
+        try:
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] Apply request from {interaction.user.id} for campaign {campaign_id}")
+            
+            # First, get campaign details
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(interaction.user.id)
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{campaign_id}/details"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    campaign = await response.json()
+                    
+                    # Show campaign details and confirm application
+                    embed = discord.Embed(
+                        title=f"Apply to: {campaign.get('book_title', 'Unknown')}",
+                        description=f"By {campaign.get('author_name', 'Unknown')}",
+                        color=0x00A86B
+                    )
+                    embed.add_field(
+                        name="Platform",
+                        value=campaign.get('platform', 'Unknown'),
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="Available Slots",
+                        value=f"{campaign.get('available_slots', 0)} remaining",
+                        inline=True
+                    )
+                    embed.add_field(
+                        name="Book URL",
+                        value=f"[View Book]({campaign.get('book_url', '#')})",
+                        inline=False
+                    )
+                    
+                    # Use unified application view
+                    view = ApplicationConfirmView(self, campaign_id, campaign)
+                    
+                    await interaction.followup.send(
+                        embed=embed,
+                        view=view,
+                        ephemeral=True
+                    )
+                    
+                elif response.status == 404:
+                    await interaction.followup.send(
+                        f"❌ Campaign #{campaign_id} not found or is no longer active.",
+                        ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to fetch campaign details.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error applying to campaign: {e}")
+            await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+
+    async def handle_my_applications(self, interaction: discord.Interaction, filter_status: str = "all"):
+        """Handle viewing user's applications to other campaigns"""
+        try:
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] My applications request from {interaction.user.id}, filter: {filter_status}")
+            
+            # Build API request
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(interaction.user.id),
+                'discord_username': f"{interaction.user.name}#{interaction.user.discriminator}"
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/my-applications/{interaction.user.id}"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    applications = result.get('applications', [])
+                    
+                    # Filter applications if requested
+                    if filter_status != 'all':
+                        applications = [app for app in applications if app.get('status') == filter_status]
+                    
+                    if not applications:
+                        status_text = f"{filter_status} " if filter_status != 'all' else ""
+                        await interaction.followup.send(
+                            f"You don't have any {status_text}applications. Use `/shoutout-browse` to find campaigns!",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Create paginated view
+                    view = MyApplicationsView(self, applications, interaction.user.id, filter_status)
+                    embed = view.create_application_embed(0)
+                    
+                    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                    
+                else:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to fetch user applications: {response.status}")
+                    await interaction.followup.send(
+                        "❌ Failed to fetch your applications. Please try again later.",
+                        ephemeral=True
+                    )
+                    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error in my_applications: {e}")
+            await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
