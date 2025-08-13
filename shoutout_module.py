@@ -1205,14 +1205,14 @@ class MyCampaignsView(discord.ui.View):
         
         await interaction.response.edit_message(embed=embed, view=self)
     
-    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, custom_id="refresh", row=2)
-    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Refresh campaign data"""
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This is not your campaign list.", ephemeral=True)
-            return
-        
-        await interaction.response.send_message("♻️ Refreshing campaigns...", ephemeral=True)
+    #@discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, custom_id="refresh", row=2)
+    #async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #    """Refresh campaign data"""
+    #    if interaction.user.id != self.user_id:
+    #        await interaction.response.send_message("This is not your campaign list.", ephemeral=True)
+    #        return
+    #    
+    #    await interaction.response.send_message("♻️ Refreshing campaigns...", ephemeral=True)
 
 
 class CampaignManagementView(discord.ui.View):
