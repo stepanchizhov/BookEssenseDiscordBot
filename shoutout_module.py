@@ -369,7 +369,7 @@ class ShoutoutModule:
         """Create embed showing list of campaigns"""
         embed = discord.Embed(
             title="📚 Available Shoutout Campaigns",
-            description=f"Found {len(campaigns)} campaign(s)",
+            description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
             color=0x00A86B
         )
         
@@ -392,37 +392,38 @@ class ShoutoutModule:
                     
                     if isinstance(dates_list, list) and dates_list:
                         if len(dates_list) > 1:
-                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more options)\n"
+                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)\n"
                         else:
                             available_dates_str = f"**Available:** {dates_list[0]}\n"
-                    elif isinstance(dates_list, str) and dates_list:
+                    elif isinstance(dates_list, str):
                         available_dates_str = f"**Available:** {dates_list}\n"
                 except:
                     # If parsing fails, just use as string
                     if available_dates:
                         available_dates_str = f"**Available:** {available_dates}\n"
             
-            # Build field value - no separate View Book link since title is linked
-            field_value_parts = [
+            # Build field value with book link at the top
+            field_value_parts = []
+            
+            # Add book link if available
+            if book_url and book_url != '#':
+                field_value_parts.append(f"[View Book]({book_url})")
+            
+            field_value_parts.extend([
                 f"**Campaign ID:** #{campaign_id}",
                 f"**Author:** {campaign.get('author_name', 'Unknown')}",
                 # f"**Platform:** {campaign.get('platform', 'Unknown')}",  # Commented out
                 f"**Slots Available:** {campaign.get('available_slots', 0)}"
-            ]
+            ])
             
             if available_dates_str:
                 field_value_parts.append(available_dates_str.rstrip())
             
             field_value = "\n".join(field_value_parts)
             
-            # Make the book title a hyperlink if URL is available
-            if book_url and book_url != '#':
-                field_name = f"{i+1}. [{book_title}]({book_url})"
-            else:
-                field_name = f"{i+1}. {book_title}"
-            
+            # Use plain text for field name (no markdown)
             embed.add_field(
-                name=field_name,
+                name=f"{i+1}. {book_title}",  # Plain text title
                 value=field_value,
                 inline=False
             )
@@ -957,13 +958,13 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
         except aiohttp.ClientError as e:
             logger.error(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
             await interaction.followup.send(
-                "❌ Network error occurred. Please try again",
+                "❌ Network error occurred. Please try again.",
                 ephemeral=True
             )
         except asyncio.TimeoutError:
             logger.error(f"[SHOUTOUT_MODULE] Request timeout")
             await interaction.followup.send(
-                "❌ Request timed out. Please try again",
+                "❌ Request timed out. Please try again.",
                 ephemeral=True
             )
         except Exception as e:
@@ -973,7 +974,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
             
             try:
                 await interaction.followup.send(
-                    "❌ An error occurred while creating your campaign. Please try again",
+                    "❌ An error occurred while creating your campaign. Please try again.",
                     ephemeral=True
                 )
             except:
@@ -1760,7 +1761,7 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
             else:
                 logger.info(f"[SHOUTOUT_MODULE] No changes made - all fields empty")
                 await interaction.followup.send(
-                    "ℹ️ No changes made",
+                    "ℹ️ No changes made.",
                     ephemeral=True
                 )
                 
@@ -1939,7 +1940,7 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
         logger.info(f"[SHOUTOUT_MODULE] EditShoutoutDetailsModal initialized with campaign {campaign.get('id')}")
     
     shoutout_code = discord.ui.TextInput(
-        label="Your Shoutout Code's URL (Generate your shoutout code at https://finitevoid.dev/shoutout and share it on Google Docs)",
+        label="Your Shoutout Code's URL (Generate at finitevoid.dev/shoutout)",
         placeholder="https://docs.google.com/... (Generate code at finitevoid.dev/shoutout)",
         required=False,
         max_length=500
@@ -2939,8 +2940,8 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
     )
     
     shoutout_code = discord.ui.TextInput(
-        label="Your Shoutout Code/URL (Optional)",
-        placeholder="URL where you'll place the shoutout (e.g., chapter link)",
+        label="Your Shoutout Code's URL (Generate at finitevoid.dev/shoutout)",
+        placeholder="https://docs.google.com/... (Generate code at finitevoid.dev/shoutout)",
         required=False,
         max_length=500
     )
@@ -3043,7 +3044,7 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 if response.status == 200 and result.get('success'):
                     embed = discord.Embed(
                         title="✅ Application Submitted!",
-                        description=f"Your application for **{self.campaign.get('book_title')}** has been submitted.",
+                        description=f"Your application for **{self.campaign.get('book_title')}** has been submitted",
                         color=0x00A86B
                     )
                     
