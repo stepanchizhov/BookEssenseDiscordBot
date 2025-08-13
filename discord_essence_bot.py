@@ -3357,10 +3357,12 @@ async def rr_rs_chart(
     global command_counter
     command_counter += 1
     
-    logger.info(f"\n[RR-RS-CHART] Command called by {interaction.user}")
-    logger.info(f"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
-    
+    # DEFER IMMEDIATELY - This is the critical fix
     await interaction.response.defer()
+    
+    # Now do the logging after deferring
+    print(f"\n[RR-RS-CHART] Command called by {interaction.user}")
+    print(f"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
     
     try:
         # Parse book input to get book ID
@@ -3650,7 +3652,7 @@ async def rr_rs_chart(
         embed.add_field(
             name="📊 Chart Details",
             value=(
-                "• **Blue line:** Followers over time\n"
+                "• **Blue line:** Followers over time (left axis)\n"
                 "• **Orange line:** Views over time (right axis)\n"
                 "• **Green shaded area:** Period on Main Rising Stars\n"
                 "• **Yellow shaded areas:** Days at peak RS position\n"
@@ -4257,6 +4259,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
