@@ -46,7 +46,16 @@ class ShoutoutModule:
         async def shoutout_campaign_create(interaction: discord.Interaction):
             """Create a new shoutout campaign - works anywhere"""
             await self.handle_campaign_create(interaction)
-        
+
+        @self.bot.tree.command(name="shoutout-view-details", description="View detailed information about a shoutout campaign")
+        @discord.app_commands.describe(
+            campaign_id="The ID of the campaign to view"
+        )
+        async def shoutout_view_details(
+            interaction: discord.Interaction,
+            campaign_id: int
+        ):
+            await self.handle_view_campaign_details(interaction, campaign_id)
 
         # Browse campaigns command - with genre filter enabled
         @self.bot.tree.command(name="shoutout-browse", description="Browse available shoutout campaigns")
@@ -264,6 +273,73 @@ class ShoutoutModule:
         
         finally:
             logger.info(f"[SHOUTOUT_MODULE] ========== CAMPAIGN CREATE END ==========")
+
+    async def handle_view_campaign_details(self, interaction: discord.Interaction, campaign_id: int):
+        """Handle viewing detailed campaign information"""
+        try:
+            await interaction.response.defer(ephemeral=True)
+            logger.info(f"[SHOUTOUT_MODULE] View details request for campaign {campaign_id} by {interaction.user.id}")
+            
+            # Fetch campaign details from API
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(interaction.user.id)
+            }
+            
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{campaign_id}/details"
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    campaign = await response.json()
+                    
+                    # Check if campaign exists and is active
+                    if not campaign or campaign.get('campaign_status') != 'active':
+                        await interaction.followup.send(
+                            f"❌ Campaign #{campaign_id} not found or is not active",
+                            ephemeral=True
+                        )
+                        return
+                    
+                    # Create the public announcement embed (reuse the existing method)
+                    embed = self.create_public_campaign_details_embed(campaign)
+                    
+                    # Create view with Apply button if user isn't the campaign creator
+                    view = None
+                    campaign_creator_id = campaign.get('discord_user_id')
+                    if campaign_creator_id and str(interaction.user.id) != str(campaign_creator_id):
+                        # User is not the creator, show Apply button
+                        view = PublicCampaignView(self, campaign)
+                    
+                    await interaction.followup.send(
+                        embed=embed,
+                        view=view,
+                        ephemeral=True
+                    )
+                    
+                elif response.status == 404:
+                    await interaction.followup.send(
+                        f"❌ Campaign #{campaign_id} not found",
+                        ephemeral=True
+                    )
+                else:
+                    logger.error(f"[SHOUTOUT_MODULE] Failed to fetch campaign details: {response.status}")
+                    await interaction.followup.send(
+                        "❌ Failed to fetch campaign details. Please try again later",
+                        ephemeral=True
+                    )
+                    
+        except asyncio.TimeoutError:
+            await interaction.followup.send("❌ Request timed out. Please try again.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error viewing campaign details: {e}")
+            import traceback
+            logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
+            await interaction.followup.send("❌ An error occurred.", ephemeral=True)
     
     async def handle_browse_campaigns(
         self,
@@ -1184,6 +1260,131 @@ class MyCampaignsView(discord.ui.View):
             value="Click the **Apply** button below to submit your application!",
             inline=False
         )
+        
+        embed.set_footer(text=f"Campaign by {campaign.get('discord_username', 'Unknown')}")
+        
+        return embed
+
+    def create_public_campaign_details_embed(self, campaign: Dict) -> discord.Embed:
+        """Create embed for public campaign details view (similar to announcement)"""
+        embed = discord.Embed(
+            title=f"📖 {campaign.get('book_title', 'Unknown')}",
+            description=f"by **{campaign.get('author_name', 'Unknown')}**",
+            color=0x00A86B
+        )
+        
+        # Add book URL if available
+        book_url = campaign.get('book_url')
+        if book_url:
+            embed.add_field(
+                name="📚 Book Link",
+                value=f"[Read on {campaign.get('platform', 'Platform')}]({book_url})",
+                inline=False
+            )
+        
+        # Campaign details
+        embed.add_field(
+            name="Platform",
+            value=campaign.get('platform', 'Unknown'),
+            inline=True
+        )
+        
+        available_slots = campaign.get('available_slots', 0)
+        total_slots = campaign.get('total_slots', 0)
+        embed.add_field(
+            name="Available Slots",
+            value=f"{available_slots}/{total_slots}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Campaign ID",
+            value=f"#{campaign.get('id', 'Unknown')}",
+            inline=True
+        )
+        
+        # Add available dates
+        available_dates = campaign.get('available_dates')
+        if available_dates:
+            try:
+                # Try to parse as JSON if it's a string
+                if isinstance(available_dates, str):
+                    import json
+                    dates_list = json.loads(available_dates)
+                else:
+                    dates_list = available_dates
+                
+                if isinstance(dates_list, list) and dates_list:
+                    if len(dates_list) > 1:
+                        dates_str = f"{dates_list[0]} (+{len(dates_list)-1} more dates)"
+                    else:
+                        dates_str = dates_list[0]
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=dates_str,
+                        inline=False
+                    )
+                elif isinstance(dates_list, str):
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=dates_list,
+                        inline=False
+                    )
+            except:
+                # If parsing fails, just use as string
+                if available_dates:
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=available_dates,
+                        inline=False
+                    )
+        
+        # Add blurb if available
+        blurb = campaign.get('blurb')
+        if blurb:
+            embed.add_field(
+                name="About the Book",
+                value=blurb[:500] if len(blurb) > 500 else blurb,
+                inline=False
+            )
+        
+        # Add campaign creator info
+        creator_id = campaign.get('discord_user_id')
+        if creator_id:
+            embed.add_field(
+                name="Campaign Creator",
+                value=f"<@{creator_id}>",
+                inline=True
+            )
+        
+        # Add status
+        status = campaign.get('campaign_status', 'unknown')
+        if status != 'active':
+            embed.add_field(
+                name="Status",
+                value=status.title(),
+                inline=True
+            )
+        
+        # Check if user already applied
+        if campaign.get('already_applied'):
+            embed.add_field(
+                name="⚠️ Note",
+                value="You have already applied to this campaign",
+                inline=False
+            )
+        elif campaign.get('is_full'):
+            embed.add_field(
+                name="⚠️ Note",
+                value="This campaign is currently full",
+                inline=False
+            )
+        elif available_slots > 0:
+            embed.add_field(
+                name="How to Apply",
+                value="Click the **Apply** button below to submit your application!",
+                inline=False
+            )
         
         embed.set_footer(text=f"Campaign by {campaign.get('discord_username', 'Unknown')}")
         
