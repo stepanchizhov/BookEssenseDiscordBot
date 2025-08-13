@@ -276,15 +276,17 @@ class ShoutoutModule:
         show_mine: Optional[bool] = False
     ):  
         """Handle browsing campaigns with filters"""
+        # Defer IMMEDIATELY - this must happen within 3 seconds
         try:
             await interaction.response.defer()
-            logger.info(f"[SHOUTOUT_MODULE] Browse campaigns - deferred response")
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Failed to defer browse response: {e}")
             return
         
+        # Now we can do logging and other operations
+        logger.info(f"[SHOUTOUT_MODULE] Browse campaigns - deferred response")
         logger.info(f"[SHOUTOUT_MODULE] Browse campaigns called by {interaction.user.id}")
-        logger.info(f"[SHOUTOUT_MODULE] Parameters: genre={genre}, show_mine={show_mine}, server_only={server_only}")        
+        logger.info(f"[SHOUTOUT_MODULE] Parameters: genre={genre}, show_mine={show_mine}, server_only={server_only}")    
         
         try:
             # Build API request
