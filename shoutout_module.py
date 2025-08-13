@@ -68,7 +68,13 @@ class ShoutoutModule:
             # server_only: Optional[bool] = False
         ):
             await self.handle_browse_campaigns(
-                interaction, genre, None, None, None, False, show_mine
+                interaction=interaction,
+                genre=genre,
+                platform=None,
+                min_followers=None,
+                max_followers=None,
+                server_only=False,
+                show_mine=show_mine
             )
         
         # Add autocomplete for genre if tag_autocomplete function is available
