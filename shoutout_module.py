@@ -514,7 +514,7 @@ class ShoutoutModule:
                 inline=False
             )
         
-        embed.set_footer(text="💡 Apply to any campaign using: /shoutout-apply [campaign_id]")
+        embed.set_footer(text="💡 Apply to any campaign using: /shoutout-apply [campaign_id]\n❓Check any campaign's info using: /shoutout-view-details [campaign_id]")
         
         return embed
         
