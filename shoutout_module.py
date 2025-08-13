@@ -371,7 +371,7 @@ class ShoutoutModule:
         """Create embed showing list of campaigns"""
         embed = discord.Embed(
             title="📚 Available Shoutout Campaigns",
-            description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
+            description=f"Found {len(campaigns)} campaign(s)",
             color=0x00A86B
         )
         
