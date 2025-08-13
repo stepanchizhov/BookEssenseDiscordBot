@@ -375,16 +375,49 @@ class ShoutoutModule:
         
         for i, campaign in enumerate(campaigns[:10]):  # Show max 10
             campaign_id = campaign.get('id', 'Unknown')
+            book_url = campaign.get('book_url', '#')
+            book_title = campaign.get('book_title', 'Unknown Book')
+            
+            # Make book title a clickable link
+            if book_url and book_url != '#':
+                book_title_link = f"[{book_title}]({book_url})"
+            else:
+                book_title_link = book_title
+            
+            # Handle available_dates - show first one if it's a list
+            available_dates_str = ""
+            available_dates = campaign.get('available_dates')
+            if available_dates:
+                try:
+                    # Try to parse as JSON if it's a string
+                    if isinstance(available_dates, str):
+                        import json
+                        dates_list = json.loads(available_dates)
+                    else:
+                        dates_list = available_dates
+                    
+                    if isinstance(dates_list, list) and dates_list:
+                        if len(dates_list) > 1:
+                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)\n"
+                        else:
+                            available_dates_str = f"**Available:** {dates_list[0]}\n"
+                    elif isinstance(dates_list, str):
+                        available_dates_str = f"**Available:** {dates_list}\n"
+                except:
+                    # If parsing fails, just use as string
+                    if available_dates:
+                        available_dates_str = f"**Available:** {available_dates}\n"
+            
             field_value = (
                 f"**Campaign ID:** #{campaign_id}\n"
                 f"**Author:** {campaign.get('author_name', 'Unknown')}\n"
-                f"**Platform:** {campaign.get('platform', 'Unknown')}\n"
+                # f"**Platform:** {campaign.get('platform', 'Unknown')}\n"  # Commented out
                 f"**Slots Available:** {campaign.get('available_slots', 0)}\n"
-                f"[View Book]({campaign.get('book_url', '#')})"
-            )
+                f"{available_dates_str}"  # Add available dates if present
+            ).rstrip()  # Remove trailing newline
             
             embed.add_field(
-                name=f"{i+1}. {campaign.get('book_title', 'Unknown Book')}",
+                name=f"{i+1}. {book_title_link}",  # Book title is now the clickable link
                 value=field_value,
                 inline=False
             )
