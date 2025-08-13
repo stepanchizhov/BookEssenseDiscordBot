@@ -98,7 +98,7 @@ class ShoutoutModule:
         ):
             await self.handle_my_campaigns(interaction, filter_status)
         
-        # Apply to campaign command
+        # Apply to the campaign command
         @self.bot.tree.command(name="shoutout-apply", description="Apply to a specific shoutout campaign")
         @discord.app_commands.describe(
             campaign_id="The ID of the campaign to apply to"
@@ -2414,7 +2414,7 @@ class PublicCampaignView(discord.ui.View):
         self.campaign = campaign
         self.campaign_id = campaign.get('id')
     
-    @discord.ui.button(label="📝 Apply to Campaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
+    @discord.ui.button(label="📝 Apply to theCampaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Show application modal when Apply is clicked"""
         # Check if user is trying to apply to their own campaign
