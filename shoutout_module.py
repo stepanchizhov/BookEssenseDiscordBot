@@ -1940,7 +1940,7 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
         logger.info(f"[SHOUTOUT_MODULE] EditShoutoutDetailsModal initialized with campaign {campaign.get('id')}")
     
     shoutout_code = discord.ui.TextInput(
-        label="Your Shoutout Code's URL (Generate at finitevoid.dev/shoutout)",
+        label="Your Shoutout Code's URL",
         placeholder="https://docs.google.com/... (Generate code at finitevoid.dev/shoutout)",
         required=False,
         max_length=500
@@ -2940,7 +2940,7 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
     )
     
     shoutout_code = discord.ui.TextInput(
-        label="Your Shoutout Code's URL (Generate at finitevoid.dev/shoutout)",
+        label="Your Shoutout Code's URL",
         placeholder="https://docs.google.com/... (Generate code at finitevoid.dev/shoutout)",
         required=False,
         max_length=500
