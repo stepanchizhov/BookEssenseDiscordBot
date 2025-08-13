@@ -274,7 +274,7 @@ class ShoutoutModule:
         max_followers: Optional[int] = None,
         server_only: Optional[bool] = False,
         show_mine: Optional[bool] = False
-    ):
+    ):  
         """Handle browsing campaigns with filters"""
         try:
             await interaction.response.defer()
@@ -284,6 +284,7 @@ class ShoutoutModule:
             return
         
         logger.info(f"[SHOUTOUT_MODULE] Browse campaigns called by {interaction.user.id}")
+        logger.info(f"[SHOUTOUT_MODULE] Parameters: genre={genre}, show_mine={show_mine}, server_only={server_only}")        
         
         try:
             # Build API request
@@ -311,6 +312,8 @@ class ShoutoutModule:
                 params['max_followers'] = max_followers
             if server_only:
                 params['server_only'] = True
+            # Always pass show_mine parameter (even if False) so the API knows what to do
+            params['show_mine'] = show_mine if show_mine is not None else False
             
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
             headers = {
@@ -319,6 +322,7 @@ class ShoutoutModule:
             }
             
             logger.info(f"[SHOUTOUT_MODULE] Fetching campaigns from: {url}")
+            logger.info(f"[SHOUTOUT_MODULE] Request params: {params}")
             
             timeout = aiohttp.ClientTimeout(total=10)
             async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
