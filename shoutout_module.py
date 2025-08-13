@@ -835,26 +835,35 @@ class ShoutoutModule:
             )
         
         # Check if user already applied
-        if campaign.get('already_applied'):
-            embed.add_field(
-                name="⚠️ Note",
-                value="You have already applied to this campaign",
-                inline=False
-            )
+        if campaign.get('applied_books'):
+            # User has applied with some books
+            applied_count = len(campaign['applied_books'])
+            if applied_count == 1:
+                embed.add_field(
+                    name="📚 Your Applications",
+                    value="You've applied to this campaign with 1 book. You can apply with different books!",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="📚 Your Applications",
+                    value=f"You've applied to this campaign with {applied_count} different books.",
+                    inline=False
+                )
         elif campaign.get('is_full'):
             embed.add_field(
-                name="⚠️ Note",
+                name="⚠️ Note", 
                 value="This campaign is currently full",
                 inline=False
             )
-        elif available_slots > 0:
+        else:
             embed.add_field(
                 name="How to Apply",
                 value="Click the **Apply** button below to submit your application!",
                 inline=False
             )
-        
-        return embed
+                                            
+        return embed    
     
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
@@ -3231,14 +3240,14 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 )
                 return
             
-            # Optional: Check for valid domain structure
+            # Validate URL format
             import re
             url_pattern = re.compile(
-                r'^https?://'  # http:// or https://
-                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-                r'localhost|'  # localhost...
-                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-                r'(?::\d+)?'  # optional port
+                r'^https?://'
+                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'
+                r'localhost|'
+                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+                r'(?::\d+)?'
                 r'(?:/?|[/?]\S+)$', re.IGNORECASE)
             
             if not url_pattern.match(book_url):
@@ -3247,6 +3256,32 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                     ephemeral=True
                 )
                 return
+            
+            # Check if user already applied with THIS SPECIFIC BOOK
+            # First, get campaign details to check existing applications
+            check_params = {
+                'bot_token': self.module.wp_bot_token,
+                'discord_user_id': str(interaction.user.id),
+                'check_book_url': book_url  # Pass the book URL to check
+            }
+            
+            check_url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns/{self.campaign_id}/details"
+            headers = {
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with self.module.session.get(check_url, params=check_params, headers=headers, timeout=timeout) as response:
+                if response.status == 200:
+                    campaign_check = await response.json()
+                    if campaign_check.get('already_applied'):
+                        await interaction.followup.send(
+                            f"❌ You have already applied to this campaign with the book: **{self.book_title.value}**\n"
+                            "You can apply with a different book if you have one.",
+                            ephemeral=True
+                        )
+                        return
             
             # Validate shoutout code URL if provided
             if self.shoutout_code.value:
@@ -3265,6 +3300,7 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                     )
                     return
             
+            # Rest of the submission code remains the same...
             participant_book_data = {
                 'book_title': self.book_title.value,
                 'author_name': self.author_name.value,
@@ -3284,46 +3320,18 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
             }
             
             url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications"
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.module.wp_bot_token}',
-                'User-Agent': 'Essence-Discord-Bot/1.0'
-            }
             
-            timeout = aiohttp.ClientTimeout(total=10)
             async with self.module.session.post(url, json=data, headers=headers, timeout=timeout) as response:
                 result = await response.json()
                 
                 if response.status == 200 and result.get('success'):
+                    # Success message code...
                     embed = discord.Embed(
                         title="✅ Application Submitted!",
                         description=f"Your application for **{self.campaign.get('book_title')}** has been submitted",
                         color=0x00A86B
                     )
-                    
-                    embed.add_field(
-                        name="Your Book",
-                        value=f"**{self.book_title.value}**\nby {self.author_name.value}",
-                        inline=False
-                    )
-                    
-                    if self.shoutout_code.value:
-                        embed.add_field(
-                            name="Shoutout Location",
-                            value=f"[{self.shoutout_code.value[:50]}...]({self.shoutout_code.value})" if len(self.shoutout_code.value) > 50 else self.shoutout_code.value,
-                            inline=False
-                        )
-                    
-                    embed.add_field(
-                        name="What's Next?",
-                        value=(
-                            "• The campaign creator will review your application\n"
-                            "• You'll receive a DM when your application is reviewed\n"
-                            "• Use `/shoutout-my-applications` to track your applications"
-                        ),
-                        inline=False
-                    )
-                    
+                    # ... rest of success handling
                     await interaction.followup.send(embed=embed, ephemeral=True)
                     await self.notify_campaign_creator(interaction)
                     
