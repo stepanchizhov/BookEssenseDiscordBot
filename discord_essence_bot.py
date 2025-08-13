@@ -3734,14 +3734,26 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
             ax1.text(rs_end, y_pos, 'RS End', rotation=90, verticalalignment='bottom', fontsize=8, color='red')
             
             # IMPROVEMENT 1: Add exact values at entry and exit points
-            # Find the indices for RS start and end dates
+            # Find the indices for RS start and closest date to RS end
             rs_start_idx = None
             rs_end_idx = None
+            
             for i, date in enumerate(dates):
                 if date == rs_start:
                     rs_start_idx = i
                 if date == rs_end:
                     rs_end_idx = i
+            
+            # If exact RS end date not found, find the closest date before or at RS end
+            if rs_end_idx is None:
+                for i in range(len(dates) - 1, -1, -1):
+                    if dates[i] <= rs_end:
+                        rs_end_idx = i
+                        break
+            
+            # If still no match (RS ends after our data), use the last available data point
+            if rs_end_idx is None and len(dates) > 0:
+                rs_end_idx = len(dates) - 1
             
             # Add annotations for entry values
             if rs_start_idx is not None:
@@ -3750,36 +3762,43 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
                 
                 # Annotate followers at entry
                 ax1.annotate(f'{entry_followers:,}', 
-                           xy=(rs_start, entry_followers),
-                           xytext=(10, -10), textcoords='offset points',
+                           xy=(dates[rs_start_idx], entry_followers),
+                           xytext=(10, -15), textcoords='offset points',
                            fontsize=9, color=color1, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color1, alpha=0.8))
                 
                 # Annotate views at entry
                 ax2.annotate(f'{entry_views:,}',
-                           xy=(rs_start, entry_views),
-                           xytext=(-40, 10), textcoords='offset points',
+                           xy=(dates[rs_start_idx], entry_views),
+                           xytext=(-50, 10), textcoords='offset points',
                            fontsize=9, color=color2, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color2, alpha=0.8))
             
-            # Add annotations for exit values
+            # Add annotations for exit values (or last available data point)
             if rs_end_idx is not None:
                 exit_followers = followers[rs_end_idx]
                 exit_views = views[rs_end_idx]
+                exit_date = dates[rs_end_idx]
                 
-                # Annotate followers at exit
-                ax1.annotate(f'{exit_followers:,}',
-                           xy=(rs_end, exit_followers),
-                           xytext=(10, 10), textcoords='offset points',
+                # Determine if this is the actual RS end or just the last available data
+                is_actual_end = (exit_date == rs_end)
+                label_suffix = "" if is_actual_end else " (last data)"
+                
+                # Annotate followers at exit/last data point
+                ax1.annotate(f'{exit_followers:,}{label_suffix}',
+                           xy=(exit_date, exit_followers),
+                           xytext=(15, 15), textcoords='offset points',
                            fontsize=9, color=color1, fontweight='bold',
-                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color1, alpha=0.8))
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                                   edgecolor=color1, alpha=0.8))
                 
-                # Annotate views at exit
-                ax2.annotate(f'{exit_views:,}',
-                           xy=(rs_end, exit_views),
-                           xytext=(-40, -10), textcoords='offset points',
+                # Annotate views at exit/last data point
+                ax2.annotate(f'{exit_views:,}{label_suffix}',
+                           xy=(exit_date, exit_views),
+                           xytext=(-60, -15), textcoords='offset points',
                            fontsize=9, color=color2, fontweight='bold',
-                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color2, alpha=0.8))
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                                   edgecolor=color2, alpha=0.8))
             
             # IMPROVEMENT 2: Highlight best position PERIODS (not just lines)
             if rs_info.get('best_position_dates'):
@@ -4238,6 +4257,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
