@@ -3731,7 +3731,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
             ax1.axvline(x=rs_end, color='red', linestyle=':', alpha=0.5, linewidth=1)
             
             # Add text annotations
-            y_pos = ax1.get_ylim()[1] * 0.95
+            y_pos = ax1.get_ylim()[1] * 0.8
             ax1.text(rs_start, y_pos, 'RS Start', rotation=90, verticalalignment='bottom', fontsize=8, color='green')
             ax1.text(rs_end, y_pos, 'RS End', rotation=90, verticalalignment='bottom', fontsize=8, color='red')
             
@@ -4259,6 +4259,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
