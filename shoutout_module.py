@@ -369,7 +369,7 @@ class ShoutoutModule:
         """Create embed showing list of campaigns"""
         embed = discord.Embed(
             title="📚 Available Shoutout Campaigns",
-            description=f"Found {len(campaigns)} campaign(s)\n💡 **To apply:** Use `/shoutout-apply [campaign_id]`",
+            description=f"Found {len(campaigns)} campaign(s)",
             color=0x00A86B
         )
         
@@ -377,12 +377,6 @@ class ShoutoutModule:
             campaign_id = campaign.get('id', 'Unknown')
             book_url = campaign.get('book_url', '#')
             book_title = campaign.get('book_title', 'Unknown Book')
-            
-            # Make book title a clickable link
-            if book_url and book_url != '#':
-                book_title_link = f"[{book_title}]({book_url})"
-            else:
-                book_title_link = book_title
             
             # Handle available_dates - show first one if it's a list
             available_dates_str = ""
@@ -408,16 +402,28 @@ class ShoutoutModule:
                     if available_dates:
                         available_dates_str = f"**Available:** {available_dates}\n"
             
-            field_value = (
-                f"**Campaign ID:** #{campaign_id}\n"
-                f"**Author:** {campaign.get('author_name', 'Unknown')}\n"
-                # f"**Platform:** {campaign.get('platform', 'Unknown')}\n"  # Commented out
-                f"**Slots Available:** {campaign.get('available_slots', 0)}\n"
-                f"{available_dates_str}"  # Add available dates if present
-            ).rstrip()  # Remove trailing newline
+            # Build field value with book link at the top
+            field_value_parts = []
             
+            # Add book link if available
+            if book_url and book_url != '#':
+                field_value_parts.append(f"[View Book]({book_url})")
+            
+            field_value_parts.extend([
+                f"**Campaign ID:** #{campaign_id}",
+                f"**Author:** {campaign.get('author_name', 'Unknown')}",
+                # f"**Platform:** {campaign.get('platform', 'Unknown')}",  # Commented out
+                f"**Slots Available:** {campaign.get('available_slots', 0)}"
+            ])
+            
+            if available_dates_str:
+                field_value_parts.append(available_dates_str.rstrip())
+            
+            field_value = "\n".join(field_value_parts)
+            
+            # Use plain text for field name (no markdown)
             embed.add_field(
-                name=f"{i+1}. {book_title_link}",  # Book title is now the clickable link
+                name=f"{i+1}. {book_title}",  # Plain text title
                 value=field_value,
                 inline=False
             )
