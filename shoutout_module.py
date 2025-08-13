@@ -392,38 +392,37 @@ class ShoutoutModule:
                     
                     if isinstance(dates_list, list) and dates_list:
                         if len(dates_list) > 1:
-                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more)\n"
+                            available_dates_str = f"**Available:** {dates_list[0]} (+{len(dates_list)-1} more options)\n"
                         else:
                             available_dates_str = f"**Available:** {dates_list[0]}\n"
-                    elif isinstance(dates_list, str):
+                    elif isinstance(dates_list, str) and dates_list:
                         available_dates_str = f"**Available:** {dates_list}\n"
                 except:
                     # If parsing fails, just use as string
                     if available_dates:
                         available_dates_str = f"**Available:** {available_dates}\n"
             
-            # Build field value with book link at the top
-            field_value_parts = []
-            
-            # Add book link if available
-            if book_url and book_url != '#':
-                field_value_parts.append(f"[View Book]({book_url})")
-            
-            field_value_parts.extend([
+            # Build field value - no separate View Book link since title is linked
+            field_value_parts = [
                 f"**Campaign ID:** #{campaign_id}",
                 f"**Author:** {campaign.get('author_name', 'Unknown')}",
                 # f"**Platform:** {campaign.get('platform', 'Unknown')}",  # Commented out
                 f"**Slots Available:** {campaign.get('available_slots', 0)}"
-            ])
+            ]
             
             if available_dates_str:
                 field_value_parts.append(available_dates_str.rstrip())
             
             field_value = "\n".join(field_value_parts)
             
-            # Use plain text for field name (no markdown)
+            # Make the book title a hyperlink if URL is available
+            if book_url and book_url != '#':
+                field_name = f"{i+1}. [{book_title}]({book_url})"
+            else:
+                field_name = f"{i+1}. {book_title}"
+            
             embed.add_field(
-                name=f"{i+1}. {book_title}",  # Plain text title
+                name=field_name,
                 value=field_value,
                 inline=False
             )
@@ -801,7 +800,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
             except ValueError as e:
                 logger.error(f"[SHOUTOUT_MODULE] Invalid slots value: {e}")
                 await interaction.followup.send(
-                    "❌ Please enter a valid number for slots.",
+                    "❌ Please enter a valid number for slots",
                     ephemeral=True
                 )
                 return
@@ -809,10 +808,38 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
             if slots < 1:
                 logger.error(f"[SHOUTOUT_MODULE] Slots less than 1: {slots}")
                 await interaction.followup.send(
-                    "❌ You must offer at least 1 shoutout slot.",
+                    "❌ You must offer at least 1 shoutout slot",
                     ephemeral=True
                 )
                 return
+            
+            # Validate book URL
+            book_url = self.book_url.value.strip()
+            if book_url:
+                # Basic URL validation
+                if not (book_url.startswith('http://') or book_url.startswith('https://')):
+                    await interaction.followup.send(
+                        "❌ Book URL must start with http:// or https://",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Optional: Check for valid domain structure
+                import re
+                url_pattern = re.compile(
+                    r'^https?://'  # http:// or https://
+                    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                    r'localhost|'  # localhost...
+                    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                    r'(?::\d+)?'  # optional port
+                    r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+                
+                if not url_pattern.match(book_url):
+                    await interaction.followup.send(
+                        "❌ Please enter a valid URL for your book",
+                        ephemeral=True
+                    )
+                    return
             
             # Get server ID and name if in a guild
             if interaction.guild:
@@ -834,7 +861,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
                 'discord_user_id': str(interaction.user.id),
                 'discord_username': discord_username,
                 'book_title': self.book_title.value,
-                'book_url': self.book_url.value,
+                'book_url': book_url,
                 'platform': self.platform.value,
                 'author_name': self.author_name.value,
                 'available_slots': slots,
@@ -874,7 +901,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
                 except json.JSONDecodeError as e:
                     logger.error(f"[SHOUTOUT_MODULE] Failed to parse JSON response: {e}")
                     await interaction.followup.send(
-                        "❌ Server returned invalid response. Please try again.",
+                        "❌ Server returned invalid response. Please try again",
                         ephemeral=True
                     )
                     return
@@ -904,7 +931,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
                     )
                     embed.add_field(
                         name="Book URL",
-                        value=f"[View Book]({self.book_url.value})",
+                        value=f"[View Book]({book_url})",
                         inline=False
                     )
                     embed.add_field(
@@ -930,13 +957,13 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
         except aiohttp.ClientError as e:
             logger.error(f"[SHOUTOUT_MODULE] Network error: {type(e).__name__}: {e}")
             await interaction.followup.send(
-                "❌ Network error occurred. Please try again.",
+                "❌ Network error occurred. Please try again",
                 ephemeral=True
             )
         except asyncio.TimeoutError:
             logger.error(f"[SHOUTOUT_MODULE] Request timeout")
             await interaction.followup.send(
-                "❌ Request timed out. Please try again.",
+                "❌ Request timed out. Please try again",
                 ephemeral=True
             )
         except Exception as e:
@@ -946,7 +973,7 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
             
             try:
                 await interaction.followup.send(
-                    "❌ An error occurred while creating your campaign. Please try again.",
+                    "❌ An error occurred while creating your campaign. Please try again",
                     ephemeral=True
                 )
             except:
@@ -1652,6 +1679,33 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
         await interaction.response.defer(ephemeral=True)
         
         try:
+            # Validate book URL if provided
+            if self.book_url.value:
+                book_url = self.book_url.value.strip()
+                if not (book_url.startswith('http://') or book_url.startswith('https://')):
+                    await interaction.followup.send(
+                        "❌ Book URL must start with http:// or https://",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Optional: Check for valid domain structure
+                import re
+                url_pattern = re.compile(
+                    r'^https?://'  # http:// or https://
+                    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                    r'localhost|'  # localhost...
+                    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                    r'(?::\d+)?'  # optional port
+                    r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+                
+                if not url_pattern.match(book_url):
+                    await interaction.followup.send(
+                        "❌ Please enter a valid URL for your book",
+                        ephemeral=True
+                    )
+                    return
+            
             # Build update data (only include changed fields)
             update_data = {
                 'bot_token': self.module.wp_bot_token
@@ -1700,13 +1754,13 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
                         error_text = await response.text()
                         logger.error(f"[SHOUTOUT_MODULE] Failed to update book details. Status: {response.status}, Error: {error_text}")
                         await interaction.followup.send(
-                            "❌ Failed to update book details.",
+                            "❌ Failed to update book details",
                             ephemeral=True
                         )
             else:
                 logger.info(f"[SHOUTOUT_MODULE] No changes made - all fields empty")
                 await interaction.followup.send(
-                    "ℹ️ No changes made.",
+                    "ℹ️ No changes made",
                     ephemeral=True
                 )
                 
@@ -1715,7 +1769,7 @@ class EditBookDetailsModal(discord.ui.Modal, title="Edit Book Details"):
             import traceback
             logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             await interaction.followup.send(
-                "❌ An error occurred while updating book details.",
+                "❌ An error occurred while updating book details",
                 ephemeral=True
             )
 
@@ -1746,7 +1800,7 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
     
     available_slots = discord.ui.TextInput(
         label="Total Shoutout Slots",
-        placeholder="How many total shoutouts can you offer?",
+        placeholder="How many shoutouts can you offer?",
         required=True,
         max_length=5
     )
@@ -1755,16 +1809,14 @@ class EditCampaignSettingsModal(discord.ui.Modal, title="Edit Campaign Settings"
         label="Auto-Approve Applications",
         placeholder="Type 'yes' or 'no'",
         required=True,
-        max_length=3,
-        min_length=2
+        max_length=3
     )
     
     require_mutual_server = discord.ui.TextInput(
         label="Require Mutual Server",
         placeholder="Type 'yes' or 'no' - Require applicants to share a server with you?",
         required=True,
-        max_length=3,
-        min_length=2
+        max_length=3
     )
     
     async def on_submit(self, interaction: discord.Interaction):
@@ -1887,8 +1939,8 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
         logger.info(f"[SHOUTOUT_MODULE] EditShoutoutDetailsModal initialized with campaign {campaign.get('id')}")
     
     shoutout_code = discord.ui.TextInput(
-        label="Your Shoutout Code/URL",
-        placeholder="Your shoutout code URL",
+        label="Your Shoutout Code's URL (Generate your shoutout code at https://finitevoid.dev/shoutout and share it on Google Docs)",
+        placeholder="https://docs.google.com/... (Generate code at finitevoid.dev/shoutout)",
         required=False,
         max_length=500
     )
@@ -1921,6 +1973,33 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
         await interaction.response.defer(ephemeral=True)
         
         try:
+            # Validate shoutout code URL if provided
+            if self.shoutout_code.value:
+                shoutout_url = self.shoutout_code.value.strip()
+                if not (shoutout_url.startswith('http://') or shoutout_url.startswith('https://')):
+                    await interaction.followup.send(
+                        "❌ Shoutout code URL must start with http:// or https://",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Optional: Check for valid domain structure
+                import re
+                url_pattern = re.compile(
+                    r'^https?://'  # http:// or https://
+                    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                    r'localhost|'  # localhost...
+                    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                    r'(?::\d+)?'  # optional port
+                    r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+                
+                if not url_pattern.match(shoutout_url):
+                    await interaction.followup.send(
+                        "❌ Please enter a valid URL for your shoutout code",
+                        ephemeral=True
+                    )
+                    return
+            
             # Build update data
             update_data = {
                 'bot_token': self.module.wp_bot_token
@@ -1974,7 +2053,7 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
                         error_text = await response.text()
                         logger.error(f"[SHOUTOUT_MODULE] Failed to update shoutout details. Status: {response.status}, Error: {error_text}")
                         await interaction.followup.send(
-                            "❌ Failed to update shoutout details.",
+                            "❌ Failed to update shoutout details",
                             ephemeral=True
                         )
             else:
@@ -1989,7 +2068,7 @@ class EditShoutoutDetailsModal(discord.ui.Modal, title="Edit Shoutout Details"):
             import traceback
             logger.error(f"[SHOUTOUT_MODULE] Traceback: {traceback.format_exc()}")
             await interaction.followup.send(
-                "❌ An error occurred while updating shoutout details.",
+                "❌ An error occurred while updating shoutout details",
                 ephemeral=True
             )
 
@@ -2889,10 +2968,53 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
         try:
             await interaction.response.defer(ephemeral=True)
             
+            # Validate book URL
+            book_url = self.book_url.value.strip()
+            if not (book_url.startswith('http://') or book_url.startswith('https://')):
+                await interaction.followup.send(
+                    "❌ Book URL must start with http:// or https://",
+                    ephemeral=True
+                )
+                return
+            
+            # Optional: Check for valid domain structure
+            import re
+            url_pattern = re.compile(
+                r'^https?://'  # http:// or https://
+                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                r'localhost|'  # localhost...
+                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                r'(?::\d+)?'  # optional port
+                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            
+            if not url_pattern.match(book_url):
+                await interaction.followup.send(
+                    "❌ Please enter a valid URL for your book",
+                    ephemeral=True
+                )
+                return
+            
+            # Validate shoutout code URL if provided
+            if self.shoutout_code.value:
+                shoutout_url = self.shoutout_code.value.strip()
+                if not (shoutout_url.startswith('http://') or shoutout_url.startswith('https://')):
+                    await interaction.followup.send(
+                        "❌ Shoutout code URL must start with http:// or https://",
+                        ephemeral=True
+                    )
+                    return
+                
+                if not url_pattern.match(shoutout_url):
+                    await interaction.followup.send(
+                        "❌ Please enter a valid URL for your shoutout code",
+                        ephemeral=True
+                    )
+                    return
+            
             participant_book_data = {
                 'book_title': self.book_title.value,
                 'author_name': self.author_name.value,
-                'book_url': self.book_url.value,
+                'book_url': book_url,
                 'platform': self.campaign.get('platform'),
                 'pitch': self.pitch.value,
                 'shoutout_code': self.shoutout_code.value if self.shoutout_code.value else None,
@@ -2956,14 +3078,14 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                     await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
                 else:
                     await interaction.followup.send(
-                        "❌ Failed to submit application. Please try again.",
+                        "❌ Failed to submit application. Please try again",
                         ephemeral=True
                     )
                     
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error submitting application: {e}")
             await interaction.followup.send(
-                "❌ An error occurred while submitting your application.",
+                "❌ An error occurred while submitting your application",
                 ephemeral=True
             )
     
