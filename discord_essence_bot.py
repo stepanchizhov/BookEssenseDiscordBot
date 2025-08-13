@@ -3765,14 +3765,14 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
                 # Annotate followers at entry
                 ax1.annotate(f'{entry_followers:,}', 
                            xy=(dates[rs_start_idx], entry_followers),
-                           xytext=(-25, 0), textcoords='offset points',
+                           xytext=(-30, 5), textcoords='offset points',
                            fontsize=9, color=color1, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color1, alpha=0.8))
                 
                 # Annotate views at entry
                 ax2.annotate(f'{entry_views:,}',
                            xy=(dates[rs_start_idx], entry_views),
-                           xytext=(25, -5), textcoords='offset points',
+                           xytext=(10, -15), textcoords='offset points',
                            fontsize=9, color=color2, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color2, alpha=0.8))
             
@@ -3789,7 +3789,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
                 # Annotate followers at exit/last data point
                 ax1.annotate(f'{exit_followers:,}{label_suffix}',
                            xy=(exit_date, exit_followers),
-                           xytext=(-25, 5), textcoords='offset points',
+                           xytext=(-35, 5), textcoords='offset points',
                            fontsize=9, color=color1, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                                    edgecolor=color1, alpha=0.8))
@@ -3797,7 +3797,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
                 # Annotate views at exit/last data point
                 ax2.annotate(f'{exit_views:,}{label_suffix}',
                            xy=(exit_date, exit_views),
-                           xytext=(25, -15), textcoords='offset points',
+                           xytext=(10, -15), textcoords='offset points',
                            fontsize=9, color=color2, fontweight='bold',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
                                    edgecolor=color2, alpha=0.8))
