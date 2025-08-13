@@ -311,9 +311,9 @@ class ShoutoutModule:
             if max_followers is not None:
                 params['max_followers'] = max_followers
             if server_only:
-                params['server_only'] = True
+                params['server_only'] = 'true'
             # Always pass show_mine parameter (even if False) so the API knows what to do
-            params['show_mine'] = show_mine if show_mine is not None else False
+            params['show_mine'] = 'true' if show_mine else 'false'
             
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/shoutout/campaigns"
             headers = {
@@ -322,7 +322,7 @@ class ShoutoutModule:
             }
             
             logger.info(f"[SHOUTOUT_MODULE] Fetching campaigns from: {url}")
-            logger.info(f"[SHOUTOUT_MODULE] Request params: {params}")
+            # logger.info(f"[SHOUTOUT_MODULE] Request params: {params}")
             
             timeout = aiohttp.ClientTimeout(total=10)
             async with self.session.get(url, params=params, headers=headers, timeout=timeout) as response:
