@@ -3653,8 +3653,9 @@ async def rr_rs_chart(
                 "• **Blue line:** Followers over time\n"
                 "• **Orange line:** Views over time (right axis)\n"
                 "• **Green shaded area:** Period on Main Rising Stars\n"
-                "• **Gold vertical lines:** Days at peak RS position\n"
-                "• **Dotted lines:** RS start (green) and end (red) dates"
+                "• **Yellow shaded areas:** Days at peak RS position\n"
+                "• **Dotted lines:** RS start (green) and end (red) dates\n"
+                "• **Value boxes:** Exact counts at RS entry/exit points"
             ),
             inline=False
         )
@@ -3732,29 +3733,95 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
             ax1.text(rs_start, y_pos, 'RS Start', rotation=90, verticalalignment='bottom', fontsize=8, color='green')
             ax1.text(rs_end, y_pos, 'RS End', rotation=90, verticalalignment='bottom', fontsize=8, color='red')
             
-            # Highlight best position periods if available
+            # IMPROVEMENT 1: Add exact values at entry and exit points
+            # Find the indices for RS start and end dates
+            rs_start_idx = None
+            rs_end_idx = None
+            for i, date in enumerate(dates):
+                if date == rs_start:
+                    rs_start_idx = i
+                if date == rs_end:
+                    rs_end_idx = i
+            
+            # Add annotations for entry values
+            if rs_start_idx is not None:
+                entry_followers = followers[rs_start_idx]
+                entry_views = views[rs_start_idx]
+                
+                # Annotate followers at entry
+                ax1.annotate(f'{entry_followers:,}', 
+                           xy=(rs_start, entry_followers),
+                           xytext=(10, -10), textcoords='offset points',
+                           fontsize=9, color=color1, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color1, alpha=0.8))
+                
+                # Annotate views at entry
+                ax2.annotate(f'{entry_views:,}',
+                           xy=(rs_start, entry_views),
+                           xytext=(-40, 10), textcoords='offset points',
+                           fontsize=9, color=color2, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color2, alpha=0.8))
+            
+            # Add annotations for exit values
+            if rs_end_idx is not None:
+                exit_followers = followers[rs_end_idx]
+                exit_views = views[rs_end_idx]
+                
+                # Annotate followers at exit
+                ax1.annotate(f'{exit_followers:,}',
+                           xy=(rs_end, exit_followers),
+                           xytext=(10, 10), textcoords='offset points',
+                           fontsize=9, color=color1, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color1, alpha=0.8))
+                
+                # Annotate views at exit
+                ax2.annotate(f'{exit_views:,}',
+                           xy=(rs_end, exit_views),
+                           xytext=(-40, -10), textcoords='offset points',
+                           fontsize=9, color=color2, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor=color2, alpha=0.8))
+            
+            # IMPROVEMENT 2: Highlight best position PERIODS (not just lines)
             if rs_info.get('best_position_dates'):
                 best_dates = rs_info['best_position_dates']
                 best_pos = rs_info.get('best_position', 1)
                 
-                for date_str in best_dates:
-                    best_date = datetime.strptime(date_str, '%Y-%m-%d')
-                    # Add a gold vertical line for best position
-                    ax1.axvline(x=best_date, color='gold', linestyle='-', alpha=0.7, linewidth=2)
+                # Convert best position dates to datetime objects
+                best_dates_dt = [datetime.strptime(d, '%Y-%m-%d') for d in best_dates]
                 
-                # Add a single annotation for best position (avoid clutter)
-                if best_dates:
-                    first_best = datetime.strptime(best_dates[0], '%Y-%m-%d')
+                # Sort dates to find continuous periods
+                best_dates_dt.sort()
+                
+                # Group consecutive dates into periods
+                periods = []
+                current_period_start = best_dates_dt[0]
+                current_period_end = best_dates_dt[0]
+                
+                for i in range(1, len(best_dates_dt)):
+                    # Check if dates are consecutive (allowing 1 day gap)
+                    if (best_dates_dt[i] - current_period_end).days <= 1:
+                        current_period_end = best_dates_dt[i]
+                    else:
+                        # End current period and start new one
+                        periods.append((current_period_start, current_period_end))
+                        current_period_start = best_dates_dt[i]
+                        current_period_end = best_dates_dt[i]
+                
+                # Add the last period
+                periods.append((current_period_start, current_period_end))
+                
+                # Shade each period with yellow
+                for period_start, period_end in periods:
+                    ax1.axvspan(period_start, period_end, alpha=0.3, color='gold', 
+                              label=f'At Peak #{best_pos}' if period_start == periods[0][0] else '')
+                
+                # Add a single annotation for peak position
+                if periods:
+                    # Place annotation at the start of the first peak period
                     y_pos_best = ax1.get_ylim()[1] * 0.85
-                    ax1.text(first_best, y_pos_best, f'Peak #{best_pos}', 
+                    ax1.text(periods[0][0], y_pos_best, f'Peak #{best_pos}', 
                             rotation=90, verticalalignment='bottom', 
                             fontsize=8, color='darkgoldenrod', fontweight='bold')
-                    
-                    # If there are multiple best position dates, add a note
-                    if len(best_dates) > 1:
-                        ax1.text(0.02, 0.92, f'Gold lines: Days at peak position #{best_pos}', 
-                                transform=ax1.transAxes, fontsize=9, 
-                                bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
         
         # Format x-axis
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -3790,7 +3857,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
         return buffer
         
     except Exception as e:
-        logger.info(f"[RS-CHART] Error creating chart image: {e}")
+        print(f"[RS-CHART] Error creating chart image: {e}")
         import traceback
         traceback.print_exc()
         plt.close()
@@ -4171,6 +4238,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
