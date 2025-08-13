@@ -917,7 +917,7 @@ async def on_ready():
         logger.error(f"Traceback: {traceback.format_exc()}")
     
     # Test WordPress connection immediately
-    print('[TEST] Testing WordPress connection...')
+    logger.info(f"[TEST] Testing WordPress connection...")
     try:
         test_url = f"{WP_API_URL}/wp-json/rr-analytics/v1/health"
         headers = {
@@ -926,7 +926,7 @@ async def on_ready():
         async with session.get(test_url, headers=headers) as response:
             logger.info(f'[TEST] WordPress health check: Status {response.status}')
             if response.status == 200:
-                print('[TEST] ✅ WordPress API is reachable!')
+                logger.info(f"[TEST] ✅ WordPress API is reachable!")
             else:
                 response_text = await response.text()
                 logger.info(f'[TEST] ❌ WordPress API returned error status: {response_text[:200]}')
@@ -935,7 +935,7 @@ async def on_ready():
     
     # Sync slash commands
     try:
-        print('[SYNC] Starting command sync...')
+        logger.info(f"[SYNC] Starting command sync...")
         synced = await bot.tree.sync()
         logger.info(f'[SYNC] Successfully synced {len(synced)} command(s)')
         for cmd in synced:
@@ -947,7 +947,7 @@ async def on_ready():
 
 @bot.event
 async def on_disconnect():
-    print('[DISCONNECT] Bot disconnected')
+    logger.info(f"[DISCONNECT] Bot disconnected")
     # Don't close the session here - let it persist
 
 @bot.event
@@ -962,7 +962,7 @@ async def cleanup():
     global session
     if session and not session.closed:
         await session.close()
-        print('[CLEANUP] Session closed')
+        logger.info(f"[CLEANUP] Session closed")
 
 @bot.tree.command(name="rr-others-also-liked-list", description="Show a list of all books that reference this book in 'Others Also Liked'")
 @discord.app_commands.describe(
@@ -1011,7 +1011,7 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
                 if result.get('success'):
                     embed = create_others_also_liked_list_embed(result, interaction.user)
                     await interaction.followup.send(embed=embed)
-                    print("[RR-OTHERS-ALSO-LIKED-LIST] Successfully sent embed")
+                    logger.info(f"[RR-OTHERS-ALSO-LIKED-LIST] Successfully sent embed")
                 else:
                     error_msg = result.get('message', 'Could not fetch data for the specified book.')
                     await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
@@ -1036,7 +1036,7 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
                     ephemeral=True
                 )
         except:
-            print("[ERROR] Could not send timeout message")
+            logger.info(f"[ERROR] Could not send timeout message")
     except Exception as e:
         logger.info(f"[ERROR] Exception in rr-others-also-liked-list command: {type(e).__name__}: {e}")
         import traceback
@@ -1048,7 +1048,7 @@ async def rr_others_also_liked_list(interaction: discord.Interaction, book_input
                 ephemeral=True
             )
         except:
-            print("[ERROR] Failed to send error message to user")
+            logger.info(f"[ERROR] Failed to send error message to user")
 
 @bot.tree.command(name="rr-others-also-liked", description="Show books that have this book in their 'Others Also Liked' section")
 @discord.app_commands.describe(
@@ -1097,7 +1097,7 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
                 if result.get('success'):
                     embed = create_others_also_liked_embed(result, interaction.user)
                     await interaction.followup.send(embed=embed)
-                    print("[RR-OTHERS-ALSO-LIKED] Successfully sent embed")
+                    logger.info(f"[RR-OTHERS-ALSO-LIKED] Successfully sent embed")
                 else:
                     error_msg = result.get('message', 'Could not fetch data for the specified book.')
                     await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
@@ -1122,7 +1122,7 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
                     ephemeral=True
                 )
         except:
-            print("[ERROR] Could not send timeout message")
+            logger.info(f"[ERROR] Could not send timeout message")
     except Exception as e:
         logger.info(f"[ERROR] Exception in rr-others-also-liked command: {type(e).__name__}: {e}")
         import traceback
@@ -1134,7 +1134,7 @@ async def rr_others_also_liked(interaction: discord.Interaction, book_input: str
                 ephemeral=True
             )
         except:
-            print("[ERROR] Failed to send error message to user")
+            logger.info(f"[ERROR] Failed to send error message to user")
 
 @bot.tree.command(name="rr-average-views", description="Show average views and chapters over time chart for a Royal Road book")
 @discord.app_commands.describe(
@@ -1382,7 +1382,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
     
     # Defer the response FIRST before any processing
     await interaction.response.defer()
-    print("[COMMAND] Response deferred")
+    logger.info(f"[COMMAND] Response deferred")
     
     try:
         # Get the session
@@ -1450,7 +1450,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
                 # Create embed using the normalized display names
                 embed = create_result_embed(result, normalized_tag1, normalized_tag2, interaction)
                 await interaction.followup.send(embed=embed)
-                print("[COMMAND] Embed sent successfully")
+                logger.info(f"[COMMAND] Embed sent successfully")
             else:
                 await interaction.followup.send(
                     f"Error {response.status} from the essence database!",
@@ -1469,7 +1469,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
                 ephemeral=True
             )
         except:
-            print("[ERROR] Failed to send error message to user")
+            logger.info(f"[ERROR] Failed to send error message to user")
 
 def calculate_relative_rarity(book_count, total_books):
     """
@@ -2754,7 +2754,7 @@ async def process_quick_essence(interaction: discord.Interaction, tags: str):
                 result = json.loads(await response.text())
                 embed = create_result_embed(result, tag1_norm, tag2_norm, interaction)
                 await interaction.followup.send(embed=embed)
-                print("[COMMAND] Quick essence completed successfully")
+                logger.info(f"[COMMAND] Quick essence completed successfully")
             else:
                 await interaction.followup.send(
                     f"Error {response.status} from the essence database!",
@@ -2854,7 +2854,7 @@ async def brag_command(interaction: discord.Interaction):
                     embed.set_footer(text="Keep exploring to become a legendary essence pioneer!")
                     await interaction.followup.send(embed=embed)
                     
-                print("[BRAG] Response sent successfully")
+                logger.info(f"[BRAG] Response sent successfully")
             else:
                 await interaction.followup.send(
                     f"❌ Error {response.status} from the discovery database!",
@@ -2873,7 +2873,7 @@ async def brag_command(interaction: discord.Interaction):
                 ephemeral=True
             )
         except:
-            print("[ERROR] Failed to send error message to user")
+            logger.info(f"[ERROR] Failed to send error message to user")
 
 # Updated brag command function in discord_essence_bot.py
 
@@ -3071,7 +3071,7 @@ async def rr_stats_command(interaction: discord.Interaction):
                         ephemeral=True
                     )
                     
-                print("[RR-STATS] Response sent successfully")
+                logger.info(f"[RR-STATS] Response sent successfully")
             else:
                 await interaction.followup.send(
                     f"❌ Error {response.status} from the statistics database!",
@@ -3090,7 +3090,7 @@ async def rr_stats_command(interaction: discord.Interaction):
                 ephemeral=True
             )
         except:
-            print("[ERROR] Failed to send error message to user")
+            logger.info(f"[ERROR] Failed to send error message to user")
 
 def create_stats_embed(stats):
     """Create embed showing Royal Road database statistics"""
@@ -3357,8 +3357,8 @@ async def rr_rs_chart(
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-RS-CHART] Command called by {interaction.user}")
-    print(f"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
+    logger.info(ff"\n[RR-RS-CHART] Command called by {interaction.user}")
+    logger.info(ff"[RR-RS-CHART] Book input: '{book_input}', Days before: {days_before}, Days after: {days_after}")
     
     await interaction.response.defer()
     
@@ -3408,19 +3408,19 @@ async def rr_rs_chart(
             timeout=30
         ) as response:
             response_text = await response.text()
-            print(f"[RR-RS-CHART] API Response Status: {response.status}")
-            print(f"[RR-RS-CHART] API Response Headers: {response.headers}")
+            logger.info(ff"[RR-RS-CHART] API Response Status: {response.status}")
+            logger.info(ff"[RR-RS-CHART] API Response Headers: {response.headers}")
             
             if response.status == 403:
-                print(f"[RR-RS-CHART] 403 Forbidden - Authentication failed")
-                print(f"[RR-RS-CHART] Response body: {response_text[:500]}")
+                logger.info(ff"[RR-RS-CHART] 403 Forbidden - Authentication failed")
+                logger.info(ff"[RR-RS-CHART] Response body: {response_text[:500]}")
                 await interaction.followup.send(
                     "❌ Authentication error. The bot token may be misconfigured.",
                     ephemeral=True
                 )
                 return
             elif response.status != 200:
-                print(f"[RR-RS-CHART] API error response: {response_text[:500]}")
+                logger.info(ff"[RR-RS-CHART] API error response: {response_text[:500]}")
                 await interaction.followup.send(
                     f"❌ API error: {response.status}\nPlease contact support if this persists.",
                     ephemeral=True
@@ -3430,8 +3430,8 @@ async def rr_rs_chart(
             try:
                 data = json.loads(response_text)
             except json.JSONDecodeError as e:
-                print(f"[RR-RS-CHART] Failed to parse JSON: {e}")
-                print(f"[RR-RS-CHART] Raw response: {response_text[:500]}")
+                logger.info(ff"[RR-RS-CHART] Failed to parse JSON: {e}")
+                logger.info(ff"[RR-RS-CHART] Raw response: {response_text[:500]}")
                 await interaction.followup.send(
                     "❌ Invalid response from server. Please try again later.",
                     ephemeral=True
@@ -3665,10 +3665,10 @@ async def rr_rs_chart(
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use the bot, start typing /rr-rs-chart")
         
         await interaction.followup.send(embed=embed, file=file)
-        print(f"[RR-RS-CHART] Successfully sent RS impact chart for book {book_id}")
+        logger.info(ff"[RR-RS-CHART] Successfully sent RS impact chart for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-RS-CHART] Error: {e}")
+        logger.info(ff"[RR-RS-CHART] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -3790,7 +3790,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
         return buffer
         
     except Exception as e:
-        print(f"[RS-CHART] Error creating chart image: {e}")
+        logger.info(ff"[RS-CHART] Error creating chart image: {e}")
         import traceback
         traceback.print_exc()
         plt.close()
@@ -3810,8 +3810,8 @@ async def rr_rs_run(
     global command_counter
     command_counter += 1
     
-    print(f"\n[RR-RS-RUN] Command called by {interaction.user}")
-    print(f"[RR-RS-RUN] Book input: '{book_input}', Tags: '{tags}'")
+    logger.info(ff"\n[RR-RS-RUN] Command called by {interaction.user}")
+    logger.info(ff"[RR-RS-RUN] Book input: '{book_input}', Tags: '{tags}'")
     
     await interaction.response.defer()
     
@@ -3877,7 +3877,7 @@ async def rr_rs_run(
             # Default to showing common tags
             requested_tags = DEFAULT_TAGS
         
-        print(f"[RR-RS-RUN] Requested tags: {requested_tags[:10]}..." if len(requested_tags) > 10 else f"[RR-RS-RUN] Requested tags: {requested_tags}")
+        logger.info(ff"[RR-RS-RUN] Requested tags: {requested_tags[:10]}..." if len(requested_tags) > 10 else f"[RR-RS-RUN] Requested tags: {requested_tags}")
         
         # Parse book input to get book ID
         book_id = None
@@ -3924,7 +3924,7 @@ async def rr_rs_run(
         ) as response:
             if response.status != 200:
                 error_text = await response.text()
-                print(f"[RR-RS-RUN] API error: {response.status} - {error_text}")
+                logger.info(f"[RR-RS-RUN] API error: {response.status} - {error_text}")
                 await interaction.followup.send(
                     f"❌ API error: {response.status}",
                     ephemeral=True
@@ -3932,6 +3932,10 @@ async def rr_rs_run(
                 return
             
             data = await response.json()
+
+        logger.info(f"[RR-RS-CHART] Full growth_analysis: {data.get('growth_analysis')}")
+        logger.info(f"[RR-RS-CHART] during_rs type: {type(data.get('growth_analysis', {}).get('during_rs'))}")
+        logger.info(f"[RR-RS-CHART] during_rs content: {data.get('growth_analysis', {}).get('during_rs')}")
         
         if not data.get('success'):
             error_msg = data.get('message', 'Unknown error occurred')
@@ -4103,10 +4107,10 @@ async def rr_rs_run(
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\nTo use: /rr-rs-run [book] tags:'all' or tags:'fantasy,litrpg,romance'")
         
         await interaction.followup.send(embed=embed)
-        print(f"[RR-RS-RUN] Successfully sent RS run data for book {book_id}")
+        logger.info(ff"[RR-RS-RUN] Successfully sent RS run data for book {book_id}")
         
     except Exception as e:
-        print(f"[RR-RS-RUN] Error: {e}")
+        logger.info(ff"[RR-RS-RUN] Error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -4159,14 +4163,15 @@ shoutout_module = None
 # Run the bot
 if __name__ == "__main__":
     if not BOT_TOKEN:
-        print("[ERROR] DISCORD_BOT_TOKEN environment variable not set!")
+        logger.info(f"[ERROR] DISCORD_BOT_TOKEN environment variable not set!")
         exit(1)
     if not WP_BOT_TOKEN:
-        print("[ERROR] WP_BOT_TOKEN environment variable not set!")
+        logger.info(f"[ERROR] WP_BOT_TOKEN environment variable not set!")
         exit(1)
     
-    print("[STARTUP] Starting bot...")
+    logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
