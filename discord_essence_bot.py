@@ -4064,7 +4064,7 @@ async def rr_rs_run(
                     
                     # Time on list
                     if tag_data.get('days_on_list'):
-                        field_lines.append(f"⏱**Days:** {tag_data['days_on_list']}")
+                        field_lines.append(f"**Days:** {tag_data['days_on_list']}")
                     
                     # Total appearances
                     field_lines.append(f"**Count:** {tag_data['appearances']}")
@@ -4238,6 +4238,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
