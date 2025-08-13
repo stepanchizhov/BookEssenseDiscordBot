@@ -3493,7 +3493,7 @@ async def rr_rs_chart(
                         rs_lines.append(f"**Days at Peak:** {peak_days}")
             
             if rs_info.get('days_on_list'):
-                rs_lines.append(f"**Total Days on List:** {rs_info['days_on_list']}")
+                rs_lines.append(f"**Total Days on the List:** {rs_info['days_on_list']}")
             
             if rs_lines:
                 embed.add_field(
@@ -3627,7 +3627,7 @@ async def rr_rs_chart(
             if summary.get('follower_boost_percentage') is not None:
                 boost = summary['follower_boost_percentage']
                 if boost > 0:
-                    summary_lines.append(f"**📈 Growth Rate Boost:** +{boost:.0f}%")
+                    summary_lines.append(f"**Growth Rate Boost:** +{boost:.0f}%")
                 else:
                     summary_lines.append(f"**📈 Growth Rate Change:** {boost:.0f}%")
             
@@ -3983,24 +3983,24 @@ async def rr_rs_run(
                     
                     # First appearance
                     if tag_data.get('first_seen'):
-                        field_lines.append(f"📅 **First:** {tag_data['first_seen']}")
+                        field_lines.append(f"**First:** {tag_data['first_seen']}")
                     
                     # Current position
                     if tag_data.get('current_position'):
-                        field_lines.append(f"📍 **Now:** #{tag_data['current_position']}")
+                        field_lines.append(f"**Now:** #{tag_data['current_position']}")
                     else:
-                        field_lines.append(f"📍 **Now:** Not on list")
+                        field_lines.append(f"**Now:** Not on list")
                     
                     # Best position
                     if tag_data.get('best_position'):
-                        field_lines.append(f"🏆 **Best:** #{tag_data['best_position']}")
+                        field_lines.append(f"**Best:** #{tag_data['best_position']}")
                     
                     # Time on list
                     if tag_data.get('days_on_list'):
-                        field_lines.append(f"⏱️ **Days:** {tag_data['days_on_list']}")
+                        field_lines.append(f"⏱**Days:** {tag_data['days_on_list']}")
                     
                     # Total appearances
-                    field_lines.append(f"📊 **Count:** {tag_data['appearances']}")
+                    field_lines.append(f"**Count:** {tag_data['appearances']}")
                     
                     # Trend indicator (compact)
                     if tag_data.get('trend'):
@@ -4008,7 +4008,7 @@ async def rr_rs_run(
                         if trend == 'rising':
                             field_lines.append(f"📈 Rising")
                         elif trend == 'falling':
-                            field_lines.append(f"📉 Falling")
+                            field_lines.append(f"📉 Declining")
                         elif trend == 'stable':
                             field_lines.append(f"➡️ Stable")
                     
@@ -4171,6 +4171,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
