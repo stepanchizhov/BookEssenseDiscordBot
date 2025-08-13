@@ -2440,46 +2440,46 @@ class PublicCampaignView(discord.ui.View):
         modal = ApplicationModal(self.module, self.campaign_id, self.campaign)
         await interaction.response.send_modal(modal)
     
-    @discord.ui.button(label="📊 View Details", style=discord.ButtonStyle.secondary, custom_id="view_details")
-    async def details_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Show detailed campaign information"""
-        embed = discord.Embed(
-            title=f"Campaign Details: {self.campaign.get('book_title', 'Unknown')}",
-            color=0x3498db
-        )
-        
-        # Add all campaign details
-        embed.add_field(
-            name="Campaign Creator",
-            value=f"<@{self.campaign.get('discord_user_id')}>" if self.campaign.get('discord_user_id') else self.campaign.get('discord_username', 'Unknown'),
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Campaign ID",
-            value=f"#{self.campaign_id}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Status",
-            value=self.campaign.get('campaign_status', 'active').title(),
-            inline=True
-        )
-        
-        # Add instructions
-        embed.add_field(
-            name="How Shoutout Swaps Work",
-            value=(
-                "1. Apply with your book details\n"
-                "2. If approved, exchange shoutouts with the campaign creator\n"
-                "3. Both authors promote each other's books\n"
-                "4. Track progress with `/shoutout-my-applications`"
-            ),
-            inline=False
-        )
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+    #@discord.ui.button(label="📊 View Details", style=discord.ButtonStyle.secondary, custom_id="view_details")
+    #async def details_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #    """Show detailed campaign information"""
+    #    embed = discord.Embed(
+    #        title=f"Campaign Details: {self.campaign.get('book_title', 'Unknown')}",
+    #        color=0x3498db
+    #    )
+    #    
+    #    # Add all campaign details
+    #    embed.add_field(
+    #        name="Campaign Creator",
+    #        value=f"<@{self.campaign.get('discord_user_id')}>" if self.campaign.get('discord_user_id') else self.campaign.get('discord_username', 'Unknown'),
+    #        inline=True
+    #    )
+    #    
+    #    embed.add_field(
+    #        name="Campaign ID",
+    #        value=f"#{self.campaign_id}",
+    #        inline=True
+    #    )
+    #    
+    #    embed.add_field(
+    #        name="Status",
+    #        value=self.campaign.get('campaign_status', 'active').title(),
+    #        inline=True
+    #    )
+    #    
+    #    # Add instructions
+    #    embed.add_field(
+    #        name="How Shoutout Swaps Work",
+    #        value=(
+    #            "1. Apply with your book details\n"
+    #            "2. If approved, exchange shoutouts with the campaign creator\n"
+    #            "3. Both authors promote each other's books\n"
+    #            "4. Track progress with `/shoutout-my-applications`"
+    #        ),
+    #        inline=False
+    #    )
+    #    
+    #    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 class CampaignCompleteConfirmView(discord.ui.View):
