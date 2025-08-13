@@ -1436,11 +1436,11 @@ class CampaignEditMenuView(discord.ui.View):
             inline=False
         )
         
-        embed.add_field(
-            name="🌐 Server Visibility",
-            value="Which servers can see this campaign",
-            inline=False
-        )
+        #embed.add_field(
+        #    name="🌐 Server Visibility",
+        #    value="Which servers can see this campaign",
+        #    inline=False
+        #)
         
         return embed
     
@@ -1483,135 +1483,136 @@ class CampaignEditMenuView(discord.ui.View):
         await interaction.response.send_modal(modal)
         logger.info(f"[SHOUTOUT_MODULE] Shoutout details modal shown")
     
-    @discord.ui.button(label="🌐 Edit Server Visibility", style=discord.ButtonStyle.primary, row=3)
-    async def edit_servers_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Show server selection view instead of modal"""
-        logger.info(f"[SHOUTOUT_MODULE] ========== EDIT SERVER VISIBILITY START ==========")
-        logger.info(f"[SHOUTOUT_MODULE] Clicked by user {interaction.user.id} ({interaction.user.name}) for campaign {self.campaign.get('id')}")
-        
-        if interaction.user.id != self.user_id:
-            logger.warning(f"[SHOUTOUT_MODULE] User {interaction.user.id} tried to edit campaign owned by {self.user_id}")
-            await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
-            return
-        
-        # Get mutual servers (servers where both bot and user are members)
-        try:
-            # Log bot information
-            logger.info(f"[SHOUTOUT_MODULE] Bot user: {self.module.bot.user.name} (ID: {self.module.bot.user.id})")
-            logger.info(f"[SHOUTOUT_MODULE] Total guilds bot is in: {len(self.module.bot.guilds)}")
-            
-            # Log first 5 guilds the bot is in
-            for i, guild in enumerate(self.module.bot.guilds[:5]):
-                logger.info(f"[SHOUTOUT_MODULE] Bot guild {i+1}: {guild.name} (ID: {guild.id}, Members: {guild.member_count})")
-            
-            if len(self.module.bot.guilds) > 5:
-                logger.info(f"[SHOUTOUT_MODULE] ... and {len(self.module.bot.guilds) - 5} more guilds")
-            
-            # Check if bot.guilds is properly populated
-            if not self.module.bot.guilds:
-                logger.error(f"[SHOUTOUT_MODULE] Bot.guilds is empty! Bot may not be fully initialized.")
-                logger.info(f"[SHOUTOUT_MODULE] Bot ready state: {self.module.bot.is_ready()}")
-                logger.info(f"[SHOUTOUT_MODULE] Bot closed state: {self.module.bot.is_closed()}")
-            
-            mutual_servers = []
-            user_found_in_guilds = []
-            user_not_found_in_guilds = []
-            
-            logger.info(f"[SHOUTOUT_MODULE] Starting mutual server search for user {interaction.user.id}")
-            
-            for guild in self.module.bot.guilds:
-                try:
-                    # Try multiple methods to find the member
-                    member = None
-                    
-                    # Method 1: Direct get_member
-                    member = guild.get_member(interaction.user.id)
-                    
-                    if member:
-                        logger.info(f"[SHOUTOUT_MODULE] ✅ User FOUND in guild: {guild.name} (ID: {guild.id}) via get_member")
-                        user_found_in_guilds.append(guild.name)
-                        mutual_servers.append({
-                            'id': str(guild.id),
-                            'name': guild.name,
-                            'member_count': guild.member_count
-                        })
-                    else:
-                        # Method 2: Check if we need to fetch member
-                        logger.debug(f"[SHOUTOUT_MODULE] User not found via get_member in {guild.name}, checking cache...")
-                        
-                        # Log cache status
-                        if hasattr(guild, '_members'):
-                            logger.debug(f"[SHOUTOUT_MODULE] Guild {guild.name} has {len(guild._members)} members in cache")
-                        
-                        # Try to check if user ID is in guild's member cache
-                        if interaction.user.id in [m.id for m in guild.members]:
-                            member = guild.get_member(interaction.user.id)
-                            if member:
-                                logger.info(f"[SHOUTOUT_MODULE] ✅ User FOUND in guild: {guild.name} (ID: {guild.id}) via members list")
-                                user_found_in_guilds.append(guild.name)
-                                mutual_servers.append({
-                                    'id': str(guild.id),
-                                    'name': guild.name,
-                                    'member_count': guild.member_count
-                                })
-                        else:
-                            logger.debug(f"[SHOUTOUT_MODULE] ❌ User NOT in guild: {guild.name} (ID: {guild.id})")
-                            user_not_found_in_guilds.append(guild.name)
-                    
-                except Exception as e:
-                    logger.error(f"[SHOUTOUT_MODULE] Error checking guild {guild.name}: {type(e).__name__}: {e}")
-            
-            # Log summary
-            logger.info(f"[SHOUTOUT_MODULE] ========== MUTUAL SERVER SEARCH COMPLETE ==========")
-            logger.info(f"[SHOUTOUT_MODULE] User found in {len(user_found_in_guilds)} guilds:")
-            for guild_name in user_found_in_guilds[:10]:  # Log first 10
-                logger.info(f"[SHOUTOUT_MODULE]   - {guild_name}")
-            if len(user_found_in_guilds) > 10:
-                logger.info(f"[SHOUTOUT_MODULE]   ... and {len(user_found_in_guilds) - 10} more")
-            
-            logger.info(f"[SHOUTOUT_MODULE] User NOT found in {len(user_not_found_in_guilds)} guilds")
-            if len(user_not_found_in_guilds) <= 5:
-                for guild_name in user_not_found_in_guilds:
-                    logger.info(f"[SHOUTOUT_MODULE]   - {guild_name}")
-            
-            logger.info(f"[SHOUTOUT_MODULE] Total mutual servers found: {len(mutual_servers)}")
-            
-            if not mutual_servers:
-                logger.warning(f"[SHOUTOUT_MODULE] No mutual servers found for user {interaction.user.id}")
-                
-                # Additional debugging info
-                logger.info(f"[SHOUTOUT_MODULE] Debug info:")
-                logger.info(f"[SHOUTOUT_MODULE] - Bot intents: {self.module.bot.intents}")
-                logger.info(f"[SHOUTOUT_MODULE] - Members intent enabled: {self.module.bot.intents.members}")
-                logger.info(f"[SHOUTOUT_MODULE] - Guilds intent enabled: {self.module.bot.intents.guilds}")
-                logger.info(f"[SHOUTOUT_MODULE] - Presences intent enabled: {self.module.bot.intents.presences}")
-                
-                await interaction.response.send_message(
-                    "❌ No mutual servers found. Make sure you're in servers where this bot is present.",
-                    ephemeral=True
-                )
-                return
-            
-            # Create server selection view
-            logger.info(f"[SHOUTOUT_MODULE] Creating ServerSelectionView with {len(mutual_servers)} servers")
-            view = ServerSelectionView(self.module, self.campaign, mutual_servers, interaction.user.id)
-            embed = view.create_server_selection_embed()
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-            logger.info(f"[SHOUTOUT_MODULE] Server selection view shown successfully")
-            
-        except Exception as e:
-            logger.error(f"[SHOUTOUT_MODULE] Unexpected error getting mutual servers: {type(e).__name__}: {e}")
-            import traceback
-            logger.error(f"[SHOUTOUT_MODULE] Traceback:\n{traceback.format_exc()}")
-            
-            await interaction.response.send_message(
-                "❌ An error occurred while fetching server list.",
-                ephemeral=True
-            )
-        finally:
-            logger.info(f"[SHOUTOUT_MODULE] ========== EDIT SERVER VISIBILITY END ==========")
+# @discord.ui.button(label="🌐 Edit Server Visibility", style=discord.ButtonStyle.primary, row=3)
+    # async def edit_servers_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     """Show server selection view instead of modal"""
+    #     logger.info(f"[SHOUTOUT_MODULE] ========== EDIT SERVER VISIBILITY START ==========")
+    #     logger.info(f"[SHOUTOUT_MODULE] Clicked by user {interaction.user.id} ({interaction.user.name}) for campaign {self.campaign.get('id')}")
+    #     
+    #     if interaction.user.id != self.user_id:
+    #         logger.warning(f"[SHOUTOUT_MODULE] User {interaction.user.id} tried to edit campaign owned by {self.user_id}")
+    #         await interaction.response.send_message("You cannot edit this campaign.", ephemeral=True)
+    #         return
+    #     
+    #     # Get mutual servers (servers where both bot and user are members)
+    #     try:
+    #         # Log bot information
+    #         logger.info(f"[SHOUTOUT_MODULE] Bot user: {self.module.bot.user.name} (ID: {self.module.bot.user.id})")
+    #         logger.info(f"[SHOUTOUT_MODULE] Total guilds bot is in: {len(self.module.bot.guilds)}")
+    #         
+    #         # Log first 5 guilds the bot is in
+    #         for i, guild in enumerate(self.module.bot.guilds[:5]):
+    #             logger.info(f"[SHOUTOUT_MODULE] Bot guild {i+1}: {guild.name} (ID: {guild.id}, Members: {guild.member_count})")
+    #         
+    #         if len(self.module.bot.guilds) > 5:
+    #             logger.info(f"[SHOUTOUT_MODULE] ... and {len(self.module.bot.guilds) - 5} more guilds")
+    #         
+    #         # Check if bot.guilds is properly populated
+    #         if not self.module.bot.guilds:
+    #             logger.error(f"[SHOUTOUT_MODULE] Bot.guilds is empty! Bot may not be fully initialized.")
+    #             logger.info(f"[SHOUTOUT_MODULE] Bot ready state: {self.module.bot.is_ready()}")
+    #             logger.info(f"[SHOUTOUT_MODULE] Bot closed state: {self.module.bot.is_closed()}")
+    #         
+    #         mutual_servers = []
+    #         user_found_in_guilds = []
+    #         user_not_found_in_guilds = []
+    #         
+    #         logger.info(f"[SHOUTOUT_MODULE] Starting mutual server search for user {interaction.user.id}")
+    #         
+    #         for guild in self.module.bot.guilds:
+    #             try:
+    #                 # Try multiple methods to find the member
+    #                 member = None
+    #                 
+    #                 # Method 1: Direct get_member
+    #                 member = guild.get_member(interaction.user.id)
+    #                 
+    #                 if member:
+    #                     logger.info(f"[SHOUTOUT_MODULE] ✅ User FOUND in guild: {guild.name} (ID: {guild.id}) via get_member")
+    #                     user_found_in_guilds.append(guild.name)
+    #                     mutual_servers.append({
+    #                         'id': str(guild.id),
+    #                         'name': guild.name,
+    #                         'member_count': guild.member_count
+    #                     })
+    #                 else:
+    #                     # Method 2: Check if we need to fetch member
+    #                     logger.debug(f"[SHOUTOUT_MODULE] User not found via get_member in {guild.name}, checking cache...")
+    #                     
+    #                     # Log cache status
+    #                     if hasattr(guild, '_members'):
+    #                         logger.debug(f"[SHOUTOUT_MODULE] Guild {guild.name} has {len(guild._members)} members in cache")
+    #                     
+    #                     # Try to check if user ID is in guild's member cache
+    #                     if interaction.user.id in [m.id for m in guild.members]:
+    #                         member = guild.get_member(interaction.user.id)
+    #                         if member:
+    #                             logger.info(f"[SHOUTOUT_MODULE] ✅ User FOUND in guild: {guild.name} (ID: {guild.id}) via members list")
+    #                             user_found_in_guilds.append(guild.name)
+    #                             mutual_servers.append({
+    #                                 'id': str(guild.id),
+    #                                 'name': guild.name,
+    #                                 'member_count': guild.member_count
+    #                             })
+    #                     else:
+    #                         logger.debug(f"[SHOUTOUT_MODULE] ❌ User NOT in guild: {guild.name} (ID: {guild.id})")
+    #                         user_not_found_in_guilds.append(guild.name)
+    #                 
+    #             except Exception as e:
+    #                 logger.error(f"[SHOUTOUT_MODULE] Error checking guild {guild.name}: {type(e).__name__}: {e}")
+    #         
+    #         # Log summary
+    #         logger.info(f"[SHOUTOUT_MODULE] ========== MUTUAL SERVER SEARCH COMPLETE ==========")
+    #         logger.info(f"[SHOUTOUT_MODULE] User found in {len(user_found_in_guilds)} guilds:")
+    #         for guild_name in user_found_in_guilds[:10]:  # Log first 10
+    #             logger.info(f"[SHOUTOUT_MODULE]   - {guild_name}")
+    #         if len(user_found_in_guilds) > 10:
+    #             logger.info(f"[SHOUTOUT_MODULE]   ... and {len(user_found_in_guilds) - 10} more")
+    #         
+    #         logger.info(f"[SHOUTOUT_MODULE] User NOT found in {len(user_not_found_in_guilds)} guilds")
+    #         if len(user_not_found_in_guilds) <= 5:
+    #             for guild_name in user_not_found_in_guilds:
+    #                 logger.info(f"[SHOUTOUT_MODULE]   - {guild_name}")
+    #         
+    #         logger.info(f"[SHOUTOUT_MODULE] Total mutual servers found: {len(mutual_servers)}")
+    #         
+    #         if not mutual_servers:
+    #             logger.warning(f"[SHOUTOUT_MODULE] No mutual servers found for user {interaction.user.id}")
+    #             
+    #             # Additional debugging info
+    #             logger.info(f"[SHOUTOUT_MODULE] Debug info:")
+    #             logger.info(f"[SHOUTOUT_MODULE] - Bot intents: {self.module.bot.intents}")
+    #             logger.info(f"[SHOUTOUT_MODULE] - Members intent enabled: {self.module.bot.intents.members}")
+    #             logger.info(f"[SHOUTOUT_MODULE] - Guilds intent enabled: {self.module.bot.intents.guilds}")
+    #             logger.info(f"[SHOUTOUT_MODULE] - Presences intent enabled: {self.module.bot.intents.presences}")
+    #             
+    #             await interaction.response.send_message(
+    #                 "❌ No mutual servers found. Make sure you're in servers where this bot is present.",
+    #                 ephemeral=True
+    #             )
+    #             return
+    #         
+    #         # Create server selection view
+    #         logger.info(f"[SHOUTOUT_MODULE] Creating ServerSelectionView with {len(mutual_servers)} servers")
+    #         view = ServerSelectionView(self.module, self.campaign, mutual_servers, interaction.user.id)
+    #         embed = view.create_server_selection_embed()
+    #         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    #         logger.info(f"[SHOUTOUT_MODULE] Server selection view shown successfully")
+    #         
+    #     except Exception as e:
+    #         logger.error(f"[SHOUTOUT_MODULE] Unexpected error getting mutual servers: {type(e).__name__}: {e}")
+    #         import traceback
+    #         logger.error(f"[SHOUTOUT_MODULE] Traceback:\n{traceback.format_exc()}")
+    #         
+    #         await interaction.response.send_message(
+    #             "❌ An error occurred while fetching server list.",
+    #             ephemeral=True
+    #         )
+    #     finally:
+    #         logger.info(f"[SHOUTOUT_MODULE] ========== EDIT SERVER VISIBILITY END ==========")
     
-    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=4)
+#    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=4)
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary, row=3)
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Cancel editing"""
         logger.info(f"[SHOUTOUT_MODULE] Edit cancelled by {interaction.user.id} for campaign {self.campaign.get('id')}")
