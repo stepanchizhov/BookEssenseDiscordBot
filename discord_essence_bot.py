@@ -3784,7 +3784,7 @@ def create_rs_impact_chart(chart_data, rs_info, book_title):
                 
                 # Determine if this is the actual RS end or just the last available data
                 is_actual_end = (exit_date == rs_end)
-                label_suffix = "" if is_actual_end else " (last data)"
+                label_suffix = ""
                 
                 # Annotate followers at exit/last data point
                 ax1.annotate(f'{exit_followers:,}{label_suffix}',
@@ -4259,6 +4259,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
