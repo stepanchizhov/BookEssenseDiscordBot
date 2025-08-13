@@ -2623,9 +2623,21 @@ class ApplicationReviewView(discord.ui.View):
             stats = app['book_stats']
             stats_text = []
             if stats.get('followers') is not None:
-                stats_text.append(f"**Followers:** {stats['followers']:,}")
+                # Convert followers to int if it's a string, then format with comma separator
+                try:
+                    followers_count = int(stats['followers']) if isinstance(stats['followers'], str) else stats['followers']
+                    stats_text.append(f"**Followers:** {followers_count:,}")
+                except (ValueError, TypeError):
+                    # If conversion fails, just display as-is
+                    stats_text.append(f"**Followers:** {stats['followers']}")
+                    
             if stats.get('rating'):
-                stats_text.append(f"**Rating:** ⭐ {stats['rating']:.1f}/5")
+                try:
+                    rating_value = float(stats['rating']) if isinstance(stats['rating'], str) else stats['rating']
+                    stats_text.append(f"**Rating:** ⭐ {rating_value:.1f}/5")
+                except (ValueError, TypeError):
+                    stats_text.append(f"**Rating:** ⭐ {stats['rating']}/5")
+                    
             if stats.get('launch_date'):
                 stats_text.append(f"**Launched:** {stats['launch_date']}")
             
