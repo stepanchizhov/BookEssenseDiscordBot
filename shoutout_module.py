@@ -732,6 +732,129 @@ class ShoutoutModule:
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error in my_applications: {e}")
             await interaction.followup.send("❌ An error occurred.", ephemeral=True)
+
+    def create_public_campaign_details_embed(self, campaign: Dict) -> discord.Embed:
+        """Create embed for public campaign details view (similar to announcement)"""
+        embed = discord.Embed(
+            title=f"📖 {campaign.get('book_title', 'Unknown')}",
+            description=f"by **{campaign.get('author_name', 'Unknown')}**",
+            color=0x00A86B
+        )
+        
+        # Add book URL if available
+        book_url = campaign.get('book_url')
+        if book_url:
+            embed.add_field(
+                name="📚 Book Link",
+                value=f"[Read on {campaign.get('platform', 'Platform')}]({book_url})",
+                inline=False
+            )
+        
+        # Campaign details
+        embed.add_field(
+            name="Platform",
+            value=campaign.get('platform', 'Unknown'),
+            inline=True
+        )
+        
+        available_slots = campaign.get('available_slots', 0)
+        total_slots = campaign.get('total_slots', 0)
+        embed.add_field(
+            name="Available Slots",
+            value=f"{available_slots}/{total_slots}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Campaign ID",
+            value=f"#{campaign.get('id', 'Unknown')}",
+            inline=True
+        )
+        
+        # Add available dates
+        available_dates = campaign.get('available_dates')
+        if available_dates:
+            try:
+                # Try to parse as JSON if it's a string
+                if isinstance(available_dates, str):
+                    import json
+                    dates_list = json.loads(available_dates)
+                else:
+                    dates_list = available_dates
+                
+                if isinstance(dates_list, list) and dates_list:
+                    if len(dates_list) > 1:
+                        dates_str = f"{dates_list[0]} (+{len(dates_list)-1} more dates)"
+                    else:
+                        dates_str = dates_list[0]
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=dates_str,
+                        inline=False
+                    )
+                elif isinstance(dates_list, str):
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=dates_list,
+                        inline=False
+                    )
+            except:
+                # If parsing fails, just use as string
+                if available_dates:
+                    embed.add_field(
+                        name="📅 Shoutout Dates Available",
+                        value=available_dates,
+                        inline=False
+                    )
+        
+        # Add blurb if available
+        blurb = campaign.get('blurb')
+        if blurb:
+            embed.add_field(
+                name="About the Book",
+                value=blurb[:500] if len(blurb) > 500 else blurb,
+                inline=False
+            )
+        
+        # Add campaign creator info
+        creator_id = campaign.get('discord_user_id')
+        if creator_id:
+            embed.add_field(
+                name="Campaign Creator",
+                value=f"<@{creator_id}>",
+                inline=True
+            )
+        
+        # Add status
+        status = campaign.get('campaign_status', 'unknown')
+        if status != 'active':
+            embed.add_field(
+                name="Status",
+                value=status.title(),
+                inline=True
+            )
+        
+        # Check if user already applied
+        if campaign.get('already_applied'):
+            embed.add_field(
+                name="⚠️ Note",
+                value="You have already applied to this campaign",
+                inline=False
+            )
+        elif campaign.get('is_full'):
+            embed.add_field(
+                name="⚠️ Note",
+                value="This campaign is currently full",
+                inline=False
+            )
+        elif available_slots > 0:
+            embed.add_field(
+                name="How to Apply",
+                value="Click the **Apply** button below to submit your application!",
+                inline=False
+            )
+        
+        return embed
     
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
@@ -1174,9 +1297,13 @@ class MyCampaignsView(discord.ui.View):
     
     def create_public_announcement_embed(self, campaign: Dict) -> discord.Embed:
         """Create embed for public campaign announcement"""
+        # Get creator Discord ID for mention
+        creator_id = campaign.get('discord_user_id')
+        creator_mention = f"<@{creator_id}>" if creator_id else campaign.get('author_name', 'Unknown')
+        
         embed = discord.Embed(
             title=f"📖 {campaign.get('book_title', 'Unknown')}",
-            description=f"by **{campaign.get('author_name', 'Unknown')}**",
+            description=f"by **{creator_mention}**",  # Now clickable Discord mention
             color=0x00A86B
         )
         
@@ -1260,133 +1387,6 @@ class MyCampaignsView(discord.ui.View):
             value="Click the **Apply** button below to submit your application!",
             inline=False
         )
-        
-        embed.set_footer(text=f"Campaign by {campaign.get('discord_username', 'Unknown')}")
-        
-        return embed
-
-    def create_public_campaign_details_embed(self, campaign: Dict) -> discord.Embed:
-        """Create embed for public campaign details view (similar to announcement)"""
-        embed = discord.Embed(
-            title=f"📖 {campaign.get('book_title', 'Unknown')}",
-            description=f"by **{campaign.get('author_name', 'Unknown')}**",
-            color=0x00A86B
-        )
-        
-        # Add book URL if available
-        book_url = campaign.get('book_url')
-        if book_url:
-            embed.add_field(
-                name="📚 Book Link",
-                value=f"[Read on {campaign.get('platform', 'Platform')}]({book_url})",
-                inline=False
-            )
-        
-        # Campaign details
-        embed.add_field(
-            name="Platform",
-            value=campaign.get('platform', 'Unknown'),
-            inline=True
-        )
-        
-        available_slots = campaign.get('available_slots', 0)
-        total_slots = campaign.get('total_slots', 0)
-        embed.add_field(
-            name="Available Slots",
-            value=f"{available_slots}/{total_slots}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Campaign ID",
-            value=f"#{campaign.get('id', 'Unknown')}",
-            inline=True
-        )
-        
-        # Add available dates
-        available_dates = campaign.get('available_dates')
-        if available_dates:
-            try:
-                # Try to parse as JSON if it's a string
-                if isinstance(available_dates, str):
-                    import json
-                    dates_list = json.loads(available_dates)
-                else:
-                    dates_list = available_dates
-                
-                if isinstance(dates_list, list) and dates_list:
-                    if len(dates_list) > 1:
-                        dates_str = f"{dates_list[0]} (+{len(dates_list)-1} more dates)"
-                    else:
-                        dates_str = dates_list[0]
-                    embed.add_field(
-                        name="📅 Shoutout Dates Available",
-                        value=dates_str,
-                        inline=False
-                    )
-                elif isinstance(dates_list, str):
-                    embed.add_field(
-                        name="📅 Shoutout Dates Available",
-                        value=dates_list,
-                        inline=False
-                    )
-            except:
-                # If parsing fails, just use as string
-                if available_dates:
-                    embed.add_field(
-                        name="📅 Shoutout Dates Available",
-                        value=available_dates,
-                        inline=False
-                    )
-        
-        # Add blurb if available
-        blurb = campaign.get('blurb')
-        if blurb:
-            embed.add_field(
-                name="About the Book",
-                value=blurb[:500] if len(blurb) > 500 else blurb,
-                inline=False
-            )
-        
-        # Add campaign creator info
-        creator_id = campaign.get('discord_user_id')
-        if creator_id:
-            embed.add_field(
-                name="Campaign Creator",
-                value=f"<@{creator_id}>",
-                inline=True
-            )
-        
-        # Add status
-        status = campaign.get('campaign_status', 'unknown')
-        if status != 'active':
-            embed.add_field(
-                name="Status",
-                value=status.title(),
-                inline=True
-            )
-        
-        # Check if user already applied
-        if campaign.get('already_applied'):
-            embed.add_field(
-                name="⚠️ Note",
-                value="You have already applied to this campaign",
-                inline=False
-            )
-        elif campaign.get('is_full'):
-            embed.add_field(
-                name="⚠️ Note",
-                value="This campaign is currently full",
-                inline=False
-            )
-        elif available_slots > 0:
-            embed.add_field(
-                name="How to Apply",
-                value="Click the **Apply** button below to submit your application!",
-                inline=False
-            )
-        
-        embed.set_footer(text=f"Campaign by {campaign.get('discord_username', 'Unknown')}")
         
         return embed
     
