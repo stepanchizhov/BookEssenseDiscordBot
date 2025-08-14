@@ -1220,8 +1220,8 @@ class EnhancedBookDetailsModal(discord.ui.Modal, title="Campaign Details"):
                     embed.add_field(
                         name="Next Steps",
                         value=(
-                            "• Your campaign is now live\n"
-                            "• Use `/shoutout-my-campaigns` to manage applications\n"
+                            "• Your campaign is now live!\n"
+                            "• Use `/shoutout-my-campaigns` to add more crucial information (like available dates) and manage applications\n"
                             "• Click 'Announce' to share your campaign publicly"
                         ),
                         inline=False
