@@ -742,9 +742,15 @@ class ShoutoutModule:
         """Create embed for public campaign details view (similar to announcement)"""
         embed = discord.Embed(
             title=f"📖 {campaign.get('book_title', 'Unknown')}",
-            description=f"by **{campaign.get('author_name', 'Unknown')}**",
+            description=f"by **{creator_mention}**",  # Now clickable Discord mention
             color=0x00A86B
         )
+        
+        #embed = discord.Embed(
+        #    title=f"📖 {campaign.get('book_title', 'Unknown')}",
+        #    description=f"by **{campaign.get('author_name', 'Unknown')}**",
+        #    color=0x00A86B
+        #)
         
         # Add book URL if available
         book_url = campaign.get('book_url')
@@ -822,13 +828,13 @@ class ShoutoutModule:
             )
         
         # Add campaign creator info
-        creator_id = campaign.get('discord_user_id')
-        if creator_id:
-            embed.add_field(
-                name="Campaign Creator",
-                value=f"<@{creator_id}>",
-                inline=True
-            )
+        # creator_id = campaign.get('discord_user_id')
+        #if creator_id:
+        #    embed.add_field(
+        #        name="Campaign Creator",
+        #        value=f"<@{creator_id}>",
+        #        inline=True
+        #    )
         
         # Add status
         status = campaign.get('campaign_status', 'unknown')
