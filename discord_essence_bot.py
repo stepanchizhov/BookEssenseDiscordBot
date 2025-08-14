@@ -4291,7 +4291,7 @@ if __name__ == "__main__":
 
     # Add retry logic for rate limiting on startup
     max_retries = 5
-    retry_delay = 900  # Start with 300 seconds
+    retry_delay = 1800  # Start with 300 seconds
     
     for attempt in range(max_retries):
         try:
@@ -4311,3 +4311,4 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
