@@ -829,6 +829,11 @@ class ShoutoutModule:
 
     def create_public_campaign_details_embed(self, campaign: Dict) -> discord.Embed:
         """Create embed for public campaign details view (similar to announcement)"""
+        
+        # Get creator Discord ID for mention
+        creator_id = campaign.get('discord_user_id')
+        creator_mention = f"<@{creator_id}>" if creator_id else campaign.get('author_name', 'Unknown')
+        
         embed = discord.Embed(
             title=f"📖 {campaign.get('book_title', 'Unknown')}",
             description=f"by **{creator_mention}**",  # Now clickable Discord mention
