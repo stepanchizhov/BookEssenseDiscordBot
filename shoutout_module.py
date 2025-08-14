@@ -12,6 +12,7 @@ import asyncio
 from typing import Optional, Dict, List, Any
 from datetime import datetime, timedelta
 import logging
+from collections import defaultdict
 
 # Set up logging for this module
 logger = logging.getLogger('discord')
@@ -33,6 +34,10 @@ class ShoutoutModule:
         logger.info(f"[SHOUTOUT_MODULE] bot: {bot}")
         logger.info(f"[SHOUTOUT_MODULE] wp_api_url: {wp_api_url}")
         logger.info(f"[SHOUTOUT_MODULE] wp_bot_token: {'[SET]' if wp_bot_token else '[NOT SET]'}")
+
+        # Rate limiting for DMs
+        self.dm_cooldowns = defaultdict(lambda: datetime.min)
+        self.dm_rate_limit = timedelta(seconds=5)  # 5 seconds between DMs to same user
         
         # Register commands immediately
         self.register_commands()
@@ -864,6 +869,52 @@ class ShoutoutModule:
             )
                                             
         return embed    
+
+    async def send_dm_with_ratelimit(self, user_id: int, embed: discord.Embed) -> bool:
+        """Send DM with rate limit protection"""
+        try:
+            # Check cooldown
+            now = datetime.now()
+            last_dm = self.dm_cooldowns[user_id]
+            
+            if now - last_dm < self.dm_rate_limit:
+                wait_time = (self.dm_rate_limit - (now - last_dm)).total_seconds()
+                logger.info(f"[SHOUTOUT_MODULE] Rate limit: waiting {wait_time:.1f}s before DMing user {user_id}")
+                await asyncio.sleep(wait_time)
+            
+            # Try to get the user
+            try:
+                user = await self.bot.fetch_user(user_id)
+            except discord.NotFound:
+                logger.error(f"[SHOUTOUT_MODULE] User {user_id} not found")
+                return False
+            except discord.HTTPException as e:
+                if e.status == 429:  # Rate limited
+                    logger.warning(f"[SHOUTOUT_MODULE] Rate limited when fetching user {user_id}")
+                    await asyncio.sleep(5)  # Wait 5 seconds and skip
+                    return False
+                raise
+            
+            # Send DM with error handling
+            try:
+                await user.send(embed=embed)
+                self.dm_cooldowns[user_id] = datetime.now()
+                logger.info(f"[SHOUTOUT_MODULE] DM sent successfully to {user_id}")
+                return True
+            except discord.Forbidden:
+                logger.info(f"[SHOUTOUT_MODULE] Cannot DM user {user_id} - DMs disabled")
+                return False
+            except discord.HTTPException as e:
+                if e.status == 429:  # Rate limited
+                    retry_after = e.retry_after if hasattr(e, 'retry_after') else 60
+                    logger.warning(f"[SHOUTOUT_MODULE] Rate limited sending DM. Retry after: {retry_after}s")
+                    # Don't retry, just log it
+                    return False
+                raise
+                
+        except Exception as e:
+            logger.error(f"[SHOUTOUT_MODULE] Error sending DM to {user_id}: {e}")
+            return False
     
     def create_my_campaigns_embed(self, campaign: Dict, index: int, total: int) -> discord.Embed:
         """Create embed for a single campaign in my campaigns view"""
@@ -2980,8 +3031,12 @@ class ApplicationReviewView(discord.ui.View):
                     if self.current_index < len(self.applications):
                         current_app = self.applications[self.current_index]
                         
-                        # Send notification to applicant
+                        # Send notification with rate limiting
                         await self.notify_applicant(current_app, status, decline_reason, shout_date, chapter)
+                        
+                        # Add a small delay if processing multiple applications
+                        if len(self.applications) > 1:
+                            await asyncio.sleep(1)  # 1 second delay between processing
                         
                         # Remove the application from the list
                         self.applications.pop(self.current_index)
@@ -3028,13 +3083,6 @@ class ApplicationReviewView(discord.ui.View):
             applicant_id = application.get('discord_user_id')
             if not applicant_id:
                 logger.error(f"[SHOUTOUT_MODULE] No Discord ID for applicant")
-                return
-            
-            # Try to get the user
-            try:
-                applicant = await self.module.bot.fetch_user(int(applicant_id))
-            except:
-                logger.error(f"[SHOUTOUT_MODULE] Could not find applicant with ID {applicant_id}")
                 return
             
             # Create notification embed based on status
@@ -3132,13 +3180,9 @@ class ApplicationReviewView(discord.ui.View):
             
             embed.set_footer(text=f"Campaign ID: #{self.campaign.get('id', 'Unknown')}")
             
-            # Send DM
-            try:
-                await applicant.send(embed=embed)
-                logger.info(f"[SHOUTOUT_MODULE] Sent {status} notification to {applicant_id}")
-            except discord.Forbidden:
-                logger.info(f"[SHOUTOUT_MODULE] Could not DM applicant {applicant_id} - DMs disabled")
-                
+            # Use rate-limited DM sending
+            await self.module.send_dm_with_ratelimit(int(applicant_id), embed)
+            
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error notifying applicant: {e}")
 
@@ -3319,25 +3363,40 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 'participant_book_data': participant_book_data
             }
             
+            # Single API call - let the backend handle duplicate checking
             url = f"{self.module.wp_api_url}/wp-json/rr-analytics/v1/shoutout/applications"
+            headers = {
+                'Authorization': f'Bearer {self.module.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
             
+            timeout = aiohttp.ClientTimeout(total=10)
             async with self.module.session.post(url, json=data, headers=headers, timeout=timeout) as response:
                 result = await response.json()
                 
                 if response.status == 200 and result.get('success'):
-                    # Success message code...
+                    # Success handling...
                     embed = discord.Embed(
                         title="✅ Application Submitted!",
                         description=f"Your application for **{self.campaign.get('book_title')}** has been submitted",
                         color=0x00A86B
                     )
-                    # ... rest of success handling
                     await interaction.followup.send(embed=embed, ephemeral=True)
+                    
+                    # Notify creator with rate limiting
                     await self.notify_campaign_creator(interaction)
                     
                 elif response.status == 400:
                     error_msg = result.get('message', 'Invalid application')
-                    await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
+                    # Check if it's a duplicate book error
+                    if 'already applied' in error_msg.lower() and 'book' in error_msg.lower():
+                        await interaction.followup.send(
+                            f"❌ You have already applied to this campaign with **{self.book_title.value}**\n"
+                            "You can apply with a different book if you have one.",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(f"❌ {error_msg}", ephemeral=True)
                 else:
                     await interaction.followup.send(
                         "❌ Failed to submit application. Please try again",
@@ -3356,12 +3415,6 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
         try:
             creator_id = self.campaign.get('discord_user_id')
             if not creator_id:
-                return
-            
-            try:
-                creator = await self.module.bot.fetch_user(int(creator_id))
-            except:
-                logger.error(f"[SHOUTOUT_MODULE] Could not find creator with ID {creator_id}")
                 return
             
             embed = discord.Embed(
@@ -3393,11 +3446,8 @@ class ApplicationModal(discord.ui.Modal, title="Shoutout Application"):
                 inline=False
             )
             
-            try:
-                await creator.send(embed=embed)
-            except discord.Forbidden:
-                logger.info(f"[SHOUTOUT_MODULE] Could not DM creator {creator_id} - DMs disabled")
-                
+            await self.module.send_dm_with_ratelimit(int(creator_id), embed)
+            
         except Exception as e:
             logger.error(f"[SHOUTOUT_MODULE] Error notifying creator: {e}")
 
