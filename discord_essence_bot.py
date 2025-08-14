@@ -10,6 +10,8 @@ import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 import io
 import re
+import time
+import sys
 from urllib.parse import urlparse, parse_qs
 
 from shoutout_module import ShoutoutModule
@@ -4286,9 +4288,30 @@ if __name__ == "__main__":
     if not WP_BOT_TOKEN:
         logger.info(f"[ERROR] WP_BOT_TOKEN environment variable not set!")
         exit(1)
+
+    # Add retry logic for rate limiting on startup
+    max_retries = 5
+    retry_delay = 60  # Start with 60 seconds
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Starting bot (attempt {attempt + 1}/{max_retries})...")
+            bot.run(BOT_TOKEN)
+            break  # If successful, exit the loop
+        except discord.errors.HTTPException as e:
+            if e.status == 429 or "1015" in str(e):
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                logger.error(f"Rate limited on startup. Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
+                if attempt == max_retries - 1:
+                    logger.error("Max retries reached. Exiting.")
+                    sys.exit(1)
+            else:
+                raise  # Re-raise non-rate-limit errors
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
