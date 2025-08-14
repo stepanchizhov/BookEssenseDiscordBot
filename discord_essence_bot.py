@@ -946,6 +946,36 @@ async def on_ready():
         traceback.print_exc()
 
 @bot.event
+async def on_error(event, *args, **kwargs):
+    """Handle errors globally"""
+    import sys
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    
+    if isinstance(exc_value, discord.HTTPException) and exc_value.status == 429:
+        logger.warning(f"[GLOBAL] Rate limited in {event}: {exc_value}")
+        # Don't crash, just log it
+    else:
+        # Re-raise other errors
+        logger.error(f"[GLOBAL] Error in {event}: {exc_type.__name__}: {exc_value}")
+        # You can choose to re-raise or just log
+        # raise  # Uncomment if you want to re-raise non-rate-limit errors
+
+@bot.event
+async def on_command_error(ctx, error):
+    """Handle command errors including rate limits"""
+    if isinstance(error, discord.HTTPException) and error.status == 429:
+        logger.warning(f"[COMMAND] Rate limited: {error}")
+        try:
+            await ctx.send("⚠️ Bot is being rate limited. Please try again in a few seconds.", ephemeral=True)
+        except:
+            pass  # Can't send message if we're rate limited
+    elif isinstance(error, commands.CommandOnCooldown):
+        logger.info(f"[COMMAND] Command on cooldown: {error}")
+    else:
+        # Log other errors
+        logger.error(f"[COMMAND] Error: {type(error).__name__}: {error}")
+
+@bot.event
 async def on_disconnect():
     logger.info(f"[DISCONNECT] Bot disconnected")
     # Don't close the session here - let it persist
@@ -4259,6 +4289,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
