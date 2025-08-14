@@ -867,7 +867,9 @@ class ShoutoutModule:
                 value="Click the **Apply** button below to submit your application!",
                 inline=False
             )
-                                            
+
+        embed.set_footer(text=f"Campaign #{campaign.get('id')} • Buttons expire after 15 minutes")
+        
         return embed    
 
     async def send_dm_with_ratelimit(self, user_id: int, embed: discord.Embed) -> bool:
@@ -2669,13 +2671,30 @@ class EditServerVisibilityModal(discord.ui.Modal, title="Edit Server Visibility"
             )
 
 class PublicCampaignView(discord.ui.View):
-    """View for public campaign announcements with Apply button"""
-    
     def __init__(self, module: ShoutoutModule, campaign: Dict):
-        super().__init__(timeout=None)  # No timeout for public views
+        super().__init__(timeout=900)  # 15 minutes
         self.module = module
         self.campaign = campaign
         self.campaign_id = campaign.get('id')
+        
+        # Add a "refresh" button alongside Apply
+        refresh_button = discord.ui.Button(
+            label="🔄 Refresh",
+            style=discord.ButtonStyle.secondary,
+            custom_id="refresh_campaign"
+        )
+        refresh_button.callback = self.refresh_button_callback
+        self.add_item(refresh_button)
+    
+    async def refresh_button_callback(self, interaction: discord.Interaction):
+        """Provide fresh buttons"""
+        await interaction.response.send_message(
+            f"To get a fresh application button, use:\n"
+            f"`/shoutout-view-details {self.campaign_id}`\n\n"
+            f"Or apply directly with:\n"
+            f"`/shoutout-apply {self.campaign_id}`",
+            ephemeral=True
+        )
     
     @discord.ui.button(label="📝 Apply to the Campaign", style=discord.ButtonStyle.primary, custom_id="apply_public")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
