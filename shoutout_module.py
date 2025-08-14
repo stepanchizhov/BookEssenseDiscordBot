@@ -38,6 +38,9 @@ class ShoutoutModule:
         # Rate limiting for DMs
         self.dm_cooldowns = defaultdict(lambda: datetime.min)
         self.dm_rate_limit = timedelta(seconds=5)  # 5 seconds between DMs to same user
+
+        # Initialize command counter for promotional messages
+        self.command_counter = 0
         
         # Register commands immediately
         self.register_commands()
