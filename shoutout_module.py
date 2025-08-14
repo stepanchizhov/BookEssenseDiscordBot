@@ -218,13 +218,25 @@ class ShoutoutModule:
                     # Show success message
                     embed = discord.Embed(
                         title="📝 Create Shoutout Campaign",
-                        description=f"Welcome! Your tier: **{result.get('user_tier', 'unknown').upper()}**\n\nLet's set up your shoutout campaign.",
+                        description=f"Welcome! Your tier: **{result.get('user_tier', 'unknown').upper()}**\n\nLet's set up your shoutout campaign",
                         color=0x00A86B
                     )
                     
                     embed.add_field(
                         name="Step 1: Book Details",
                         value="Click the button below to enter your book information",
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="Step 2: Additional information",
+                        value="Edit your campaign and add crucial data using the /shoutout-my-campaigns command",
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="Step 3: Announce your campaign",
+                        value="Hit the Announce button in /shoutout-my-campaigns command to share your campaign with the other authors in the dedicated channel!",
                         inline=False
                     )
                     
