@@ -140,6 +140,81 @@ class ShoutoutModule:
             filter_status: Optional[str] = "all"
         ):
             await self.handle_my_applications(interaction, filter_status)
+
+    def get_promotional_field(self, force_show=False):
+        """
+        Get promotional field for embeds based on command counter
+        
+        Args:
+            force_show (bool): Force showing a promotional message regardless of counter
+        
+        Returns:
+            dict: Field data with name and value, or None if no promo should be shown
+        """
+        # Only show promotional messages every 2 commands (or if forced)
+        if not force_show and self.command_counter % 2 != 0:
+            return None
+        
+        # Define all promotional messages
+        promo_messages = [
+            {
+                "text": "📖 You can also read Stepan Chizhov's",
+                "url": "https://www.royalroad.com/fiction/105229/",
+                "link_text": "The Dark Lady's Guide to Villainy!"
+            },
+            {
+                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+                "url": "https://www.patreon.com/stepanchizhov",
+                "link_text": "Support his work on Patreon!"
+            },
+            {
+                "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+                "url": "https://stepan.chizhov.com",
+                "link_text": "Visit stepan.chizhov.com"
+            },
+            {
+                "text": "💬 Need help or have suggestions?",
+                "url": "https://discord.gg/xvw9vbvrwj",
+                "link_text": "Join our Support Discord"
+            },
+            {
+                "text": "📚 Join discussions about Royal Road and analytics!",
+                "url": "https://discord.gg/7Xrrf3Q5zp",
+                "link_text": "Immersive Ink Community Discord"
+            }
+        ]
+        
+        # Rotate through promotional messages based on how many promos have been shown
+        promo_index = (self.command_counter // 2 - 1) % len(promo_messages)
+        promo = promo_messages[promo_index]
+        
+        return {
+            "name": "━━━━━━━━━━━━━━━━━━━━━",
+            "value": f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+            "inline": False
+        }
+    
+    def add_promotional_field(self, embed, force_show=False):
+        """
+        Add promotional field to an embed if conditions are met
+        
+        Args:
+            embed (discord.Embed): The embed to add the field to
+            force_show (bool): Force showing a promotional message regardless of counter
+        
+        Returns:
+            discord.Embed: The embed with promotional field added (if applicable)
+        """
+        promo_field = self.get_promotional_field(force_show)
+        
+        if promo_field:
+            embed.add_field(
+                name=promo_field["name"],
+                value=promo_field["value"],
+                inline=promo_field["inline"]
+            )
+        
+        return embed
     
     async def handle_campaign_create(self, interaction: discord.Interaction):
         """Handle campaign creation workflow - works in servers and DMs"""
@@ -431,6 +506,8 @@ class ShoutoutModule:
                     
                     if campaigns:
                         embed = self.create_campaign_list_embed(campaigns)
+                        self.command_counter += 1
+                        embed = self.add_promotional_field(embed)
                         await interaction.followup.send(embed=embed)
                     else:
                         await interaction.followup.send(
@@ -886,6 +963,11 @@ class ShoutoutModule:
                 inline=False
             )
 
+        # Add promotional field for public announcements
+        # Force show for announcements since they're not frequent
+        embed = self.add_promotional_field(embed, force_show=True)
+        
+        # Add footer with expiration notice
         embed.set_footer(text=f"Campaign #{campaign.get('id')} • Buttons expire after 15 minutes")
         
         return embed    
