@@ -476,18 +476,27 @@ class BookClaimModule:
                         )
                         
                         for claim in claims[:10]:  # Show first 10
+                            # Create Discord user profile link
+                            user_link = f"[{claim['discord_username']}](<https://discord.com/users/{claim['discord_user_id']}>)"
+                            
+                            # Format the field with clickable username
+                            field_value = (
+                                f"**User:** {user_link}\n"
+                                f"**Book:** [View on RR]({claim['book_url']})\n"
+                                f"**Server:** {claim.get('server_name', 'Unknown')}\n"
+                                f"**Submitted:** {claim['created_at']}"
+                            )
+                            
                             embed.add_field(
                                 name=f"Claim #{claim['id']} - {claim['book_title']}",
-                                value=(
-                                    f"**User:** {claim['discord_username']}\n"
-                                    f"**Book:** [Link]({claim['book_url']})\n"
-                                    f"**Submitted:** {claim['created_at']}"
-                                ),
+                                value=field_value,
                                 inline=False
                             )
                         
                         if len(claims) > 10:
-                            embed.set_footer(text=f"Showing 10 of {len(claims)} claims")
+                            embed.set_footer(text=f"Showing 10 of {len(claims)} claims | Use claim IDs to process")
+                        else:
+                            embed.set_footer(text="Use `/rr-claim-approve action:Approve/Decline claim_id:NUMBER` to process")
                         
                         await interaction.followup.send(embed=embed, ephemeral=True)
                     else:
@@ -499,7 +508,8 @@ class BookClaimModule:
             elif action in ["approve", "decline"]:
                 if not claim_id:
                     await interaction.followup.send(
-                        f"❌ Please provide a claim ID to {action}.",
+                        f"❌ Please provide a claim ID to {action}.\n"
+                        f"Example: `/rr-claim-approve action:{action.capitalize()} claim_id:123`",
                         ephemeral=True
                     )
                     return
@@ -529,13 +539,17 @@ class BookClaimModule:
                         status_emoji = "✅" if action == "approve" else "❌"
                         status_text = "approved" if action == "approve" else "declined"
                         
+                        # Create user profile link for the claimant
+                        claimant_link = f"[{result.get('claimant_username', 'Unknown')}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
+                        
                         embed = discord.Embed(
                             title=f"{status_emoji} Claim {status_text.capitalize()}",
                             description=f"Claim #{claim_id} has been {status_text}.",
                             color=discord.Color.green() if action == "approve" else discord.Color.red()
                         )
                         embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
-                        embed.add_field(name="Claimant", value=result.get('claimant_username', 'Unknown'), inline=True)
+                        embed.add_field(name="Claimant", value=claimant_link, inline=True)
+                        embed.add_field(name="Processed by", value=interaction.user.mention, inline=True)
                         
                         await interaction.followup.send(embed=embed, ephemeral=True)
                         
@@ -562,6 +576,8 @@ class BookClaimModule:
         
         target_user = user or interaction.user
         
+        logger.info(f"[BOOK_CLAIM_MODULE] Fetching books for user: {target_user.name} (ID: {target_user.id})")
+        
         try:
             # Get user's books from WordPress
             url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/user-books"
@@ -575,11 +591,20 @@ class BookClaimModule:
                 'User-Agent': 'Essence-Discord-Bot/1.0'
             }
             
+            logger.info(f"[BOOK_CLAIM_MODULE] Making request to: {url}")
+            logger.info(f"[BOOK_CLAIM_MODULE] With discord_user_id: {params['discord_user_id']}")
+            
             async with self.session.get(url, params=params, headers=headers) as response:
                 result = await response.json()
                 
+                logger.info(f"[BOOK_CLAIM_MODULE] Response status: {response.status}")
+                logger.info(f"[BOOK_CLAIM_MODULE] Response data: {json.dumps(result, indent=2)}")
+                
                 if response.status == 200 and result.get('success'):
                     books = result.get('books', [])
+                    total_count = result.get('total_count', len(books))
+                    
+                    logger.info(f"[BOOK_CLAIM_MODULE] Found {total_count} books")
                     
                     if not books:
                         embed = discord.Embed(
@@ -587,6 +612,21 @@ class BookClaimModule:
                             description="No claimed books found.",
                             color=discord.Color.greyple()
                         )
+                        
+                        # Add debug information if it's the user checking their own books
+                        if target_user.id == interaction.user.id:
+                            embed.add_field(
+                                name="No books?",
+                                value=(
+                                    "If you believe you should have books showing:\n"
+                                    "• Make sure your claims have been approved\n"
+                                    "• Use `/rr-claim-book` to submit a claim\n"
+                                    "• Contact an admin if you need help"
+                                ),
+                                inline=False
+                            )
+                            embed.set_footer(text=f"Discord ID: {target_user.id}")
+                        
                         await interaction.followup.send(embed=embed)
                         return
                     
@@ -635,7 +675,7 @@ class BookClaimModule:
                     
                     # Add summary statistics
                     embed.set_footer(
-                        text=f"Total: {self.format_number(total_followers)} followers | {self.format_number(total_views)} views"
+                        text=f"Total: {self.format_number(total_followers)} followers | {self.format_number(total_views)} views | Discord ID: {target_user.id}"
                     )
                     
                     # Set thumbnail to user's avatar
@@ -644,15 +684,21 @@ class BookClaimModule:
                     await interaction.followup.send(embed=embed)
                     
                 else:
+                    error_msg = result.get('message', 'Unknown error')
+                    logger.error(f"[BOOK_CLAIM_MODULE] Failed to retrieve books: {error_msg}")
+                    
                     await interaction.followup.send(
-                        f"❌ Failed to retrieve books: {result.get('message', 'Unknown error')}",
+                        f"❌ Failed to retrieve books: {error_msg}",
                         ephemeral=True
                     )
                     
         except Exception as e:
             logger.error(f"[BOOK_CLAIM_MODULE] Error fetching user books: {e}")
+            import traceback
+            logger.error(f"[BOOK_CLAIM_MODULE] Traceback: {traceback.format_exc()}")
+            
             await interaction.followup.send(
-                "❌ An error occurred while fetching books.",
+                "❌ An error occurred while fetching books. Please try again later.",
                 ephemeral=True
             )
     
