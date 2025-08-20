@@ -125,6 +125,25 @@ class BookClaimModule:
         ):
             await self.manage_claims(interaction, action, claim_id)
         
+        # Set notification channel command - admin/mod only
+        @self.bot.tree.command(
+            name="rr-claim-set-channel",
+            description="Set this channel for book claim notifications (Admin/Mod only)"
+        )
+        @discord.app_commands.describe(
+            action="Enable or disable notifications in this channel"
+        )
+        @discord.app_commands.choices(action=[
+            discord.app_commands.Choice(name="Enable notifications here", value="enable"),
+            discord.app_commands.Choice(name="Disable notifications", value="disable"),
+            discord.app_commands.Choice(name="Check current settings", value="check")
+        ])
+        async def rr_claim_set_channel(
+            interaction: discord.Interaction,
+            action: str
+        ):
+            await self.set_notification_channel(interaction, action)
+        
         # My books command - public
         @self.bot.tree.command(
             name="rr-my-books",
@@ -639,6 +658,36 @@ class BookClaimModule:
     
     # Helper methods
     
+    def parse_book_identifier(self, identifier: str) -> Tuple[Optional[int], str]:
+        """
+        Parse book identifier which can be either a URL or just an ID
+        Returns: (book_id, book_url) tuple
+        """
+        identifier = identifier.strip()
+        
+        # First check if it's just a number (book ID)
+        if identifier.isdigit():
+            book_id = int(identifier)
+            book_url = f"https://www.royalroad.com/fiction/{book_id}"
+            return book_id, book_url
+        
+        # Check if it's a URL
+        rr_book_id = self.extract_rr_book_id(identifier)
+        if rr_book_id:
+            return rr_book_id, identifier
+        
+        # Check if it's a number with some extra characters (e.g., "#12345" or "ID:12345")
+        import re
+        match = re.search(r'\b(\d+)\b', identifier)
+        if match:
+            book_id = int(match.group(1))
+            # Verify it's a reasonable book ID (not too small, not too large)
+            if 1 <= book_id <= 9999999:
+                book_url = f"https://www.royalroad.com/fiction/{book_id}"
+                return book_id, book_url
+        
+        return None, ""
+    
     def extract_rr_book_id(self, url: str) -> Optional[int]:
         """Extract Royal Road book ID from URL"""
         patterns = [
@@ -689,6 +738,190 @@ class BookClaimModule:
             logger.error(f"[BOOK_CLAIM_MODULE] Error checking authorization: {e}")
         
         return False
+    
+    async def set_notification_channel(self, interaction: discord.Interaction, action: str):
+        """Set or update the notification channel for book claims"""
+        await interaction.response.defer(ephemeral=True)
+        
+        # Check if this is in a guild
+        if not interaction.guild:
+            await interaction.followup.send(
+                "❌ This command can only be used in a server channel.",
+                ephemeral=True
+            )
+            return
+        
+        # Check user permissions (must be admin/mod)
+        is_authorized = await self.check_user_authorization(interaction.user)
+        if not is_authorized:
+            # Also check Discord server permissions as fallback
+            if not interaction.user.guild_permissions.manage_guild:
+                await interaction.followup.send(
+                    "❌ You need Administrator or Manage Server permissions to configure notifications.\n"
+                    "Or be registered as a moderator in the book claim system.",
+                    ephemeral=True
+                )
+                return
+        
+        try:
+            if action == "check":
+                # Check current settings
+                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/notification-channel"
+                params = {
+                    'bot_token': self.wp_bot_token,
+                    'server_id': str(interaction.guild.id)
+                }
+                
+                headers = {
+                    'Authorization': f'Bearer {self.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                async with self.session.get(url, params=params, headers=headers) as response:
+                    result = await response.json()
+                    
+                    embed = discord.Embed(
+                        title="📋 Notification Channel Settings",
+                        color=discord.Color.blue()
+                    )
+                    
+                    if result.get('channel_id'):
+                        channel = interaction.guild.get_channel(int(result['channel_id']))
+                        if channel:
+                            embed.add_field(
+                                name="Current Channel",
+                                value=f"{channel.mention}",
+                                inline=False
+                            )
+                        else:
+                            embed.add_field(
+                                name="Current Channel",
+                                value=f"Channel ID {result['channel_id']} (channel not found)",
+                                inline=False
+                            )
+                    else:
+                        embed.add_field(
+                            name="Current Channel",
+                            value="❌ No notification channel set",
+                            inline=False
+                        )
+                    
+                    # Check if server is verified
+                    server_verified = await self.check_server_verification(str(interaction.guild.id))
+                    embed.add_field(
+                        name="Server Status",
+                        value="✅ Verified" if server_verified else "❌ Not Verified",
+                        inline=True
+                    )
+                    
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    
+            elif action == "enable":
+                # Set this channel as notification channel
+                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/set-notification-channel"
+                data = {
+                    'bot_token': self.wp_bot_token,
+                    'server_id': str(interaction.guild.id),
+                    'server_name': interaction.guild.name,
+                    'channel_id': str(interaction.channel.id),
+                    'channel_name': interaction.channel.name,
+                    'set_by_discord_id': str(interaction.user.id),
+                    'set_by_discord_username': interaction.user.name
+                }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                async with self.session.post(url, json=data, headers=headers) as response:
+                    result = await response.json()
+                    
+                    if response.status == 200 and result.get('success'):
+                        embed = discord.Embed(
+                            title="✅ Notification Channel Set",
+                            description=f"Book claim notifications will now be sent to {interaction.channel.mention}",
+                            color=discord.Color.green()
+                        )
+                        
+                        if not result.get('server_verified'):
+                            embed.add_field(
+                                name="⚠️ Server Not Verified",
+                                value=(
+                                    "Your server is not yet verified for processing claims.\n"
+                                    "Contact an administrator in [Stepan's Discord](https://discord.gg/xvw9vbvrwj) to request verification."
+                                ),
+                                inline=False
+                            )
+                        else:
+                            embed.add_field(
+                                name="What's Next?",
+                                value=(
+                                    "• New claim notifications will appear here\n"
+                                    "• Use `/rr-claim-approve` to manage claims\n"
+                                    "• Moderators can process claims from this server"
+                                ),
+                                inline=False
+                            )
+                        
+                        await interaction.followup.send(embed=embed, ephemeral=False)
+                        
+                        # Send a test notification
+                        test_embed = discord.Embed(
+                            title="🔔 Notification Channel Configured",
+                            description="This channel will now receive book claim notifications.",
+                            color=discord.Color.blue()
+                        )
+                        test_embed.set_footer(text=f"Configured by {interaction.user.name}")
+                        await interaction.channel.send(embed=test_embed)
+                        
+                    else:
+                        error_msg = result.get('message', 'Failed to set notification channel')
+                        await interaction.followup.send(
+                            f"❌ {error_msg}",
+                            ephemeral=True
+                        )
+                        
+            elif action == "disable":
+                # Remove notification channel
+                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/remove-notification-channel"
+                data = {
+                    'bot_token': self.wp_bot_token,
+                    'server_id': str(interaction.guild.id),
+                    'removed_by_discord_id': str(interaction.user.id),
+                    'removed_by_discord_username': interaction.user.name
+                }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                async with self.session.post(url, json=data, headers=headers) as response:
+                    result = await response.json()
+                    
+                    if response.status == 200 and result.get('success'):
+                        embed = discord.Embed(
+                            title="✅ Notifications Disabled",
+                            description="Book claim notifications have been disabled for this server.",
+                            color=discord.Color.orange()
+                        )
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                    else:
+                        error_msg = result.get('message', 'Failed to disable notifications')
+                        await interaction.followup.send(
+                            f"❌ {error_msg}",
+                            ephemeral=True
+                        )
+                        
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error setting notification channel: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while configuring the notification channel.",
+                ephemeral=True
+            )
     
     async def check_server_verification(self, server_id: Optional[str]) -> bool:
         """Check if server is verified for claim processing"""
