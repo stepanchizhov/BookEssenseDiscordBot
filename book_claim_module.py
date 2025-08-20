@@ -56,7 +56,7 @@ class BookClaimModule:
             description="Claim ownership of a Royal Road book"
         )
         @discord.app_commands.describe(
-            book_url="Royal Road book URL (e.g., https://www.royalroad.com/fiction/12345/book-title)",
+            book_identifier="Royal Road book URL or ID (e.g., https://www.royalroad.com/fiction/12345 or 12345)",
             discord_server_url="Your Discord server URL (optional)",
             royal_road_user_id="Your Royal Road user ID (optional)",
             patreon_user_id="Your Patreon username (optional)",
@@ -65,7 +65,7 @@ class BookClaimModule:
         )
         async def rr_claim_book(
             interaction: discord.Interaction,
-            book_url: str,
+            book_identifier: str,
             discord_server_url: Optional[str] = None,
             royal_road_user_id: Optional[str] = None,
             patreon_user_id: Optional[str] = None,
@@ -73,7 +73,7 @@ class BookClaimModule:
             scribble_hub_user_id: Optional[str] = None
         ):
             await self.claim_book(
-                interaction, book_url, discord_server_url, royal_road_user_id,
+                interaction, book_identifier, discord_server_url, royal_road_user_id,
                 patreon_user_id, kindle_author_asin, scribble_hub_user_id
             )
         
@@ -83,7 +83,7 @@ class BookClaimModule:
             description="Claim ownership of multiple Royal Road books (up to 5 at once)"
         )
         @discord.app_commands.describe(
-            book_urls="Royal Road book URLs separated by commas or spaces",
+            book_identifiers="Royal Road book URLs or IDs separated by commas or spaces (e.g., 12345, 67890 or URLs)",
             discord_server_url="Your Discord server URL (optional)",
             royal_road_user_id="Your Royal Road user ID (optional)",
             patreon_user_id="Your Patreon username (optional)",
@@ -92,7 +92,7 @@ class BookClaimModule:
         )
         async def rr_claim_multiple(
             interaction: discord.Interaction,
-            book_urls: str,
+            book_identifiers: str,
             discord_server_url: Optional[str] = None,
             royal_road_user_id: Optional[str] = None,
             patreon_user_id: Optional[str] = None,
@@ -100,7 +100,7 @@ class BookClaimModule:
             scribble_hub_user_id: Optional[str] = None
         ):
             await self.claim_multiple_books(
-                interaction, book_urls, discord_server_url, royal_road_user_id,
+                interaction, book_identifiers, discord_server_url, royal_road_user_id,
                 patreon_user_id, kindle_author_asin, scribble_hub_user_id
             )
         
@@ -139,21 +139,23 @@ class BookClaimModule:
         ):
             await self.show_user_books(interaction, user)
     
-    async def claim_book(self, interaction: discord.Interaction, book_url: str,
+    async def claim_book(self, interaction: discord.Interaction, book_identifier: str,
                          discord_server_url: Optional[str], royal_road_user_id: Optional[str],
                          patreon_user_id: Optional[str], kindle_author_asin: Optional[str],
                          scribble_hub_user_id: Optional[str]):
         """Handle book claim request"""
         await interaction.response.defer(ephemeral=True)
         
-        logger.info(f"[BOOK_CLAIM_MODULE] Claim request from {interaction.user.name} for {book_url}")
+        logger.info(f"[BOOK_CLAIM_MODULE] Claim request from {interaction.user.name} for {book_identifier}")
         
-        # Validate Royal Road URL
-        rr_book_id = self.extract_rr_book_id(book_url)
+        # Parse book identifier (URL or ID)
+        rr_book_id, book_url = self.parse_book_identifier(book_identifier)
+        
         if not rr_book_id:
             await interaction.followup.send(
-                "❌ Invalid Royal Road URL. Please provide a valid book URL like:\n"
-                "`https://www.royalroad.com/fiction/12345/book-title`",
+                "❌ Invalid input. Please provide either:\n"
+                "• A Royal Road book URL (e.g., `https://www.royalroad.com/fiction/12345/book-title`)\n"
+                "• A Royal Road book ID (e.g., `12345`)",
                 ephemeral=True
             )
             return
@@ -204,6 +206,7 @@ class BookClaimModule:
                         color=discord.Color.green()
                     )
                     embed.add_field(name="Claim ID", value=f"`#{claim_id}`", inline=True)
+                    embed.add_field(name="Book ID", value=f"`{rr_book_id}`", inline=True)
                     embed.add_field(name="Status", value="⏳ Pending Review", inline=True)
                     
                     if not server_verified:
@@ -220,7 +223,7 @@ class BookClaimModule:
                         # Send public message about verification
                         await interaction.followup.send(
                             "📢 **Book Claim Submitted!**\n"
-                            f"{interaction.user.mention} has submitted a claim for **{book_title}**.\n\n"
+                            f"{interaction.user.mention} has submitted a claim for **{book_title}** (ID: {rr_book_id}).\n\n"
                             "⚠️ This server is not verified for claim approvals. "
                             "Please join [Stepan's Discord](https://discord.gg/xvw9vbvrwj) to get your claim reviewed.\n"
                             "Server admins can also request verification to enable local claim processing.",
@@ -266,46 +269,47 @@ class BookClaimModule:
                 ephemeral=True
             )
     
-    async def claim_multiple_books(self, interaction: discord.Interaction, book_urls: str,
+    async def claim_multiple_books(self, interaction: discord.Interaction, book_identifiers: str,
                                    discord_server_url: Optional[str], royal_road_user_id: Optional[str],
                                    patreon_user_id: Optional[str], kindle_author_asin: Optional[str],
                                    scribble_hub_user_id: Optional[str]):
         """Handle multiple book claim requests"""
         await interaction.response.defer(ephemeral=True)
         
-        # Parse book URLs (split by comma, space, or newline)
+        # Parse book identifiers (URLs or IDs separated by various delimiters)
         import re
-        url_pattern = r'https?://[^\s,]+'
-        urls = re.findall(url_pattern, book_urls)
         
-        if not urls:
+        # Split by common delimiters: comma, space, newline, semicolon
+        potential_identifiers = re.split(r'[,\s\n;]+', book_identifiers)
+        
+        # Process each identifier
+        valid_books = []
+        for identifier in potential_identifiers:
+            identifier = identifier.strip()
+            if not identifier:
+                continue
+                
+            rr_book_id, book_url = self.parse_book_identifier(identifier)
+            if rr_book_id:
+                valid_books.append((book_url, rr_book_id))
+        
+        if not valid_books:
             await interaction.followup.send(
-                "❌ No valid URLs found. Please provide Royal Road book URLs separated by commas or spaces.",
+                "❌ No valid book identifiers found. Please provide Royal Road book URLs or IDs separated by commas or spaces.\n"
+                "Examples:\n"
+                "• `12345, 67890, 11111`\n"
+                "• `https://www.royalroad.com/fiction/12345 https://www.royalroad.com/fiction/67890`",
                 ephemeral=True
             )
             return
         
-        if len(urls) > 5:
+        if len(valid_books) > 5:
             await interaction.followup.send(
                 "❌ Too many books! You can claim up to 5 books at once.\n"
-                f"You provided {len(urls)} URLs. Please try again with 5 or fewer.",
+                f"You provided {len(valid_books)} books. Please try again with 5 or fewer.",
                 ephemeral=True
             )
             return
-        
-        # Validate all URLs first
-        valid_books = []
-        for url in urls:
-            rr_book_id = self.extract_rr_book_id(url)
-            if rr_book_id:
-                valid_books.append((url, rr_book_id))
-            else:
-                await interaction.followup.send(
-                    f"❌ Invalid Royal Road URL: {url}\n"
-                    "All URLs must be valid Royal Road book links.",
-                    ephemeral=True
-                )
-                return
         
         # Submit all claims
         results = []
@@ -341,20 +345,21 @@ class BookClaimModule:
                     
                     if response.status == 200 and result.get('success'):
                         results.append({
-                            'title': result.get('book_title', 'Unknown'),
+                            'title': result.get('book_title', f'Book {rr_book_id}'),
                             'claim_id': result.get('claim_id'),
+                            'book_id': rr_book_id,
                             'status': 'submitted'
                         })
                     elif result.get('error') == 'already_claimed':
-                        errors.append(f"**{result.get('book_title', 'Unknown')}**: Already claimed by {result.get('owner_name')}")
+                        errors.append(f"**ID {rr_book_id}**: Already claimed by {result.get('owner_name')}")
                     elif result.get('error') == 'pending_claim':
-                        errors.append(f"**{result.get('book_title', 'Unknown')}**: You already have a pending claim")
+                        errors.append(f"**ID {rr_book_id}**: You already have a pending claim")
                     else:
-                        errors.append(f"**Book ID {rr_book_id}**: {result.get('message', 'Unknown error')}")
+                        errors.append(f"**ID {rr_book_id}**: {result.get('message', 'Unknown error')}")
                         
             except Exception as e:
                 logger.error(f"[BOOK_CLAIM_MODULE] Error claiming book {rr_book_id}: {e}")
-                errors.append(f"**Book ID {rr_book_id}**: Failed to submit")
+                errors.append(f"**ID {rr_book_id}**: Failed to submit")
         
         # Create response embed
         embed = discord.Embed(
@@ -363,7 +368,7 @@ class BookClaimModule:
         )
         
         if results:
-            success_text = "\n".join([f"✅ **{r['title']}** - Claim #{r['claim_id']}" for r in results])
+            success_text = "\n".join([f"✅ **{r['title']}** (ID: {r['book_id']}) - Claim #{r['claim_id']}" for r in results])
             embed.add_field(
                 name=f"Successfully Submitted ({len(results)})",
                 value=success_text[:1024],  # Discord field limit
@@ -393,9 +398,10 @@ class BookClaimModule:
             
             # Public notification for unverified servers
             if len(results) > 0:
+                book_ids = ", ".join([str(r['book_id']) for r in results])
                 await interaction.followup.send(
                     f"📢 **Multiple Claims Submitted!**\n"
-                    f"{interaction.user.mention} has submitted {len(results)} book claim(s).\n\n"
+                    f"{interaction.user.mention} has submitted {len(results)} book claim(s) for IDs: {book_ids}\n\n"
                     "⚠️ This server is not verified. Visit [Stepan's Discord](https://discord.gg/xvw9vbvrwj) for claim reviews.",
                     ephemeral=False
                 )
