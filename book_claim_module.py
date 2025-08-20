@@ -613,7 +613,7 @@ class BookClaimModule:
                             color=discord.Color.greyple()
                         )
                         
-                        # Add debug information if it's the user checking their own books
+                        # Add debug information only if it's the user checking their own books
                         if target_user.id == interaction.user.id:
                             embed.add_field(
                                 name="No books?",
@@ -625,7 +625,8 @@ class BookClaimModule:
                                 ),
                                 inline=False
                             )
-                            embed.set_footer(text=f"Discord ID: {target_user.id}")
+                            # Only show Discord ID in logs, not in the embed
+                            logger.info(f"[BOOK_CLAIM_MODULE] No books found for Discord ID: {target_user.id}")
                         
                         await interaction.followup.send(embed=embed)
                         return
@@ -645,21 +646,21 @@ class BookClaimModule:
                         followers = self.format_number(book.get('followers', 0))
                         views = self.format_number(book.get('total_views', 0))
                         rating = book.get('rating', 'N/A')
+                        chapters = book.get('chapters', 0)
+                        status = book.get('status', 'Unknown')
                         
-                        # Rising Stars info
-                        rs_info = "Not in Rising Stars"
-                        if book.get('rising_stars_rank'):
-                            rs_info = f"🌟 Rising Stars #{book['rising_stars_rank']}"
+                        # Build the book field value
+                        field_value = (
+                            f"**Author:** {book.get('author', 'Unknown')}\n"
+                            f"**Followers:** {followers} | **Views:** {views}\n"
+                            f"**Rating:** ⭐ {rating} | **Chapters:** {chapters}\n"
+                            f"**Status:** {status}\n"
+                            f"[Read on Royal Road]({book['url']})"
+                        )
                         
                         embed.add_field(
                             name=book['title'],
-                            value=(
-                                f"**Author:** {book.get('author', 'Unknown')}\n"
-                                f"**Followers:** {followers} | **Views:** {views}\n"
-                                f"**Rating:** ⭐ {rating}\n"
-                                f"**Status:** {rs_info}\n"
-                                f"[Read on Royal Road]({book['url']})"
-                            ),
+                            value=field_value,
                             inline=False
                         )
                         
@@ -675,7 +676,7 @@ class BookClaimModule:
                     
                     # Add summary statistics
                     embed.set_footer(
-                        text=f"Total: {self.format_number(total_followers)} followers | {self.format_number(total_views)} views | Discord ID: {target_user.id}"
+                        text=f"Total: {self.format_number(total_followers)} followers | {self.format_number(total_views)} views"
                     )
                     
                     # Set thumbnail to user's avatar
