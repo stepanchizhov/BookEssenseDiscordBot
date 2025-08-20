@@ -15,7 +15,7 @@ import sys
 from urllib.parse import urlparse, parse_qs
 
 from shoutout_module import ShoutoutModule
-
+from book_claim_module import BookClaimModule
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -895,7 +895,7 @@ async def get_session():
 
 @bot.event
 async def on_ready():
-    global session, shoutout_module
+    global session, shoutout_module, book_claim_module
     session = await get_session()
     logger.info(f'[READY] {bot.user} has connected to Discord!')
     logger.info(f'[READY] Bot is in {len(bot.guilds)} guilds')
@@ -905,10 +905,13 @@ async def on_ready():
         logger.info(f'[READY] - Guild: {guild.name} (ID: {guild.id})')
         
     try:
-        # Initialize shoutout module WITHOUT get_user_info_for_shoutout function
-        # The module will handle user tier checks directly via the API
+        # Initialize shoutout module
         shoutout_module = ShoutoutModule(bot, session, WP_API_URL, WP_BOT_TOKEN, tag_autocomplete)
         logger.info("Shoutout module initialized successfully")
+        
+        # Initialize book claim module
+        book_claim_module = BookClaimModule(bot, session, WP_API_URL, WP_BOT_TOKEN)
+        logger.info("Book claim module initialized successfully")
         
         # Sync commands to Discord
         synced = await bot.tree.sync()
@@ -916,7 +919,7 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Error during bot startup: {e}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Traceback: {traceback.format_exc()}")   
     
     # Test WordPress connection immediately
     logger.info(f"[TEST] Testing WordPress connection...")
@@ -4311,3 +4314,4 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
