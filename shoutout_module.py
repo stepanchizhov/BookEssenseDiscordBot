@@ -967,7 +967,7 @@ class ShoutoutModule:
         else:
             embed.add_field(
                 name="How to Apply",
-                value="Click the **Apply** button below to submit your application!\nThe button expires after some time. If that happened, please use the /shoutout-apply [Campaign ID] command to apply to the needed campaign",
+                value="Click the **Apply** button below to submit your application!\nThe button expires after some time.\nIf that happened, please use the /shoutout-apply [Campaign ID] command to apply to the needed campaign",
                 inline=False
             )
 
@@ -1554,7 +1554,7 @@ class MyCampaignsView(discord.ui.View):
         
         embed.add_field(
             name="How to Apply",
-            value="Click the **Apply** button below to submit your application!",
+            value="Click the **Apply** button below to submit your application!\nThe button expires after some time.\nIf that happened, please use the /shoutout-apply [Campaign ID] command to apply to the needed campaign",
             inline=False
         )
         
