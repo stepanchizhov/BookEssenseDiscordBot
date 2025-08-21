@@ -1,24 +1,4 @@
-async def list_moderators(self, interaction: discord.Interaction):
-        """List all moderators for this server"""
-        await interaction.response.defer(ephemeral=True)
-        
-        if not interaction.guild:
-            await interaction.followup.send(
-                "❌ This command can only be used in a server.",
-                ephemeral=True
-            )
-            return
-        
-        try:
-            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/list-moderators"
-            params = {
-                'bot_token': self.wp_bot_token,
-                'server_id': str(interaction.guild.id)
-            }
-            
-            headers = {
-                'Authorization': f'Bearer {self.wp_bot_token}',
-                'User-Agent': 'Essence-Discord-Bot/1.0'"""
+"""
 Discord Bot Book Claim System Module
 Modular extension for the Discord Essence Bot
 Handles book claiming, approval workflow, and user book management
@@ -1306,7 +1286,7 @@ class BookClaimModule:
     
     async def list_moderators(self, interaction: discord.Interaction):
         """List all moderators for this server"""
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         
         if not interaction.guild:
             await interaction.followup.send(
@@ -1343,16 +1323,7 @@ class BookClaimModule:
                         for mod in moderators:
                             user_mention = f"<@{mod['discord_user_id']}>"
                             role = mod.get('role', 'moderator')
-                            
-                            # Special display for bot owner
-                            if mod['discord_user_id'] == '422444787002507266':
-                                role_display = 'Book Essence bot owner'
-                            elif role == 'supermod':
-                                role_display = 'supermod'
-                            else:
-                                role_display = 'moderator'
-                            
-                            mod_list.append(f"{user_mention} ({role_display})")
+                            mod_list.append(f"{user_mention} ({role})")
                         
                         embed.add_field(
                             name=f"Active Moderators ({len(moderators)})",
@@ -1370,7 +1341,7 @@ class BookClaimModule:
                         inline=True
                     )
                     
-                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    await interaction.followup.send(embed=embed)
                 else:
                     await interaction.followup.send(
                         "❌ Failed to retrieve moderator list.",
