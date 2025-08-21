@@ -1337,12 +1337,64 @@ class BookClaimModule:
                             value="\n".join(permissions),
                             inline=False
                         )
+                        
+                        # Send DM to the new moderator
+                        try:
+                            dm_embed = discord.Embed(
+                                title=f"🎉 You've been added as a {role_display}!",
+                                description=f"You are now a {role_display} for **{interaction.guild.name}**",
+                                color=discord.Color.green()
+                            )
+                            dm_embed.add_field(
+                                name="Added by",
+                                value=f"{interaction.user.mention} ({interaction.user.name})",
+                                inline=False
+                            )
+                            dm_embed.add_field(
+                                name="Your Permissions",
+                                value="\n".join(permissions),
+                                inline=False
+                            )
+                            dm_embed.add_field(
+                                name="Getting Started",
+                                value=(
+                                    "• Use `/rr-claim-approve action:View Pending` to see pending claims\n"
+                                    "• Use `/rr-claim-approve action:Approve/Decline claim_ids:NUMBER` to process claims\n"
+                                    "• Use `/rr-claim-set-channel` to configure notifications\n"
+                                    "Please be responsible about your new abilities. Check accounts before verifying the books. If needed, request screenshots of the author interface for confirmation."
+                                ),
+                                inline=False
+                            )
+                            await user.send(embed=dm_embed)
+                        except Exception as e:
+                            logger.info(f"[BOOK_CLAIM_MODULE] Could not DM user {user.name}: {e}")
                     else:
                         embed = discord.Embed(
                             title="✅ Moderator Removed",
                             description=f"{user.mention} is no longer a moderator for {interaction.guild.name}",
                             color=discord.Color.orange()
                         )
+                        
+                        # Send DM to the removed moderator
+                        try:
+                            dm_embed = discord.Embed(
+                                title="Moderator Status Removed",
+                                description=f"Your moderator status for **{interaction.guild.name}** has been removed.",
+                                color=discord.Color.orange()
+                            )
+                            dm_embed.add_field(
+                                name="Removed by",
+                                value=f"{interaction.user.mention} ({interaction.user.name})",
+                                inline=False
+                            )
+                            dm_embed.add_field(
+                                name="Note",
+                                value="You no longer have access to claim management commands for this server.",
+                                inline=False
+                            )
+                            await user.send(embed=dm_embed)
+                        except Exception as e:
+                            logger.info(f"[BOOK_CLAIM_MODULE] Could not DM user {user.name}: {e}")
                     
                     await interaction.followup.send(embed=embed, ephemeral=False)
                 else:
