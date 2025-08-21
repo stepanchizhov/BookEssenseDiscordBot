@@ -685,7 +685,8 @@ class BookClaimModule:
                             embed.add_field(name="Processed by", value=f"@{interaction.user.name}", inline=True)
                             
                             # Send PUBLIC message for each processed claim
-                            await interaction.channel.send(embed=embed)
+                            # Use followup.send with ephemeral=False for public visibility
+                            await interaction.followup.send(embed=embed, ephemeral=False)
                             
                             success_count += 1
                             
@@ -721,7 +722,7 @@ class BookClaimModule:
                         description="\n".join(failed_claims),
                         color=discord.Color.orange()
                     )
-                    await interaction.channel.send(embed=error_embed)
+                    await interaction.followup.send(embed=error_embed, ephemeral=False)
                         
         except Exception as e:
             logger.error(f"[BOOK_CLAIM_MODULE] Error managing claims: {e}")
