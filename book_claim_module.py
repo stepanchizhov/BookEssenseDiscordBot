@@ -166,25 +166,31 @@ class BookClaimModule:
         ):
             await self.verify_server(interaction, action)
         
-        # Add moderator command - bot admin only
+        # Add moderator command - bot admin or supermod
         @self.bot.tree.command(
             name="rr-claim-add-moderator",
-            description="Add or remove claim moderators for this server (Bot Admin only)"
+            description="Add or remove claim moderators for this server (Admin/Supermod only)"
         )
         @discord.app_commands.describe(
             user="User to add/remove as moderator",
-            action="Add or remove moderator status"
+            action="Add or remove moderator status",
+            role="Role level to assign (Supermod only for supermod role)"
         )
         @discord.app_commands.choices(action=[
             discord.app_commands.Choice(name="Add as moderator", value="add"),
             discord.app_commands.Choice(name="Remove moderator", value="remove")
         ])
+        @discord.app_commands.choices(role=[
+            discord.app_commands.Choice(name="Moderator", value="moderator"),
+            discord.app_commands.Choice(name="Supermod", value="supermod")
+        ])
         async def rr_claim_add_moderator(
             interaction: discord.Interaction,
             user: discord.User,
-            action: str
+            action: str,
+            role: str = "moderator"
         ):
-            await self.manage_moderator(interaction, user, action)
+            await self.manage_moderator(interaction, user, action, role)
         
         # List moderators command - public
         @self.bot.tree.command(
@@ -1180,14 +1186,25 @@ class BookClaimModule:
                 ephemeral=True
             )
     
-    async def manage_moderator(self, interaction: discord.Interaction, user: discord.User, action: str):
-        """Add or remove moderators for this server (Bot admin only)"""
+    async def manage_moderator(self, interaction: discord.Interaction, user: discord.User, action: str, role: str = "moderator"):
+        """Add or remove moderators for this server (Bot admin or supermod)"""
         await interaction.response.defer(ephemeral=True)
         
-        # Check if user is bot administrator
-        if not await self.is_bot_admin(interaction.user):
+        # Check if user is bot administrator or supermod
+        is_admin = await self.is_bot_admin(interaction.user)
+        is_supermod = await self.is_server_supermod(interaction.user, interaction.guild.id if interaction.guild else None)
+        
+        if not is_admin and not is_supermod:
             await interaction.followup.send(
-                "❌ Only bot administrators can manage moderators.",
+                "❌ Only bot administrators or server supermods can manage moderators.",
+                ephemeral=True
+            )
+            return
+        
+        # Only bot admins can assign supermod role
+        if role == "supermod" and not is_admin:
+            await interaction.followup.send(
+                "❌ Only bot administrators can assign supermod role.",
                 ephemeral=True
             )
             return
@@ -1208,6 +1225,7 @@ class BookClaimModule:
                 'moderator_discord_id': str(user.id),
                 'moderator_discord_username': user.name,
                 'action': action,
+                'role': role,
                 'added_by_discord_id': str(interaction.user.id),
                 'added_by_discord_username': interaction.user.name
             }
@@ -1223,24 +1241,32 @@ class BookClaimModule:
                 
                 if response.status == 200 and result.get('success'):
                     if action == "add":
+                        role_display = "supermod" if role == "supermod" else "moderator"
                         embed = discord.Embed(
-                            title="✅ Moderator Added",
-                            description=f"{user.mention} is now a claim moderator for {interaction.guild.name}",
+                            title=f"✅ {role_display.capitalize()} Added",
+                            description=f"{user.mention} is now a {role_display} for {interaction.guild.name}",
                             color=discord.Color.green()
                         )
+                        
+                        permissions = [
+                            "• Can view pending claims",
+                            "• Can approve/decline claims",
+                            "• Can set notification channels"
+                        ]
+                        
+                        if role == "supermod":
+                            permissions.append("• Can add/remove moderators")
+                            permissions.append("• Can manage server settings")
+                        
                         embed.add_field(
                             name="Permissions",
-                            value=(
-                                "• Can view pending claims\n"
-                                "• Can approve/decline claims\n"
-                                "• Can set notification channels"
-                            ),
+                            value="\n".join(permissions),
                             inline=False
                         )
                     else:
                         embed = discord.Embed(
                             title="✅ Moderator Removed",
-                            description=f"{user.mention} is no longer a claim moderator for {interaction.guild.name}",
+                            description=f"{user.mention} is no longer a moderator for {interaction.guild.name}",
                             color=discord.Color.orange()
                         )
                     
@@ -1488,6 +1514,34 @@ class BookClaimModule:
                     
         except Exception as e:
             logger.error(f"[BOOK_CLAIM_MODULE] Failed to send notification: {e}")
+    
+    async def is_server_supermod(self, user: discord.User, server_id: int) -> bool:
+        """Check if user is a supermod for the specified server"""
+        if not server_id:
+            return False
+            
+        try:
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/check-supermod"
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(user.id),
+                'server_id': str(server_id)
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            async with self.session.get(url, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result.get('is_supermod', False)
+                    
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error checking supermod status: {e}")
+        
+        return False
     
     async def is_bot_admin(self, user: discord.User) -> bool:
         """Check if user is a bot administrator"""
