@@ -570,13 +570,12 @@ class BookClaimModule:
                         )
                         
                         for claim in claims[:10]:  # Show first 10
-                            # Create Discord user mention and profile link (UPDATED: Show handle)
-                            user_display = f"@{claim['discord_username']}"
-                            user_link = f"[{user_display}](<https://discord.com/users/{claim['discord_user_id']}>)"
+                            # Create Discord user mention
+                            user_mention = f"<@{claim['discord_user_id']}>"
                             
-                            # Format the field with clickable username
+                            # Format the field with Discord mention
                             field_value = (
-                                f"**Claimant:** {user_link}\n"  # Changed from User to Claimant
+                                f"**Claimant:** {user_mention}\n"
                                 f"**Book:** [View on RR]({claim['book_url']})\n"
                                 f"**Server:** {claim.get('server_name', 'Unknown')}\n"
                                 f"**Submitted:** {claim['created_at']}"
