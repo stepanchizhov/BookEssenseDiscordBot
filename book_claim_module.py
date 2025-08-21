@@ -1523,20 +1523,18 @@ class BookClaimModule:
                             title="✅ Book Claim Approved",
                             color=discord.Color.green()
                         )
-                        embed.add_field(name="Book", value=book_title, inline=True)
+                        embed.add_field(
+                            name="Book", 
+                            value=f"[{book_title}](https://www.royalroad.com/fiction/{book_id})",
+                            inline=True
+                        )
                         
                         if user:
                             embed.add_field(
                                 name="Author",
-                                value=f"{user.mention} now owns this book!",
+                                value=f"This book is now assigned to {user.mention}!",
                                 inline=False
                             )
-                        
-                        embed.add_field(
-                            name="Book Link",
-                            value=f"[View on Royal Road](https://www.royalroad.com/fiction/{book_id})",
-                            inline=False
-                        )
                         
                         # Add promotional field (force show for approved claims)
                         promo_field = self.get_promotional_field(force_show=True)
