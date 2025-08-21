@@ -722,6 +722,13 @@ class BookClaimModule:
                         color=discord.Color.orange()
                     )
                     await interaction.channel.send(embed=error_embed)
+                        
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error managing claims: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while processing the claim.",
+                ephemeral=True
+            )
     
     async def show_user_books(self, interaction: discord.Interaction, user: Optional[discord.User]):
         """Display user's claimed books and statistics"""
