@@ -38,6 +38,9 @@ class BookClaimModule:
         self.wp_api_url = wp_api_url
         self.wp_bot_token = wp_bot_token
         
+        # Initialize command counter for promotional messages
+        self.command_counter = 0
+        
         logger.info(f"[BOOK_CLAIM_MODULE] Initializing module...")
         logger.info(f"[BOOK_CLAIM_MODULE] bot: {bot}")
         logger.info(f"[BOOK_CLAIM_MODULE] wp_api_url: {wp_api_url}")
@@ -722,7 +725,14 @@ class BookClaimModule:
                         # Format statistics
                         followers = self.format_number(book.get('followers', 0))
                         views = self.format_number(book.get('total_views', 0))
-                        rating = book.get('rating', 'N/A')
+                        
+                        # Handle rating - check both 'rating' and 'overall_score' fields
+                        rating = book.get('rating') or book.get('overall_score')
+                        if rating and rating > 0:
+                            rating_display = f"{rating:.2f}" if isinstance(rating, (int, float)) else str(rating)
+                        else:
+                            rating_display = "N/A"
+                        
                         chapters = book.get('chapters', 0)
                         status = book.get('status', 'Unknown')
                         
@@ -730,7 +740,7 @@ class BookClaimModule:
                         field_value = (
                             f"**Author:** {book.get('author', 'Unknown')}\n"
                             f"**Followers:** {followers} | **Views:** {views}\n"
-                            f"**Rating:** ⭐ {rating} | **Chapters:** {chapters}\n"
+                            f"**Rating:** ⭐ {rating_display} | **Chapters:** {chapters}\n"
                             f"**Status:** {status}\n"
                             f"[Read on Royal Road]({book['url']})"
                         )
@@ -1319,12 +1329,68 @@ class BookClaimModule:
                 ephemeral=True
             )
     
+    def get_promotional_field(self, force_show=False):
+        """
+        Get promotional field for embeds based on command counter
+        
+        Args:
+            force_show (bool): Force showing a promotional message regardless of counter
+        
+        Returns:
+            dict: Field data with name and value, or None if no promo should be shown
+        """
+        # Only show promotional messages every 2 commands (or if forced)
+        if not force_show and self.command_counter % 2 != 0:
+            return None
+        
+        # Define all promotional messages
+        promo_messages = [
+            {
+                "text": "📖 You can also read Stepan Chizhov's",
+                "url": "https://www.royalroad.com/fiction/105229/",
+                "link_text": "The Dark Lady's Guide to Villainy!"
+            },
+            {
+                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+                "url": "https://www.patreon.com/stepanchizhov",
+                "link_text": "Support his work on Patreon!"
+            },
+            {
+                "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
+                "url": "https://stepan.chizhov.com",
+                "link_text": "Visit stepan.chizhov.com"
+            },
+            {
+                "text": "💬 Need help or have suggestions?",
+                "url": "https://discord.gg/xvw9vbvrwj",
+                "link_text": "Join our Support Discord"
+            },
+            {
+                "text": "📚 Join discussions about Royal Road and analytics!",
+                "url": "https://discord.gg/7Xrrf3Q5zp",
+                "link_text": "Immersive Ink Community Discord"
+            }
+        ]
+        
+        # Rotate through promotional messages based on how many promos have been shown
+        promo_index = (self.command_counter // 2 - 1) % len(promo_messages)
+        promo = promo_messages[promo_index]
+        
+        return {
+            "name": "━━━━━━━━━━━━━━━━━━━━━",
+            "value": f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})",
+            "inline": False
+        }
+    
     async def send_claim_notification(self, guild: discord.Guild, claim_id: int,
                                      book_title: str, book_id: int, user: Optional[discord.User],
                                      notification_type: str, user_discord_id: Optional[str] = None):
         """Send public notification to configured channel"""
         if not guild:
             return
+        
+        # Increment command counter for promotional messages
+        self.command_counter += 1
         
         try:
             # Get configured notification channel
@@ -1375,6 +1441,12 @@ class BookClaimModule:
                             value="Moderators: Use `/rr-claim-approve action:View Pending` to review",
                             inline=False
                         )
+                        
+                        # Add promotional field
+                        promo_field = self.get_promotional_field()
+                        if promo_field:
+                            embed.add_field(**promo_field)
+                        
                         embed.set_footer(text=f"Submitted at {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
                         
                     elif notification_type == "approved":
@@ -1403,6 +1475,12 @@ class BookClaimModule:
                             value=f"[View on Royal Road](https://www.royalroad.com/fiction/{book_id})",
                             inline=False
                         )
+                        
+                        # Add promotional field (force show for approved claims)
+                        promo_field = self.get_promotional_field(force_show=True)
+                        if promo_field:
+                            embed.add_field(**promo_field)
+                        
                         embed.set_footer(text="Congratulations to the author! 🎉")
                     
                     await channel.send(embed=embed)
