@@ -544,12 +544,13 @@ class BookClaimModule:
                         )
                         
                         for claim in claims[:10]:  # Show first 10
-                            # Create Discord user profile link
-                            user_link = f"[{claim['discord_username']}](<https://discord.com/users/{claim['discord_user_id']}>)"
+                            # Create Discord user mention and profile link (UPDATED: Show handle)
+                            user_display = f"@{claim['discord_username']}"
+                            user_link = f"[{user_display}](<https://discord.com/users/{claim['discord_user_id']}>)"
                             
                             # Format the field with clickable username
                             field_value = (
-                                f"**User:** {user_link}\n"
+                                f"**Claimant:** {user_link}\n"  # Changed from User to Claimant
                                 f"**Book:** [View on RR]({claim['book_url']})\n"
                                 f"**Server:** {claim.get('server_name', 'Unknown')}\n"
                                 f"**Submitted:** {claim['created_at']}"
@@ -607,8 +608,9 @@ class BookClaimModule:
                         status_emoji = "✅" if action == "approve" else "❌"
                         status_text = "approved" if action == "approve" else "declined"
                         
-                        # Create user profile link for the claimant
-                        claimant_link = f"[{result.get('claimant_username', 'Unknown')}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
+                        # Create user mention for the claimant (UPDATED: Show handle)
+                        claimant_display = f"@{result.get('claimant_username', 'Unknown')}"
+                        claimant_link = f"[{claimant_display}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
                         
                         embed = discord.Embed(
                             title=f"{status_emoji} Claim {status_text.capitalize()}",
@@ -616,10 +618,11 @@ class BookClaimModule:
                             color=discord.Color.green() if action == "approve" else discord.Color.red()
                         )
                         embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
-                        embed.add_field(name="Claimant", value=claimant_link, inline=True)
-                        embed.add_field(name="Processed by", value=interaction.user.mention, inline=True)
+                        embed.add_field(name="Claimant", value=claimant_link, inline=True)  # Changed label to Claimant
+                        embed.add_field(name="Processed by", value=f"@{interaction.user.name}", inline=True)  # Show handle
                         
-                        await interaction.followup.send(embed=embed, ephemeral=True)
+                        # UPDATED: Make approval/decline public (not ephemeral)
+                        await interaction.followup.send(embed=embed, ephemeral=False)
                         
                         # Send public notification if claim was approved
                         if action == "approve":
@@ -1323,7 +1326,14 @@ class BookClaimModule:
                         for mod in moderators:
                             user_mention = f"<@{mod['discord_user_id']}>"
                             role = mod.get('role', 'moderator')
-                            mod_list.append(f"{user_mention} ({role})")
+                            
+                            # UPDATED: Show special label for bot owner
+                            if mod['discord_user_id'] == "422444787002507266":  # Your Discord ID
+                                role_display = "Book Essence bot owner"
+                            else:
+                                role_display = role
+                            
+                            mod_list.append(f"{user_mention} ({role_display})")
                         
                         embed.add_field(
                             name=f"Active Moderators ({len(moderators)})",
