@@ -670,9 +670,9 @@ class BookClaimModule:
                             status_emoji = "✅" if action == "approve" else "❌"
                             status_text = "approved" if action == "approve" else "declined"
                             
-                            # Create user mention for the claimant
-                            claimant_display = f"@{result.get('claimant_username', 'Unknown')}"
-                            claimant_link = f"[{claimant_display}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
+                            # Create Discord mentions for the claimant and processor
+                            claimant_mention = f"<@{result.get('claimant_discord_id')}>"
+                            processor_mention = f"<@{interaction.user.id}>"
                             
                             embed = discord.Embed(
                                 title=f"{status_emoji} Claim {status_text.capitalize()}",
@@ -680,8 +680,8 @@ class BookClaimModule:
                                 color=discord.Color.green() if action == "approve" else discord.Color.red()
                             )
                             embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
-                            embed.add_field(name="Claimant", value=claimant_link, inline=True)
-                            embed.add_field(name="Processed by", value=f"@{interaction.user.name}", inline=True)
+                            embed.add_field(name="Claimant", value=claimant_mention, inline=True)
+                            embed.add_field(name="Processed by", value=processor_mention, inline=True)
                             
                             # Send PUBLIC message for each processed claim
                             # Use followup.send with ephemeral=False for public visibility
