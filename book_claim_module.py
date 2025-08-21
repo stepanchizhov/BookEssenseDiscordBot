@@ -511,12 +511,19 @@ class BookClaimModule:
         
         try:
             if action == "view":
+                # Check if user is bot admin
+                is_bot_owner = await self.is_bot_admin(interaction.user)
+                
                 # Get pending claims
                 url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/pending"
                 params = {
                     'bot_token': self.wp_bot_token,
                     'discord_user_id': str(interaction.user.id)
                 }
+                
+                # Add server filter for non-admins
+                if not is_bot_owner and interaction.guild:
+                    params['server_id'] = str(interaction.guild.id)
                 
                 headers = {
                     'Authorization': f'Bearer {self.wp_bot_token}',
@@ -527,18 +534,37 @@ class BookClaimModule:
                     result = await response.json()
                     
                     if response.status == 200 and result.get('success'):
-                        claims = result.get('claims', [])
+                        all_claims = result.get('claims', [])
+                        
+                        # Filter claims by server for non-admins
+                        if not is_bot_owner and interaction.guild:
+                            claims = [
+                                claim for claim in all_claims 
+                                if claim.get('server_id') == str(interaction.guild.id)
+                            ]
+                        else:
+                            claims = all_claims
                         
                         if not claims:
-                            await interaction.followup.send(
-                                "✅ No pending claims to review.",
-                                ephemeral=True
-                            )
+                            if not is_bot_owner and interaction.guild:
+                                await interaction.followup.send(
+                                    "✅ No pending claims to review in this server.",
+                                    ephemeral=True
+                                )
+                            else:
+                                await interaction.followup.send(
+                                    "✅ No pending claims to review.",
+                                    ephemeral=True
+                                )
                             return
                         
                         # Create paginated embed for pending claims
+                        title = "📋 Pending Book Claims"
+                        if not is_bot_owner and interaction.guild:
+                            title = f"📋 Pending Book Claims for {interaction.guild.name}"
+                        
                         embed = discord.Embed(
-                            title="📋 Pending Book Claims",
+                            title=title,
                             description=f"Found {len(claims)} pending claim(s)",
                             color=discord.Color.blue()
                         )
