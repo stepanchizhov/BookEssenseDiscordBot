@@ -114,7 +114,7 @@ class BookClaimModule:
         )
         @discord.app_commands.describe(
             action="Action to take on the claim",
-            claim_id="Claim request ID (leave empty to see pending claims)"
+            claim_ids="Claim request ID(s) - single ID or comma-separated list (leave empty to see pending claims)"
         )
         @discord.app_commands.choices(action=[
             discord.app_commands.Choice(name="View Pending", value="view"),
@@ -124,9 +124,9 @@ class BookClaimModule:
         async def rr_claim_approve(
             interaction: discord.Interaction,
             action: str,
-            claim_id: Optional[int] = None
+            claim_ids: Optional[str] = None
         ):
-            await self.manage_claims(interaction, action, claim_id)
+            await self.manage_claims(interaction, action, claim_ids)
         
         # Set notification channel command - admin/mod only
         @self.bot.tree.command(
@@ -495,7 +495,7 @@ class BookClaimModule:
         
         await interaction.followup.send(embed=embed, ephemeral=True)
     
-    async def manage_claims(self, interaction: discord.Interaction, action: str, claim_id: Optional[int]):
+    async def manage_claims(self, interaction: discord.Interaction, action: str, claim_ids: Optional[str]):
         """Handle claim approval/rejection (admin/mod only)"""
         await interaction.response.defer(ephemeral=True)
         
@@ -591,7 +591,7 @@ class BookClaimModule:
                         if len(claims) > 10:
                             embed.set_footer(text=f"Showing 10 of {len(claims)} claims | Use claim IDs to process")
                         else:
-                            embed.set_footer(text="Use `/rr-claim-approve action:Approve/Decline claim_id:NUMBER` to process")
+                            embed.set_footer(text="Use `/rr-claim-approve action:Approve/Decline claim_ids:NUMBER` or comma-separated list to process")
                         
                         await interaction.followup.send(embed=embed, ephemeral=True)
                     else:
@@ -601,89 +601,127 @@ class BookClaimModule:
                         )
                         
             elif action in ["approve", "decline"]:
-                if not claim_id:
+                if not claim_ids:
                     await interaction.followup.send(
-                        f"❌ Please provide a claim ID to {action}.\n"
-                        f"Example: `/rr-claim-approve action:{action.capitalize()} claim_id:123`",
+                        f"❌ Please provide claim ID(s) to {action}.\n"
+                        f"Example: `/rr-claim-approve action:{action.capitalize()} claim_ids:123` or `claim_ids:123,456,789`",
                         ephemeral=True
                     )
                     return
                 
-                # Process claim approval/rejection
-                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/process"
-                data = {
-                    'bot_token': self.wp_bot_token,
-                    'claim_id': claim_id,
-                    'action': action,
-                    'processor_discord_id': str(interaction.user.id),
-                    'processor_discord_username': interaction.user.name,
-                    'processor_server_id': str(interaction.guild.id) if interaction.guild else None,
-                    'processor_server_name': interaction.guild.name if interaction.guild else "DM"
-                }
+                # Parse multiple claim IDs
+                import re
+                claim_id_list = []
                 
-                headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {self.wp_bot_token}',
-                    'User-Agent': 'Essence-Discord-Bot/1.0'
-                }
+                # Split by comma, space, or semicolon
+                potential_ids = re.split(r'[,\s;]+', claim_ids.strip())
+                for id_str in potential_ids:
+                    id_str = id_str.strip()
+                    if id_str.isdigit():
+                        claim_id_list.append(int(id_str))
                 
-                async with self.session.post(url, json=data, headers=headers) as response:
-                    result = await response.json()
+                if not claim_id_list:
+                    await interaction.followup.send(
+                        f"❌ No valid claim IDs found. Please provide numeric IDs.\n"
+                        f"Example: `123` or `123,456,789`",
+                        ephemeral=True
+                    )
+                    return
+                
+                # Process each claim
+                success_count = 0
+                failed_claims = []
+                
+                # Send initial acknowledgment for multiple claims
+                if len(claim_id_list) > 1:
+                    await interaction.followup.send(
+                        f"Processing {len(claim_id_list)} claim(s)...",
+                        ephemeral=True
+                    )
+                else:
+                    # For single claim, just acknowledge silently
+                    await interaction.followup.send(
+                        f"Processing claim #{claim_id_list[0]}...",
+                        ephemeral=True
+                    )
+                
+                for claim_id in claim_id_list:
+                    # Process claim approval/rejection
+                    url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/process"
+                    data = {
+                        'bot_token': self.wp_bot_token,
+                        'claim_id': claim_id,
+                        'action': action,
+                        'processor_discord_id': str(interaction.user.id),
+                        'processor_discord_username': interaction.user.name,
+                        'processor_server_id': str(interaction.guild.id) if interaction.guild else None,
+                        'processor_server_name': interaction.guild.name if interaction.guild else "DM"
+                    }
                     
-                    if response.status == 200 and result.get('success'):
-                        status_emoji = "✅" if action == "approve" else "❌"
-                        status_text = "approved" if action == "approve" else "declined"
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {self.wp_bot_token}',
+                        'User-Agent': 'Essence-Discord-Bot/1.0'
+                    }
+                    
+                    async with self.session.post(url, json=data, headers=headers) as response:
+                        result = await response.json()
                         
-                        # Create user mention for the claimant (UPDATED: Show handle)
-                        claimant_display = f"@{result.get('claimant_username', 'Unknown')}"
-                        claimant_link = f"[{claimant_display}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
-                        
-                        embed = discord.Embed(
-                            title=f"{status_emoji} Claim {status_text.capitalize()}",
-                            description=f"Claim #{claim_id} has been {status_text}.",
-                            color=discord.Color.green() if action == "approve" else discord.Color.red()
-                        )
-                        embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
-                        embed.add_field(name="Claimant", value=claimant_link, inline=True)  # Changed label to Claimant
-                        embed.add_field(name="Processed by", value=f"@{interaction.user.name}", inline=True)  # Show handle
-                        
-                        # UPDATED: Make approval/decline public (not ephemeral)
-                        await interaction.followup.send(embed=embed, ephemeral=False)
-                        
-                        # Send public notification if claim was approved
-                        if action == "approve":
-                            # Try to get the guild where the claim was made
-                            claim_guild = None
-                            if result.get('claim_server_id'):
-                                claim_guild = self.bot.get_guild(int(result['claim_server_id']))
+                        if response.status == 200 and result.get('success'):
+                            status_emoji = "✅" if action == "approve" else "❌"
+                            status_text = "approved" if action == "approve" else "declined"
                             
-                            if claim_guild:
-                                await self.send_claim_notification(
-                                    claim_guild,
-                                    claim_id,
-                                    result.get('book_title'),
-                                    result.get('royal_road_book_id'),
-                                    None,  # We'll fetch the user by ID
-                                    "approved",
-                                    result.get('claimant_discord_id')
-                                )
-                        
-                        # Notify the claimant via DM
-                        await self.notify_claimant(result.get('claimant_discord_id'), claim_id, action, result.get('book_title'))
-                        
-                    else:
-                        error_msg = result.get('message', 'Unknown error')
-                        await interaction.followup.send(
-                            f"❌ Failed to {action} claim: {error_msg}",
-                            ephemeral=True
-                        )
-                        
-        except Exception as e:
-            logger.error(f"[BOOK_CLAIM_MODULE] Error managing claims: {e}")
-            await interaction.followup.send(
-                "❌ An error occurred while processing the claim.",
-                ephemeral=True
-            )
+                            # Create user mention for the claimant
+                            claimant_display = f"@{result.get('claimant_username', 'Unknown')}"
+                            claimant_link = f"[{claimant_display}](<https://discord.com/users/{result.get('claimant_discord_id')}>)"
+                            
+                            embed = discord.Embed(
+                                title=f"{status_emoji} Claim {status_text.capitalize()}",
+                                description=f"Claim #{claim_id} has been {status_text}.",
+                                color=discord.Color.green() if action == "approve" else discord.Color.red()
+                            )
+                            embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
+                            embed.add_field(name="Claimant", value=claimant_link, inline=True)
+                            embed.add_field(name="Processed by", value=f"@{interaction.user.name}", inline=True)
+                            
+                            # Send PUBLIC message for each processed claim
+                            await interaction.channel.send(embed=embed)
+                            
+                            success_count += 1
+                            
+                            # Send notification if claim was approved
+                            if action == "approve":
+                                # Try to get the guild where the claim was made
+                                claim_guild = None
+                                if result.get('claim_server_id'):
+                                    claim_guild = self.bot.get_guild(int(result['claim_server_id']))
+                                
+                                if claim_guild:
+                                    await self.send_claim_notification(
+                                        claim_guild,
+                                        claim_id,
+                                        result.get('book_title'),
+                                        result.get('royal_road_book_id'),
+                                        None,  # We'll fetch the user by ID
+                                        "approved",
+                                        result.get('claimant_discord_id')
+                                    )
+                            
+                            # Notify the claimant via DM
+                            await self.notify_claimant(result.get('claimant_discord_id'), claim_id, action, result.get('book_title'))
+                            
+                        else:
+                            error_msg = result.get('message', 'Unknown error')
+                            failed_claims.append(f"Claim #{claim_id}: {error_msg}")
+                
+                # Send summary if there were failures
+                if failed_claims and len(claim_id_list) > 1:
+                    error_embed = discord.Embed(
+                        title="⚠️ Some claims could not be processed",
+                        description="\n".join(failed_claims),
+                        color=discord.Color.orange()
+                    )
+                    await interaction.channel.send(embed=error_embed)
     
     async def show_user_books(self, interaction: discord.Interaction, user: Optional[discord.User]):
         """Display user's claimed books and statistics"""
