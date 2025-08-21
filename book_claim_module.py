@@ -144,6 +144,55 @@ class BookClaimModule:
         ):
             await self.set_notification_channel(interaction, action)
         
+        # Verify server command - bot admin only
+        @self.bot.tree.command(
+            name="rr-claim-verify-server",
+            description="Verify this server for book claim processing (Bot Admin only)"
+        )
+        @discord.app_commands.describe(
+            action="Action to take for this server"
+        )
+        @discord.app_commands.choices(action=[
+            discord.app_commands.Choice(name="Verify this server", value="verify"),
+            discord.app_commands.Choice(name="Unverify this server", value="unverify"),
+            discord.app_commands.Choice(name="Check verification status", value="check")
+        ])
+        async def rr_claim_verify_server(
+            interaction: discord.Interaction,
+            action: str
+        ):
+            await self.verify_server(interaction, action)
+        
+        # Add moderator command - bot admin only
+        @self.bot.tree.command(
+            name="rr-claim-add-moderator",
+            description="Add or remove claim moderators for this server (Bot Admin only)"
+        )
+        @discord.app_commands.describe(
+            user="User to add/remove as moderator",
+            action="Add or remove moderator status"
+        )
+        @discord.app_commands.choices(action=[
+            discord.app_commands.Choice(name="Add as moderator", value="add"),
+            discord.app_commands.Choice(name="Remove moderator", value="remove")
+        ])
+        async def rr_claim_add_moderator(
+            interaction: discord.Interaction,
+            user: discord.User,
+            action: str
+        ):
+            await self.manage_moderator(interaction, user, action)
+        
+        # List moderators command - public
+        @self.bot.tree.command(
+            name="rr-claim-list-moderators",
+            description="List all claim moderators for this server"
+        )
+        async def rr_claim_list_moderators(
+            interaction: discord.Interaction
+        ):
+            await self.list_moderators(interaction)
+        
         # My books command - public
         @self.bot.tree.command(
             name="rr-my-books",
@@ -260,6 +309,16 @@ class BookClaimModule:
                         await self.notify_admins_of_new_claim(interaction.guild, claim_id, book_title, interaction.user)
                     
                     await interaction.followup.send(embed=embed, ephemeral=True)
+                    
+                    # Send public notification to configured channel
+                    await self.send_claim_notification(
+                        interaction.guild, 
+                        claim_id, 
+                        book_title, 
+                        rr_book_id,
+                        interaction.user,
+                        "submitted"
+                    )
                     
                 elif result.get('error') == 'already_claimed':
                     await interaction.followup.send(
@@ -553,7 +612,25 @@ class BookClaimModule:
                         
                         await interaction.followup.send(embed=embed, ephemeral=True)
                         
-                        # Notify the claimant
+                        # Send public notification if claim was approved
+                        if action == "approve":
+                            # Try to get the guild where the claim was made
+                            claim_guild = None
+                            if result.get('claim_server_id'):
+                                claim_guild = self.bot.get_guild(int(result['claim_server_id']))
+                            
+                            if claim_guild:
+                                await self.send_claim_notification(
+                                    claim_guild,
+                                    claim_id,
+                                    result.get('book_title'),
+                                    result.get('royal_road_book_id'),
+                                    None,  # We'll fetch the user by ID
+                                    "approved",
+                                    result.get('claimant_discord_id')
+                                )
+                        
+                        # Notify the claimant via DM
                         await self.notify_claimant(result.get('claimant_discord_id'), claim_id, action, result.get('book_title'))
                         
                     else:
@@ -634,7 +711,7 @@ class BookClaimModule:
                     # Create rich embed with book statistics
                     embed = discord.Embed(
                         title=f"📚 {target_user.display_name}'s Royal Road Books",
-                        description=f"Managing {len(books)} book(s)",
+                        description=f"Has {len(books)} book(s)",
                         color=discord.Color.blue()
                     )
                     
@@ -969,6 +1046,395 @@ class BookClaimModule:
                 "❌ An error occurred while configuring the notification channel.",
                 ephemeral=True
             )
+    
+    async def verify_server(self, interaction: discord.Interaction, action: str):
+        """Verify or unverify a server for claim processing (Bot admin only)"""
+        await interaction.response.defer(ephemeral=True)
+        
+        # Check if user is bot administrator
+        if not await self.is_bot_admin(interaction.user):
+            await interaction.followup.send(
+                "❌ Only bot administrators can verify servers.",
+                ephemeral=True
+            )
+            return
+        
+        if not interaction.guild:
+            await interaction.followup.send(
+                "❌ This command can only be used in a server.",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            if action == "check":
+                # Check current verification status
+                verified = await self.check_server_verification(str(interaction.guild.id))
+                
+                embed = discord.Embed(
+                    title="🔍 Server Verification Status",
+                    color=discord.Color.green() if verified else discord.Color.orange()
+                )
+                embed.add_field(
+                    name="Status",
+                    value="✅ Verified" if verified else "❌ Not Verified",
+                    inline=False
+                )
+                embed.add_field(
+                    name="Server",
+                    value=f"{interaction.guild.name}\nID: {interaction.guild.id}",
+                    inline=False
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+            elif action == "verify":
+                # Verify the server
+                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/verify-server"
+                data = {
+                    'bot_token': self.wp_bot_token,
+                    'server_id': str(interaction.guild.id),
+                    'server_name': interaction.guild.name,
+                    'verified_by_discord_id': str(interaction.user.id),
+                    'verified_by_discord_username': interaction.user.name,
+                    'verify': True
+                }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                async with self.session.post(url, json=data, headers=headers) as response:
+                    result = await response.json()
+                    
+                    if response.status == 200 and result.get('success'):
+                        embed = discord.Embed(
+                            title="✅ Server Verified",
+                            description=f"{interaction.guild.name} is now verified for claim processing.",
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(
+                            name="What this means",
+                            value=(
+                                "• Moderators can process claims locally\n"
+                                "• Claims don't require external approval\n"
+                                "• Notifications work in configured channels"
+                            ),
+                            inline=False
+                        )
+                        
+                        await interaction.followup.send(embed=embed, ephemeral=False)
+                    else:
+                        await interaction.followup.send(
+                            f"❌ Failed to verify server: {result.get('message', 'Unknown error')}",
+                            ephemeral=True
+                        )
+                        
+            elif action == "unverify":
+                # Unverify the server
+                url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/verify-server"
+                data = {
+                    'bot_token': self.wp_bot_token,
+                    'server_id': str(interaction.guild.id),
+                    'verified_by_discord_id': str(interaction.user.id),
+                    'verified_by_discord_username': interaction.user.name,
+                    'verify': False
+                }
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.wp_bot_token}',
+                    'User-Agent': 'Essence-Discord-Bot/1.0'
+                }
+                
+                async with self.session.post(url, json=data, headers=headers) as response:
+                    result = await response.json()
+                    
+                    if response.status == 200 and result.get('success'):
+                        await interaction.followup.send(
+                            f"✅ Server {interaction.guild.name} has been unverified.",
+                            ephemeral=True
+                        )
+                    else:
+                        await interaction.followup.send(
+                            f"❌ Failed to unverify server: {result.get('message', 'Unknown error')}",
+                            ephemeral=True
+                        )
+                        
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error verifying server: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while processing server verification.",
+                ephemeral=True
+            )
+    
+    async def manage_moderator(self, interaction: discord.Interaction, user: discord.User, action: str):
+        """Add or remove moderators for this server (Bot admin only)"""
+        await interaction.response.defer(ephemeral=True)
+        
+        # Check if user is bot administrator
+        if not await self.is_bot_admin(interaction.user):
+            await interaction.followup.send(
+                "❌ Only bot administrators can manage moderators.",
+                ephemeral=True
+            )
+            return
+        
+        if not interaction.guild:
+            await interaction.followup.send(
+                "❌ This command can only be used in a server.",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/manage-moderator"
+            data = {
+                'bot_token': self.wp_bot_token,
+                'server_id': str(interaction.guild.id),
+                'server_name': interaction.guild.name,
+                'moderator_discord_id': str(user.id),
+                'moderator_discord_username': user.name,
+                'action': action,
+                'added_by_discord_id': str(interaction.user.id),
+                'added_by_discord_username': interaction.user.name
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            async with self.session.post(url, json=data, headers=headers) as response:
+                result = await response.json()
+                
+                if response.status == 200 and result.get('success'):
+                    if action == "add":
+                        embed = discord.Embed(
+                            title="✅ Moderator Added",
+                            description=f"{user.mention} is now a claim moderator for {interaction.guild.name}",
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(
+                            name="Permissions",
+                            value=(
+                                "• Can view pending claims\n"
+                                "• Can approve/decline claims\n"
+                                "• Can set notification channels"
+                            ),
+                            inline=False
+                        )
+                    else:
+                        embed = discord.Embed(
+                            title="✅ Moderator Removed",
+                            description=f"{user.mention} is no longer a claim moderator for {interaction.guild.name}",
+                            color=discord.Color.orange()
+                        )
+                    
+                    await interaction.followup.send(embed=embed, ephemeral=False)
+                else:
+                    await interaction.followup.send(
+                        f"❌ Failed to {action} moderator: {result.get('message', 'Unknown error')}",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error managing moderator: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while managing moderator.",
+                ephemeral=True
+            )
+    
+    async def list_moderators(self, interaction: discord.Interaction):
+        """List all moderators for this server"""
+        await interaction.response.defer()
+        
+        if not interaction.guild:
+            await interaction.followup.send(
+                "❌ This command can only be used in a server.",
+                ephemeral=True
+            )
+            return
+        
+        try:
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/list-moderators"
+            params = {
+                'bot_token': self.wp_bot_token,
+                'server_id': str(interaction.guild.id)
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            async with self.session.get(url, params=params, headers=headers) as response:
+                result = await response.json()
+                
+                if response.status == 200 and result.get('success'):
+                    moderators = result.get('moderators', [])
+                    
+                    embed = discord.Embed(
+                        title=f"👮 Claim Moderators for {interaction.guild.name}",
+                        color=discord.Color.blue()
+                    )
+                    
+                    if moderators:
+                        mod_list = []
+                        for mod in moderators:
+                            user_mention = f"<@{mod['discord_user_id']}>"
+                            role = mod.get('role', 'moderator')
+                            mod_list.append(f"{user_mention} ({role})")
+                        
+                        embed.add_field(
+                            name=f"Active Moderators ({len(moderators)})",
+                            value="\n".join(mod_list),
+                            inline=False
+                        )
+                    else:
+                        embed.description = "No moderators configured for this server."
+                    
+                    # Add server verification status
+                    is_verified = result.get('server_verified', False)
+                    embed.add_field(
+                        name="Server Status",
+                        value="✅ Verified" if is_verified else "❌ Not Verified",
+                        inline=True
+                    )
+                    
+                    await interaction.followup.send(embed=embed)
+                else:
+                    await interaction.followup.send(
+                        "❌ Failed to retrieve moderator list.",
+                        ephemeral=True
+                    )
+                    
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error listing moderators: {e}")
+            await interaction.followup.send(
+                "❌ An error occurred while fetching moderator list.",
+                ephemeral=True
+            )
+    
+    async def send_claim_notification(self, guild: discord.Guild, claim_id: int,
+                                     book_title: str, book_id: int, user: Optional[discord.User],
+                                     notification_type: str, user_discord_id: Optional[str] = None):
+        """Send public notification to configured channel"""
+        if not guild:
+            return
+        
+        try:
+            # Get configured notification channel
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/notification-channel"
+            params = {
+                'bot_token': self.wp_bot_token,
+                'server_id': str(guild.id)
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            async with self.session.get(url, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    channel_id = result.get('channel_id')
+                    
+                    if not channel_id:
+                        logger.info(f"[BOOK_CLAIM_MODULE] No notification channel configured for server {guild.id}")
+                        return
+                    
+                    channel = guild.get_channel(int(channel_id))
+                    if not channel:
+                        logger.error(f"[BOOK_CLAIM_MODULE] Channel {channel_id} not found in guild")
+                        return
+                    
+                    # Create notification embed based on type
+                    if notification_type == "submitted":
+                        embed = discord.Embed(
+                            title="📖 New Book Claim Submitted",
+                            color=discord.Color.blue()
+                        )
+                        embed.add_field(name="Claim ID", value=f"`#{claim_id}`", inline=True)
+                        embed.add_field(name="Book", value=book_title, inline=True)
+                        embed.add_field(name="Book ID", value=f"`{book_id}`", inline=True)
+                        
+                        if user:
+                            embed.add_field(
+                                name="Claimant",
+                                value=f"{user.mention} ({user.name})",
+                                inline=False
+                            )
+                        
+                        embed.add_field(
+                            name="Action Required",
+                            value="Moderators: Use `/rr-claim-approve action:View Pending` to review",
+                            inline=False
+                        )
+                        embed.set_footer(text=f"Submitted at {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
+                        
+                    elif notification_type == "approved":
+                        # Fetch user if we only have ID
+                        if user_discord_id and not user:
+                            try:
+                                user = await self.bot.fetch_user(int(user_discord_id))
+                            except:
+                                user = None
+                        
+                        embed = discord.Embed(
+                            title="✅ Book Claim Approved",
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(name="Book", value=book_title, inline=True)
+                        
+                        if user:
+                            embed.add_field(
+                                name="Author",
+                                value=f"{user.mention} now owns this book!",
+                                inline=False
+                            )
+                        
+                        embed.add_field(
+                            name="Book Link",
+                            value=f"[View on Royal Road](https://www.royalroad.com/fiction/{book_id})",
+                            inline=False
+                        )
+                        embed.set_footer(text="Congratulations to the author! 🎉")
+                    
+                    await channel.send(embed=embed)
+                    logger.info(f"[BOOK_CLAIM_MODULE] Sent {notification_type} notification to channel {channel_id}")
+                    
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Failed to send notification: {e}")
+    
+    async def is_bot_admin(self, user: discord.User) -> bool:
+        """Check if user is a bot administrator"""
+        try:
+            url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/check-bot-admin"
+            params = {
+                'bot_token': self.wp_bot_token,
+                'discord_user_id': str(user.id)
+            }
+            
+            headers = {
+                'Authorization': f'Bearer {self.wp_bot_token}',
+                'User-Agent': 'Essence-Discord-Bot/1.0'
+            }
+            
+            async with self.session.get(url, params=params, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result.get('is_admin', False)
+                    
+        except Exception as e:
+            logger.error(f"[BOOK_CLAIM_MODULE] Error checking bot admin status: {e}")
+        
+        # Fallback: Check against hardcoded admin ID (you)
+        return str(user.id) == "422444787002507266"  # Your Discord ID
     
     async def check_server_verification(self, server_id: Optional[str]) -> bool:
         """Check if server is verified for claim processing"""
