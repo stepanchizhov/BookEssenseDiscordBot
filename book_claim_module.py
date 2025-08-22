@@ -1835,9 +1835,6 @@ class BookClaimModule:
                         promo_field = self.get_promotional_field(force_show=True)
                         if promo_field:
                             embed.add_field(**promo_field)
-                            # Add the Patreon goal footer to ALL embeds that have promos
-                            footer_data = self.get_patreon_goal_footer()
-                            embed.set_footer(**footer_data)
                         
                         embed.set_footer(text="Congratulations to the author! 🎉")
                     
