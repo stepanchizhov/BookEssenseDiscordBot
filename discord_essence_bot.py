@@ -356,6 +356,23 @@ TAG_MAPPING = {
     # TECHNOLOGICALLY ENGINEERED
     'technologically_engineered': 'Technologically Engineered',
     'Technologically Engineered': 'Technologically Engineered',
+
+    # ADDITIONAL TAGS
+    # CRAFTING
+    'crafting': 'Crafting',
+    'Crafting': 'Crafting',
+    
+    # KINGDOM BUILDING
+    'kingdom_building': 'Kingdom Building',
+    'kingdom-building': 'Kingdom Building',
+    'Kingdom Building': 'Kingdom Building',
+    'kingdombuilding': 'Kingdom Building',
+    
+    # MONSTER TAMING
+    'monster_taming': 'Monster Taming',
+    'monster-taming': 'Monster Taming',
+    'Monster Taming': 'Monster Taming',
+    'monstertaming': 'Monster Taming',    
 }
 
 # Get unique display names for the choices
@@ -2514,7 +2531,11 @@ def convert_display_to_url_format(display_name):  # FIXED: Single colon
         'Virtual Reality': 'virtual_reality',
         'War and Military': 'war_and_military',
         'Technologically Engineered': 'technologically_engineered',
-        'Short Story': 'one_shot'
+        'Short Story': 'one_shot',
+# Additional tags
+        'Crafting': 'crafting',
+        'Kingdom Building': 'kingdom_building', 
+        'Monster Taming': 'monster_taming'
     }
     
     # Check special cases first
@@ -4515,6 +4536,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
