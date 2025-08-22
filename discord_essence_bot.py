@@ -12,6 +12,7 @@ import io
 import re
 import time
 import sys
+import random
 from urllib.parse import urlparse, parse_qs
 
 from shoutout_module import ShoutoutModule
@@ -4419,6 +4420,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
