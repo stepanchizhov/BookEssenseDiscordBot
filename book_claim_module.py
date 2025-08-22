@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import logging
 from enum import Enum
 import re
+import random
 
 # Set up logging for this module
 logger = logging.getLogger('discord')
@@ -1487,6 +1488,48 @@ class BookClaimModule:
                 "❌ An error occurred while fetching moderator list.",
                 ephemeral=True
             )
+
+    def get_patreon_goal_footer(self):
+        """
+        Get Patreon goal tracker footer for all promo embeds with random sassy messages
+        
+        Returns:
+            dict: Footer data with text and icon_url
+        """
+        current_amount = 69  # Update this manually
+        goal_amount = 400
+        percentage = (current_amount / goal_amount) * 100
+        
+        # Create a simple text progress bar
+        bar_length = 10
+        filled_length = int(bar_length * current_amount / goal_amount)
+        bar = '█' * filled_length + '░' * (bar_length - filled_length)
+        
+        # Random sassy messages
+        messages = [
+            f"💸 ${current_amount}/${goal_amount} [{bar}] {percentage:.0f}% • Help keep these tools alive past autumn!",
+            f"🎯 ${current_amount}/${goal_amount} [{bar}] • My hosting bills don't pay themselves, darling",
+            f"⚡ ${current_amount}/${goal_amount} [{bar}] • These servers run on money, not magic (sadly)",
+            f"🔥 ${current_amount}/${goal_amount} [{bar}] • Winter is coming... and so are the hosting bills",
+            f"☕ ${current_amount}/${goal_amount} [{bar}] • Less than a coffee a month keeps the bot alive",
+            f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in autumn",
+            f"💀 ${current_amount}/${goal_amount} [{bar}] • Save the bot from its impending doom this autumn",
+            f"🎮 ${current_amount}/${goal_amount} [{bar}] • Insert coin to continue (autumn deadline approaching)",
+            f"🌟 ${current_amount}/${goal_amount} [{bar}] • Be a hero, save a bot (and my sanity)",
+            f"⏰ ${current_amount}/${goal_amount} [{bar}] • Tick tock, autumn's coming for these servers",
+            f"🏴‍☠️ ${current_amount}/${goal_amount} [{bar}] • Even pirates need to pay for hosting",
+            f"🎭 ${current_amount}/${goal_amount} [{bar}] • This bot's survival: a autumn tragedy in the making?",
+            f"🍂 ${current_amount}/${goal_amount} [{bar}] • When autumn leaves fall, will this bot too?",
+            f"💔 ${current_amount}/${goal_amount} [{bar}] • Don't let our beautiful friendship end this autumn"
+        ]
+        
+        # Pick a random message and append the Patreon link
+        footer_text = f"{random.choice(messages)} → patreon.com/stepanchizhov"
+        
+        return {
+            "text": footer_text,
+            "icon_url": "https://c10.patreonusercontent.com/4/patreon-media/p/campaign/11811304/452ff3e5d93f4024bd088d1f946816a7/1.png?token-time=1735689600&token-hash=lhJLOkRMlPghgMYa2BL-2LBF-emdN_y4F6K1OxIbW5E%3D"  # Optional: Add a small Patreon logo
+        }
     
     def get_promotional_field(self, force_show=False):
         """
@@ -1605,6 +1648,9 @@ class BookClaimModule:
                         promo_field = self.get_promotional_field()
                         if promo_field:
                             embed.add_field(**promo_field)
+                            # Add the Patreon goal footer to ALL embeds that have promos
+                            footer_data = self.get_patreon_goal_footer()
+                            embed.set_footer(**footer_data)
                         
                         embed.set_footer(text=f"Submitted at {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
                         
@@ -1637,6 +1683,9 @@ class BookClaimModule:
                         promo_field = self.get_promotional_field(force_show=True)
                         if promo_field:
                             embed.add_field(**promo_field)
+                            # Add the Patreon goal footer to ALL embeds that have promos
+                            footer_data = self.get_patreon_goal_footer()
+                            embed.set_footer(**footer_data)
                         
                         embed.set_footer(text="Congratulations to the author! 🎉")
                     
