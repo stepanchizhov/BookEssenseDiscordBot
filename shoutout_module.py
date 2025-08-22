@@ -166,11 +166,11 @@ class ShoutoutModule:
                 "url": "https://www.royalroad.com/fiction/105229/",
                 "link_text": "The Dark Lady's Guide to Villainy!"
             },
-            {
-                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
-                "url": "https://www.patreon.com/stepanchizhov",
-                "link_text": "Support his work on Patreon!"
-            },
+#            {
+#                "text": "❤️ If you like this and other tools made by Stepan Chizhov:",
+#                "url": "https://www.patreon.com/stepanchizhov",
+#                "link_text": "Support his work on Patreon!"
+#            },
             {
                 "text": "🔍 Find more analytical tools for Royal Road authors and readers!",
                 "url": "https://stepan.chizhov.com",
