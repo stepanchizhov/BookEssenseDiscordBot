@@ -675,17 +675,76 @@ class BookClaimModule:
                             claimant_mention = f"<@{result.get('claimant_discord_id')}>"
                             processor_mention = f"<@{interaction.user.id}>"
                             
-                            embed = discord.Embed(
-                                title=f"{status_emoji} Claim {status_text.capitalize()}",
-                                description=f"Claim #{claim_id} has been {status_text}.",
-                                color=discord.Color.green() if action == "approve" else discord.Color.red()
-                            )
-                            embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
-                            embed.add_field(name="Claimant", value=claimant_mention, inline=True)
-                            embed.add_field(name="Processed by", value=processor_mention, inline=True)
+                            # Fetch book statistics if approved
+                            if action == "approve" and result.get('royal_road_book_id'):
+                                # Get book statistics from WordPress
+                                stats_url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/book-stats"
+                                stats_params = {
+                                    'bot_token': self.wp_bot_token,
+                                    'royal_road_book_id': result.get('royal_road_book_id')
+                                }
+                                
+                                try:
+                                    async with self.session.get(stats_url, params=stats_params, headers=headers) as stats_response:
+                                        if stats_response.status == 200:
+                                            stats_result = await stats_response.json()
+                                            book_stats = stats_result.get('book', {})
+                                        else:
+                                            book_stats = {}
+                                except:
+                                    book_stats = {}
+                                
+                                # Create enhanced embed with book statistics
+                                embed = discord.Embed(
+                                    title=f"{status_emoji} Claim Approved",
+                                    description=f"Claim #{claim_id} has been approved.",
+                                    color=discord.Color.green()
+                                )
+                                
+                                # Add book information with statistics
+                                book_title = result.get('book_title', 'Unknown')
+                                book_url = f"https://www.royalroad.com/fiction/{result.get('royal_road_book_id')}"
+                                
+                                # Book title and main info
+                                embed.add_field(
+                                    name=book_title,
+                                    value=(
+                                        f"**Author:** {book_stats.get('author', result.get('author', 'Unknown'))}\n"
+                                        f"**Followers:** {self.format_number(book_stats.get('followers', 0))} | "
+                                        f"**Views:** {self.format_number(book_stats.get('total_views', 0))}\n"
+                                        f"**Rating:** ⭐ {book_stats.get('rating', 'N/A')} | "
+                                        f"**Chapters:** {book_stats.get('chapters', 0)}\n"
+                                        f"**Status:** {book_stats.get('status', 'Unknown')}\n"
+                                        f"[Read on Royal Road]({book_url})"
+                                    ),
+                                    inline=False
+                                )
+                                
+                                # Claim processing information
+                                embed.add_field(name="Claimant", value=claimant_mention, inline=True)
+                                embed.add_field(name="Processed by", value=processor_mention, inline=True)
+                                
+                                # Add promotional field occasionally
+                                promo_field = self.get_promotional_field()
+                                if promo_field:
+                                    embed.add_field(**promo_field)
+                                
+                                # Set thumbnail if available
+                                if book_stats.get('cover_url'):
+                                    embed.set_thumbnail(url=book_stats['cover_url'])
+                                
+                            else:
+                                # Original embed for declined claims or if stats fetch fails
+                                embed = discord.Embed(
+                                    title=f"{status_emoji} Claim {status_text.capitalize()}",
+                                    description=f"Claim #{claim_id} has been {status_text}.",
+                                    color=discord.Color.green() if action == "approve" else discord.Color.red()
+                                )
+                                embed.add_field(name="Book", value=result.get('book_title', 'Unknown'), inline=True)
+                                embed.add_field(name="Claimant", value=claimant_mention, inline=True)
+                                embed.add_field(name="Processed by", value=processor_mention, inline=True)
                             
                             # Send PUBLIC message for each processed claim
-                            # Use followup.send with ephemeral=False for public visibility
                             await interaction.followup.send(embed=embed, ephemeral=False)
                             
                             success_count += 1
