@@ -145,7 +145,7 @@ class ShoutoutModule:
         ):
             await self.handle_my_applications(interaction, filter_status)
 
-    def get_patreon_goal_footer(self):
+    def get_patreon_goal_footer():
         """
         Get Patreon goal tracker footer for all promo embeds with random sassy messages
         
@@ -320,7 +320,7 @@ class ShoutoutModule:
                 inline=promo_field["inline"]
             )
             # Add the Patreon goal footer when promo is shown
-            footer_data = self.get_patreon_goal_footer()
+            footer_data = get_patreon_goal_footer()
             embed.set_footer(**footer_data)
         
         return embed    
