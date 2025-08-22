@@ -908,6 +908,11 @@ class BookClaimModule:
                     
                     # Set thumbnail to user's avatar
                     embed.set_thumbnail(url=target_user.display_avatar.url)
+
+                    # Add promotional field occasionally
+                    promo_field = self.get_promotional_field()
+                    if promo_field:
+                        embed.add_field(**promo_field)                    
                     
                     await interaction.followup.send(embed=embed)
                     
