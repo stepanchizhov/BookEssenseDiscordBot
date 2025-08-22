@@ -393,7 +393,7 @@ def get_patreon_goal_footer():
         f"⚡ ${current_amount}/${goal_amount} [{bar}] • These servers run on money, not magic (sadly)",
         f"🔥 ${current_amount}/${goal_amount} [{bar}] • Winter is coming... and so are the hosting bills",
         f"☕ ${current_amount}/${goal_amount} [{bar}] • Less than a coffee a month keeps the bot alive",
-        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in autumn",
+        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in the autumn",
         f"💀 ${current_amount}/${goal_amount} [{bar}] • Save the bot from its impending doom this autumn",
         f"🎮 ${current_amount}/${goal_amount} [{bar}] • Insert coin to continue (autumn deadline approaching)",
         f"🌟 ${current_amount}/${goal_amount} [{bar}] • Be a hero, save a bot (and my sanity)",
@@ -419,7 +419,7 @@ def get_patreon_goal_footer():
         f"🚀 ${current_amount}/${goal_amount} [{bar}] • Houston, we have a funding problem",
         f"👽 ${current_amount}/${goal_amount} [{bar}] • Even aliens think $400 is reasonable for hosting",
         f"🛸 ${current_amount}/${goal_amount} [{bar}] • Warp drive offline. Reason: insufficient credits",
-        f"🤖 ${current_amount}/${goal_amount} [{bar}] • CRITICAL ERROR: Funding.exe will terminate in autumn",
+        f"🤖 ${current_amount}/${goal_amount} [{bar}] • CRITICAL ERROR: Funding.exe will terminate in the autumn",
         f"⚡ ${current_amount}/${goal_amount} [{bar}] • Flux capacitor needs $400 to survive past autumn",
         f"🌌 ${current_amount}/${goal_amount} [{bar}] • In space, no one can hear servers die",
         f"🔬 ${current_amount}/${goal_amount} [{bar}] • Scientific fact: Servers need money to exist",
@@ -437,14 +437,14 @@ def get_patreon_goal_footer():
         f"💎 ${current_amount}/${goal_amount} [{bar}] • [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
         f"🗺️ ${current_amount}/${goal_amount} [{bar}] • Main Quest: Gather 400 Gold Before Autumn's End",
         f"⚔️ ${current_amount}/${goal_amount} [{bar}] • DPS: Donations Per Server-month needed!",
-        f"🛡️ ${current_amount}/${goal_amount} [{bar}] • Server Shield: {percentage:.0f}% - Breaks in autumn",
+        f"🛡️ ${current_amount}/${goal_amount} [{bar}] • Server Shield: {percentage:.0f}% - Breaks in the autumn",
         f"📈 ${current_amount}/${goal_amount} [{bar}] • Stats: Funding {percentage:.0f}% | Time: Winter approaching",
         f"🎯 ${current_amount}/${goal_amount} [{bar}] • Critical Hit needed on funding boss!",
         
         # Gaming themed
-        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Server will ragequit in autumn without support",
+        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Server will ragequit in the autumn without support",
         f"👾 ${current_amount}/${goal_amount} [{bar}] • Final boss: Autumn Hosting Bills - ${goal_amount} to defeat",
-        f"🕹️ ${current_amount}/${goal_amount} [{bar}] • Game Over in autumn? Insert coin to continue",
+        f"🕹️ ${current_amount}/${goal_amount} [{bar}] • Game Over in the autumn? Insert coin to continue",
         f"🏁 ${current_amount}/${goal_amount} [{bar}] • Racing against autumn - currently in last place",
         f"🎯 ${current_amount}/${goal_amount} [{bar}] • 360 no-scope the hosting bills before winter",
         f"🔫 ${current_amount}/${goal_amount} [{bar}] • Ammo (funding): {percentage:.0f}% - Reload before end of autumn!",
@@ -535,7 +535,7 @@ def get_promotional_field(force_show=False):
         f"⚡ ${current_amount}/${goal_amount} [{bar}] • These servers run on money, not magic (sadly)",
         f"🔥 ${current_amount}/${goal_amount} [{bar}] • Winter is coming... and so are the hosting bills",
         f"☕ ${current_amount}/${goal_amount} [{bar}] • Less than a coffee a month keeps the bot alive",
-        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in autumn",
+        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in the autumn",
         f"💀 ${current_amount}/${goal_amount} [{bar}] • Save the bot from its impending doom this autumn",
         f"🎮 ${current_amount}/${goal_amount} [{bar}] • Insert coin to continue (autumn deadline approaching)",
         f"🌟 ${current_amount}/${goal_amount} [{bar}] • Be a hero, save a bot (and my sanity)",
@@ -561,7 +561,7 @@ def get_promotional_field(force_show=False):
         f"🚀 ${current_amount}/${goal_amount} [{bar}] • Houston, we have a funding problem",
         f"👽 ${current_amount}/${goal_amount} [{bar}] • Even aliens think $400 is reasonable for hosting",
         f"🛸 ${current_amount}/${goal_amount} [{bar}] • Warp drive offline. Reason: insufficient credits",
-        f"🤖 ${current_amount}/${goal_amount} [{bar}] • CRITICAL ERROR: Funding.exe will terminate in autumn",
+        f"🤖 ${current_amount}/${goal_amount} [{bar}] • CRITICAL ERROR: Funding.exe will terminate in the autumn",
         f"⚡ ${current_amount}/${goal_amount} [{bar}] • Flux capacitor needs $400 to survive past autumn",
         f"🌌 ${current_amount}/${goal_amount} [{bar}] • In space, no one can hear servers die",
         f"🔬 ${current_amount}/${goal_amount} [{bar}] • Scientific fact: Servers need money to exist",
@@ -579,14 +579,14 @@ def get_promotional_field(force_show=False):
         f"💎 ${current_amount}/${goal_amount} [{bar}] • [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
         f"🗺️ ${current_amount}/${goal_amount} [{bar}] • Main Quest: Gather 400 Gold Before Autumn's End",
         f"⚔️ ${current_amount}/${goal_amount} [{bar}] • DPS: Donations Per Server-month needed!",
-        f"🛡️ ${current_amount}/${goal_amount} [{bar}] • Server Shield: {percentage:.0f}% - Breaks in autumn",
+        f"🛡️ ${current_amount}/${goal_amount} [{bar}] • Server Shield: {percentage:.0f}% - Breaks in the autumn",
         f"📈 ${current_amount}/${goal_amount} [{bar}] • Stats: Funding {percentage:.0f}% | Time: Winter approaching",
         f"🎯 ${current_amount}/${goal_amount} [{bar}] • Critical Hit needed on funding boss!",
         
         # Gaming themed
-        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Server will ragequit in autumn without support",
+        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Server will ragequit in the autumn without support",
         f"👾 ${current_amount}/${goal_amount} [{bar}] • Final boss: Autumn Hosting Bills - ${goal_amount} to defeat",
-        f"🕹️ ${current_amount}/${goal_amount} [{bar}] • Game Over in autumn? Insert coin to continue",
+        f"🕹️ ${current_amount}/${goal_amount} [{bar}] • Game Over in the autumn? Insert coin to continue",
         f"🏁 ${current_amount}/${goal_amount} [{bar}] • Racing against autumn - currently in last place",
         f"🎯 ${current_amount}/${goal_amount} [{bar}] • 360 no-scope the hosting bills before winter",
         f"🔫 ${current_amount}/${goal_amount} [{bar}] • Ammo (funding): {percentage:.0f}% - Reload before end of autumn!",
@@ -4515,6 +4515,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
