@@ -538,7 +538,7 @@ def add_promotional_field(embed, force_show=False):
     Returns:
         discord.Embed: The embed with promotional field added (if applicable)
     """
-    promo_field = self.get_promotional_field(force_show)
+    promo_field = get_promotional_field(force_show)
     
     if promo_field:
         embed.add_field(
@@ -4420,6 +4420,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
