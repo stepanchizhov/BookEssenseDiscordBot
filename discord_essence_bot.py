@@ -370,7 +370,7 @@ TAG_CHOICES = [
 # Track command usage for promotional messages
 command_counter = 0
 
-def get_patreon_goal_footer(self):
+def get_patreon_goal_footer():
     """
     Get Patreon goal tracker footer for all promo embeds with random sassy messages
     
@@ -547,8 +547,8 @@ def add_promotional_field(embed, force_show=False):
             inline=promo_field["inline"]
         )
         # Add the Patreon goal footer when promo is shown
-        # footer_data = self.get_patreon_goal_footer()
-        # embed.set_footer(**footer_data)
+        footer_data = get_patreon_goal_footer()
+        embed.set_footer(**footer_data)
     
     return embed
 
@@ -4420,6 +4420,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
