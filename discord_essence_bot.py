@@ -369,6 +369,108 @@ TAG_CHOICES = [
 # Track command usage for promotional messages
 command_counter = 0
 
+def get_patreon_goal_footer(self):
+    """
+    Get Patreon goal tracker footer for all promo embeds with random sassy messages
+    
+    Returns:
+        dict: Footer data with text and icon_url
+    """
+    current_amount = 69  # Update this manually
+    goal_amount = 400
+    percentage = (current_amount / goal_amount) * 100
+    
+    # Create a simple text progress bar
+    bar_length = 10
+    filled_length = int(bar_length * current_amount / goal_amount)
+    bar = '█' * filled_length + '░' * (bar_length - filled_length)
+    
+    # Random sassy messages
+    messages = [
+        f"💸 ${current_amount}/${goal_amount} [{bar}] {percentage:.0f}% • Help keep these tools alive past autumn!",
+        f"🎯 ${current_amount}/${goal_amount} [{bar}] • My hosting bills don't pay themselves, darling",
+        f"⚡ ${current_amount}/${goal_amount} [{bar}] • These servers run on money, not magic (sadly)",
+        f"🔥 ${current_amount}/${goal_amount} [{bar}] • Winter is coming... and so are the hosting bills",
+        f"☕ ${current_amount}/${goal_amount} [{bar}] • Less than a coffee a month keeps the bot alive",
+        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Fuel the rocket, or it crashes in autumn",
+        f"💀 ${current_amount}/${goal_amount} [{bar}] • Save the bot from its impending doom this autumn",
+        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Insert coin to continue (autumn deadline approaching)",
+        f"🌟 ${current_amount}/${goal_amount} [{bar}] • Be a hero, save a bot (and my sanity)",
+        f"⏰ ${current_amount}/${goal_amount} [{bar}] • Tick tock, autumn's coming for these servers",
+        f"🏴‍☠️ ${current_amount}/${goal_amount} [{bar}] • Even pirates need to pay for hosting",
+        f"🎭 ${current_amount}/${goal_amount} [{bar}] • This bot's survival: a autumn tragedy in the making?",
+        f"🍂 ${current_amount}/${goal_amount} [{bar}] • When autumn leaves fall, will this bot too?",
+        f"💔 ${current_amount}/${goal_amount} [{bar}] • Don't let our beautiful friendship end this autumn",
+
+        # Fantasy themed
+        f"🐉 ${current_amount}/${goal_amount} [{bar}] • Dragons hoard gold, I just need server money",
+        f"⚔️ ${current_amount}/${goal_amount} [{bar}] • Join the quest to defeat the Hosting Bill Boss",
+        f"🧙 ${current_amount}/${goal_amount} [{bar}] • Even wizards can't conjure free servers",
+        f"🏰 ${current_amount}/${goal_amount} [{bar}] • Help defend the castle from autumn's server shutdown",
+        f"📜 ${current_amount}/${goal_amount} [{bar}] • The prophecy says: 'No coins by the end of autumn = darkness'",
+        f"🦄 ${current_amount}/${goal_amount} [{bar}] • Unicorns are rare, but rarer still is free hosting",
+        f"🗡️ ${current_amount}/${goal_amount} [{bar}] • Your coin pouch vs. the autumn deadline",
+        f"🧝 ${current_amount}/${goal_amount} [{bar}] • Even elves pay their hosting bills (probably)",
+        f"🔮 ${current_amount}/${goal_amount} [{bar}] • The crystal ball shows server death this autumn",
+        f"👑 ${current_amount}/${goal_amount} [{bar}] • A kingdom for a server! (Or just $400)",
+        
+        # Sci-fi themed
+        f"🚀 ${current_amount}/${goal_amount} [{bar}] • Houston, we have a funding problem",
+        f"👽 ${current_amount}/${goal_amount} [{bar}] • Even aliens think $400 is reasonable for hosting",
+        f"🛸 ${current_amount}/${goal_amount} [{bar}] • Warp drive offline. Reason: insufficient credits",
+        f"🤖 ${current_amount}/${goal_amount} [{bar}] • CRITICAL ERROR: Funding.exe will terminate in autumn",
+        f"⚡ ${current_amount}/${goal_amount} [{bar}] • Flux capacitor needs $400 to survive past autumn",
+        f"🌌 ${current_amount}/${goal_amount} [{bar}] • In space, no one can hear servers die",
+        f"🔬 ${current_amount}/${goal_amount} [{bar}] • Scientific fact: Servers need money to exist",
+        f"🛰️ ${current_amount}/${goal_amount} [{bar}] • Ground control to Major Patron: please send funds",
+        f"💫 ${current_amount}/${goal_amount} [{bar}] • Initiating emergency funding protocol before winter",
+        f"🎛️ ${current_amount}/${goal_amount} [{bar}] • System critical: Power cells depleting by winter",
+        
+        # LitRPG themed
+        f"💰 ${current_amount}/${goal_amount} [{bar}] • [QUEST] Save the Server - Reward: Eternal gratitude",
+        f"📊 ${current_amount}/${goal_amount} [{bar}] • Server HP: {percentage:.0f}% - Critical damage at autumn!",
+        f"⬆️ ${current_amount}/${goal_amount} [{bar}] • Level up my hosting budget! EXP to autumn: Limited",
+        f"🎲 ${current_amount}/${goal_amount} [{bar}] • Roll for initiative against the Hosting Bill Monster",
+        f"⚡ ${current_amount}/${goal_amount} [{bar}] • Mana: {percentage:.0f}% - Full depletion = autumn shutdown",
+        f"🏆 ${current_amount}/${goal_amount} [{bar}] • Achievement Locked: 'Survive Past Autumn'",
+        f"💎 ${current_amount}/${goal_amount} [{bar}] • [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
+        f"🗺️ ${current_amount}/${goal_amount} [{bar}] • Main Quest: Gather 400 Gold Before Autumn's End",
+        f"⚔️ ${current_amount}/${goal_amount} [{bar}] • DPS: Donations Per Server-month needed!",
+        f"🛡️ ${current_amount}/${goal_amount} [{bar}] • Server Shield: {percentage:.0f}% - Breaks in autumn",
+        f"📈 ${current_amount}/${goal_amount} [{bar}] • Stats: Funding {percentage:.0f}% | Time: Winter approaching",
+        f"🎯 ${current_amount}/${goal_amount} [{bar}] • Critical Hit needed on funding boss!",
+        
+        # Gaming themed
+        f"🎮 ${current_amount}/${goal_amount} [{bar}] • Server will ragequit in autumn without support",
+        f"👾 ${current_amount}/${goal_amount} [{bar}] • Final boss: Autumn Hosting Bills - ${goal_amount} to defeat",
+        f"🕹️ ${current_amount}/${goal_amount} [{bar}] • Game Over in autumn? Insert coin to continue",
+        f"🏁 ${current_amount}/${goal_amount} [{bar}] • Racing against autumn - currently in last place",
+        f"🎯 ${current_amount}/${goal_amount} [{bar}] • 360 no-scope the hosting bills before winter",
+        f"🔫 ${current_amount}/${goal_amount} [{bar}] • Ammo (funding): {percentage:.0f}% - Reload before end of autumn!",
+        f"💣 ${current_amount}/${goal_amount} [{bar}] • Defuse the autumn shutdown bomb: $400 required",
+        f"🏅 ${current_amount}/${goal_amount} [{bar}] • Speedrun: Fund the server before winter%",
+        f"🎪 ${current_amount}/${goal_amount} [{bar}] • This isn't pay-to-win, it's pay-to-exist",
+        f"🔥 ${current_amount}/${goal_amount} [{bar}] • Combo meter: {percentage:.0f}% - Don't drop it before winter!",
+        
+        # Mixed/General sassy
+        f"😅 ${current_amount}/${goal_amount} [{bar}] • Nervous laughter intensifies as winter approaches",
+        f"🎭 ${current_amount}/${goal_amount} [{bar}] • To be or not to be (online after autumn)",
+        f"📉 ${current_amount}/${goal_amount} [{bar}] • Hosting costs rise, patron support... help!",
+        f"🎪 ${current_amount}/${goal_amount} [{bar}] • Welcome to the 'Please Fund Me' circus!",
+        f"🌡️ ${current_amount}/${goal_amount} [{bar}] • Server health: {percentage:.0f}% - Terminal by winter",
+        f"⏳ ${current_amount}/${goal_amount} [{bar}] • The sands of time (and funding) run low",
+        f"🎨 ${current_amount}/${goal_amount} [{bar}] • Painting a masterpiece called 'Winter Server Death'",
+        f"🍕 ${current_amount}/${goal_amount} [{bar}] • Skip one pizza, save a bot's life this autumn"
+    ]
+    
+    # Pick a random message and append the Patreon link
+    footer_text = f"{random.choice(messages)} → patreon.com/stepanchizhov"
+    
+    return {
+        "text": footer_text,
+        "icon_url": "https://c10.patreonusercontent.com/4/patreon-media/p/campaign/11811304/452ff3e5d93f4024bd088d1f946816a7/1.png?token-time=1735689600&token-hash=lhJLOkRMlPghgMYa2BL-2LBF-emdN_y4F6K1OxIbW5E%3D"  # Optional: Add a small Patreon logo
+    }
+
 def get_promotional_field(force_show=False):
     """
     Get promotional field for embeds based on command counter
@@ -435,7 +537,7 @@ def add_promotional_field(embed, force_show=False):
     Returns:
         discord.Embed: The embed with promotional field added (if applicable)
     """
-    promo_field = get_promotional_field(force_show)
+    promo_field = self.get_promotional_field(force_show)
     
     if promo_field:
         embed.add_field(
@@ -443,6 +545,9 @@ def add_promotional_field(embed, force_show=False):
             value=promo_field["value"],
             inline=promo_field["inline"]
         )
+        # Add the Patreon goal footer when promo is shown
+        footer_data = self.get_patreon_goal_footer()
+        embed.set_footer(**footer_data)
     
     return embed
 
@@ -4314,4 +4419,5 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
