@@ -156,8 +156,8 @@ class ShoutoutModule:
             dict: Field data with name and value, or None if no promo should be shown
         """
         # Only show promotional messages every 2 commands (or if forced)
-        if not force_show and self.command_counter % 2 != 0:
-            return None
+        #if not force_show and self.command_counter % 2 != 0:
+        #    return None
         
         # Define all promotional messages
         promo_messages = [
