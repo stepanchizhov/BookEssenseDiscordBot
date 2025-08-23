@@ -502,8 +502,8 @@ def get_promotional_field(force_show=False):
     global command_counter
     
     # Only show promotional messages every 2 commands (or if forced)
-    if not force_show and command_counter % 2 != 0:
-        return None
+    #if not force_show and command_counter % 2 != 0:
+    #    return None
     
     # Define all promotional messages
     promo_messages = [
@@ -4536,6 +4536,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
