@@ -348,10 +348,8 @@ TAG_MAPPING = {
     # XIANXIA
     'xianxia': 'Xianxia',
     'Xianxia': 'Xianxia',
-    
-    # CULTIVATION (bonus tag not in standard RR)
-    # 'cultivation': 'Cultivation',
-    # 'Cultivation': 'Cultivation',
+    'cultivation': 'Xianxia',
+    'Cultivation': 'Xianxia',    
     
     # TECHNOLOGICALLY ENGINEERED
     'technologically_engineered': 'Technologically Engineered',
@@ -4544,6 +4542,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
