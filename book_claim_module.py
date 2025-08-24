@@ -737,7 +737,6 @@ class BookClaimModule:
                                 else:
                                     # Fallback if stats couldn't be fetched
                                     field_value = (
-                                        f"**Author:** Unknown\n"
                                         f"**Book ID:** {result.get('royal_road_book_id')}\n"
                                         f"[Read on Royal Road]({book_url})"
                                     )
