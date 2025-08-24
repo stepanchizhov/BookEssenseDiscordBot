@@ -1691,7 +1691,7 @@ async def essence(interaction: discord.Interaction, tag1: str, tag2: str):
         
         url = f"{WP_API_URL}/wp-json/rr-analytics/v1/essence-combination"
         logger.info(f"[API] URL: {url}")
-        logger.info(f"[API] Payload: {json.dumps(data)}")
+        # logger.info(f"[API] Payload: {json.dumps(data)}")
         
         # Make API request
         headers = {
@@ -4544,6 +4544,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
