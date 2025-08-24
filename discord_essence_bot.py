@@ -2388,14 +2388,19 @@ def create_result_embed(result, tag1, tag2, interaction):
     
     # Row 2: Three inline fields
     # Books Found (just the count)
+    book_count_display = f"📚 **{book_count:,}**" if book_count is not None else "📚 **0**"
     embed.add_field(
         name="Books Found",
-        value=f"📚 **{book_count:,}**",
+        value=book_count_display,
         inline=True
     )
     
     # Database Statistics
-    stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
+    if total_books and total_books > 0:
+        stats_display = f"📊 {percentage}% of {total_books:,} Royal Road books\nanalyzed in Stepan Chizhov's database"
+    else:
+        stats_display = "📊 Database is being updated"
+        
     embed.add_field(
         name="Database Statistics",
         value=stats_display,
@@ -4542,6 +4547,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
