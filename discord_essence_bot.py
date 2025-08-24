@@ -854,7 +854,7 @@ async def get_book_chart_data(book_input, days_param, session):
         
         logger.info(f"[CHART] Fetching chart data for book input: {book_input}")
         logger.info(f"[CHART] Days parameter: {days_param}")
-        logger.info(f"[CHART] API request data: {data}")
+        # logger.info(f"[CHART] API request data: {data}")
         logger.info(f"[CHART] Request URL: {url}")
         
         async with session.post(url, json=data, headers=headers) as response:
@@ -4544,6 +4544,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
