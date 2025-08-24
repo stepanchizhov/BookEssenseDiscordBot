@@ -675,24 +675,29 @@ class BookClaimModule:
                             claimant_mention = f"<@{result.get('claimant_discord_id')}>"
                             processor_mention = f"<@{interaction.user.id}>"
                             
-                            # Fetch book statistics if approved
-                            if action == "approve" and result.get('royal_road_book_id'):
-                                # Get book statistics from WordPress
-                                stats_url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/book-stats"
+                            # Fetch book statistics if approved using the same endpoint as /rr-my-books
+                            if action == "approve" and result.get('claimant_discord_id'):
+                                # Get user's books to fetch the statistics for the approved book
+                                stats_url = f"{self.wp_api_url}/wp-json/rr-analytics/v1/book-claim/user-books"
                                 stats_params = {
                                     'bot_token': self.wp_bot_token,
-                                    'royal_road_book_id': result.get('royal_road_book_id')
+                                    'discord_user_id': result.get('claimant_discord_id')
                                 }
                                 
+                                book_stats = None
                                 try:
                                     async with self.session.get(stats_url, params=stats_params, headers=headers) as stats_response:
                                         if stats_response.status == 200:
                                             stats_result = await stats_response.json()
-                                            book_stats = stats_result.get('book', {})
-                                        else:
-                                            book_stats = {}
-                                except:
-                                    book_stats = {}
+                                            books = stats_result.get('books', [])
+                                            # Find the specific book that was just approved
+                                            for book in books:
+                                                if str(book.get('royal_road_book_id')) == str(result.get('royal_road_book_id')):
+                                                    book_stats = book
+                                                    break
+                                except Exception as e:
+                                    logger.error(f"[BOOK_CLAIM_MODULE] Error fetching book stats: {e}")
+                                    book_stats = None
                                 
                                 # Create enhanced embed with book statistics
                                 embed = discord.Embed(
@@ -705,18 +710,41 @@ class BookClaimModule:
                                 book_title = result.get('book_title', 'Unknown')
                                 book_url = f"https://www.royalroad.com/fiction/{result.get('royal_road_book_id')}"
                                 
-                                # Book title and main info
+                                if book_stats:
+                                    # Format statistics
+                                    followers = self.format_number(book_stats.get('followers', 0))
+                                    views = self.format_number(book_stats.get('total_views', 0))
+                                    
+                                    # Handle rating - check both 'rating' and 'overall_score' fields
+                                    rating = book_stats.get('rating') or book_stats.get('overall_score')
+                                    if rating and rating > 0:
+                                        rating_display = f"{rating:.2f}" if isinstance(rating, (int, float)) else str(rating)
+                                    else:
+                                        rating_display = "N/A"
+                                    
+                                    chapters = book_stats.get('chapters', 0)
+                                    status = book_stats.get('status', 'Unknown')
+                                    author = book_stats.get('author', 'Unknown')
+                                    
+                                    # Build the book field value
+                                    field_value = (
+                                        f"**Author:** {author}\n"
+                                        f"**Followers:** {followers} | **Views:** {views}\n"
+                                        f"**Rating:** ⭐ {rating_display} | **Chapters:** {chapters}\n"
+                                        f"**Status:** {status}\n"
+                                        f"[Read on Royal Road]({book_url})"
+                                    )
+                                else:
+                                    # Fallback if stats couldn't be fetched
+                                    field_value = (
+                                        f"**Author:** Unknown\n"
+                                        f"**Book ID:** {result.get('royal_road_book_id')}\n"
+                                        f"[Read on Royal Road]({book_url})"
+                                    )
+                                
                                 embed.add_field(
                                     name=book_title,
-                                    value=(
-                                        f"**Author:** {book_stats.get('author', result.get('author', 'Unknown'))}\n"
-                                        f"**Followers:** {self.format_number(book_stats.get('followers', 0))} | "
-                                        f"**Views:** {self.format_number(book_stats.get('total_views', 0))}\n"
-                                        f"**Rating:** ⭐ {book_stats.get('rating', 'N/A')} | "
-                                        f"**Chapters:** {book_stats.get('chapters', 0)}\n"
-                                        f"**Status:** {book_stats.get('status', 'Unknown')}\n"
-                                        f"[Read on Royal Road]({book_url})"
-                                    ),
+                                    value=field_value,
                                     inline=False
                                 )
                                 
@@ -729,12 +757,8 @@ class BookClaimModule:
                                 if promo_field:
                                     embed.add_field(**promo_field)
                                 
-                                # Set thumbnail if available
-                                if book_stats.get('cover_url'):
-                                    embed.set_thumbnail(url=book_stats['cover_url'])
-                                
                             else:
-                                # Original embed for declined claims or if stats fetch fails
+                                # Original embed for declined claims
                                 embed = discord.Embed(
                                     title=f"{status_emoji} Claim {status_text.capitalize()}",
                                     description=f"Claim #{claim_id} has been {status_text}.",
