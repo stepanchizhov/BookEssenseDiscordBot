@@ -510,7 +510,6 @@ def get_promotional_field(force_show=False):
         f"🕹️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Game Over in the autumn? Insert coin to continue",
         f"🏁 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Racing against autumn - currently in last place",
         f"🎯 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • 360 no-scope the hosting bills before winter",
-        f"🔫 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Ammo (funding): {percentage:.0f}% - Reload before end of autumn!",
         f"💣 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Defuse the autumn shutdown bomb: $400 required",
         f"🏅 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Speedrun: Fund the server before winter%",
         f"🎪 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • This isn't pay-to-win, it's pay-to-exist",
@@ -4443,6 +4442,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
