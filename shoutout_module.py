@@ -185,6 +185,11 @@ class ShoutoutModule:
                 "text": "📚 Join discussions about Royal Road and analytics!",
                 "url": "https://discord.gg/7Xrrf3Q5zp",
                 "link_text": "Immersive Ink Community Discord"
+            },
+            {
+                "text": "📚 Join discussions about Royal Road and analytics!",
+                "url": "https://discord.gg/v6SVD2Gbeh",
+                "link_text": "RR Writer's Guild Community Discord"
             }
         ]
         
@@ -201,79 +206,79 @@ class ShoutoutModule:
         bar = '█' * filled_length + '░' * (bar_length - filled_length)
         
         patreon_messages = [
-            f"💸 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n{percentage:.0f}% • Help keep these tools alive past autumn!",
-            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • My hosting bills don't pay themselves, darling",
-            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • These servers run on money, not magic (sadly)",
-            f"🔥 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Winter is coming... and so are the hosting bills",
-            f"☕ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Less than a coffee a month keeps the bot alive",
-            f"🚀 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Fuel the rocket, or it crashes in the autumn",
-            f"💀 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Save the bot from its impending doom this autumn",
-            f"🎮 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Insert coin to continue (autumn deadline approaching)",
-            f"🌟 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Be a hero, save a bot (and my sanity)",
-            f"⏰ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Tick tock, autumn's coming for these servers",
-            f"🏴‍☠️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Even pirates need to pay for hosting",
-            f"🎭 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • This bot's survival: a autumn tragedy in the making?",
-            f"🍂 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • When autumn leaves fall, will this bot too?",
-            f"💔 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Don't let our beautiful friendship end this autumn",
+            f"💸 ${current_amount}/${goal_amount} [{bar}]\n{percentage:.0f}% • Help keep these tools alive past autumn!",
+            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n My hosting bills don't pay themselves, darling",
+            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n These servers run on money, not magic (sadly)",
+            f"🔥 ${current_amount}/${goal_amount} [{bar}]\n Winter is coming... and so are the hosting bills",
+            f"☕ ${current_amount}/${goal_amount} [{bar}]\n Less than a coffee a month keeps the bot alive",
+            f"🚀 ${current_amount}/${goal_amount} [{bar}]\n Fuel the rocket, or it crashes in the autumn",
+            f"💀 ${current_amount}/${goal_amount} [{bar}]\n Save the bot from its impending doom this autumn",
+            f"🎮 ${current_amount}/${goal_amount} [{bar}]\n Insert coin to continue (autumn deadline approaching)",
+            f"🌟 ${current_amount}/${goal_amount} [{bar}]\n Be a hero, save a bot (and my sanity)",
+            f"⏰ ${current_amount}/${goal_amount} [{bar}]\n Tick tock, autumn's coming for these servers",
+            f"🏴‍☠️ ${current_amount}/${goal_amount} [{bar}]\n Even pirates need to pay for hosting",
+            f"🎭 ${current_amount}/${goal_amount} [{bar}]\n This bot's survival: a autumn tragedy in the making?",
+            f"🍂 ${current_amount}/${goal_amount} [{bar}]\n When autumn leaves fall, will this bot too?",
+            f"💔 ${current_amount}/${goal_amount} [{bar}]\n Don't let our beautiful friendship end this autumn",
     
             # Fantasy themed
-            f"🐉 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Dragons hoard gold, I just need server money",
-            f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Join the quest to defeat the Hosting Bill Boss",
-            f"🧙 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Even wizards can't conjure free servers",
-            f"🏰 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Help defend the castle from autumn's server shutdown",
-            f"📜 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • The prophecy says: 'No coins by the end of autumn = darkness'",
-            f"🦄 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Unicorns are rare, but rarer still is free hosting",
-            f"🗡️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Your coin pouch vs. the autumn deadline",
-            f"🧝 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Even elves pay their hosting bills (probably)",
-            f"🔮 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • The crystal ball shows server death this autumn",
-            f"👑 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • A kingdom for a server! (Or just $400)",
+            f"🐉 ${current_amount}/${goal_amount} [{bar}]\n Dragons hoard gold, I just need server money",
+            f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n Join the quest to defeat the Hosting Bill Boss",
+            f"🧙 ${current_amount}/${goal_amount} [{bar}]\n Even wizards can't conjure free servers",
+            f"🏰 ${current_amount}/${goal_amount} [{bar}]\n Help defend the castle from autumn's server shutdown",
+            f"📜 ${current_amount}/${goal_amount} [{bar}]\n The prophecy says: 'No coins by the end of autumn = darkness'",
+            f"🦄 ${current_amount}/${goal_amount} [{bar}]\n Unicorns are rare, but rarer still is free hosting",
+            f"🗡️ ${current_amount}/${goal_amount} [{bar}]\n Your coin pouch vs. the autumn deadline",
+            f"🧝 ${current_amount}/${goal_amount} [{bar}]\n Even elves pay their hosting bills (probably)",
+            f"🔮 ${current_amount}/${goal_amount} [{bar}]\n The crystal ball shows server death this autumn",
+            f"👑 ${current_amount}/${goal_amount} [{bar}]\n A kingdom for a server! (Or just $400)",
             
             # Sci-fi themed
-            f"🚀 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Houston, we have a funding problem",
-            f"👽 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Even aliens think $400 is reasonable for hosting",
-            f"🛸 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Warp drive offline. Reason: insufficient credits",
-            f"🤖 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • CRITICAL ERROR: Funding.exe will terminate in the autumn",
-            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Flux capacitor needs $400 to survive past autumn",
-            f"🌌 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • In space, no one can hear servers die",
-            f"🔬 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Scientific fact: Servers need money to exist",
-            f"🛰️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Ground control to Major Patron: please send funds",
-            f"💫 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Initiating emergency funding protocol before winter",
-            f"🎛️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • System critical: Power cells depleting by winter",
+            f"🚀 ${current_amount}/${goal_amount} [{bar}]\n Houston, we have a funding problem",
+            f"👽 ${current_amount}/${goal_amount} [{bar}]\n Even aliens think $400 is reasonable for hosting",
+            f"🛸 ${current_amount}/${goal_amount} [{bar}]\n Warp drive offline. Reason: insufficient credits",
+            f"🤖 ${current_amount}/${goal_amount} [{bar}]\n CRITICAL ERROR: Funding.exe will terminate in the autumn",
+            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Flux capacitor needs $400 to survive past autumn",
+            f"🌌 ${current_amount}/${goal_amount} [{bar}]\n In space, no one can hear servers die",
+            f"🔬 ${current_amount}/${goal_amount} [{bar}]\n Scientific fact: Servers need money to exist",
+            f"🛰️ ${current_amount}/${goal_amount} [{bar}]\n Ground control to Major Patron: please send funds",
+            f"💫 ${current_amount}/${goal_amount} [{bar}]\n Initiating emergency funding protocol before winter",
+            f"🎛️ ${current_amount}/${goal_amount} [{bar}]\n System critical: Power cells depleting by winter",
             
             # LitRPG themed
-            f"💰 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • [QUEST] Save the Server - Reward: Eternal gratitude",
-            f"📊 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Server HP: {percentage:.0f}% - Critical damage at autumn!",
-            f"⬆️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Level up my hosting budget! EXP to autumn: Limited",
-            f"🎲 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Roll for initiative against the Hosting Bill Monster",
-            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Mana: {percentage:.0f}% - Full depletion = autumn shutdown",
-            f"🏆 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Achievement Locked: 'Survive Past Autumn'",
-            f"💎 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
-            f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Main Quest: Gather 400 Gold Before Autumn's End",
-            f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • DPS: Donations Per Server-month needed!",
-            f"🛡️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Server Shield: {percentage:.0f}% - Breaks in the autumn",
-            f"📈 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Stats: Funding {percentage:.0f}% | Time: Winter approaching",
-            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Critical Hit needed on funding boss!",
+            f"💰 ${current_amount}/${goal_amount} [{bar}]\n [QUEST] Save the Server - Reward: Eternal gratitude",
+            f"📊 ${current_amount}/${goal_amount} [{bar}]\n Server HP: {percentage:.0f}% - Critical damage at autumn!",
+            f"⬆️ ${current_amount}/${goal_amount} [{bar}]\n Level up my hosting budget! EXP to autumn: Limited",
+            f"🎲 ${current_amount}/${goal_amount} [{bar}]\n Roll for initiative against the Hosting Bill Monster",
+            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Mana: {percentage:.0f}% - Full depletion = autumn shutdown",
+            f"🏆 ${current_amount}/${goal_amount} [{bar}]\n Achievement Locked: 'Survive Past Autumn'",
+            f"💎 ${current_amount}/${goal_amount} [{bar}]\n [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
+            f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n Main Quest: Gather 400 Gold Before Autumn's End",
+            f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n DPS: Donations Per Server-month needed!",
+            f"🛡️ ${current_amount}/${goal_amount} [{bar}]\n Server Shield: {percentage:.0f}% - Breaks in the autumn",
+            f"📈 ${current_amount}/${goal_amount} [{bar}]\n Stats: Funding {percentage:.0f}% | Time: Winter approaching",
+            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n Critical Hit needed on funding boss!",
             
             # Gaming themed
-            f"🎮 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Server will ragequit in the autumn without support",
-            f"👾 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Final boss: Autumn Hosting Bills - ${goal_amount} to defeat",
-            f"🕹️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Game Over in the autumn? Insert coin to continue",
-            f"🏁 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Racing against autumn - currently in last place",
-            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • 360 no-scope the hosting bills before winter",
-            f"💣 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Defuse the autumn shutdown bomb: $400 required",
-            f"🏅 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Speedrun: Fund the server before winter%",
-            f"🎪 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • This isn't pay-to-win, it's pay-to-exist",
-            f"🔥 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Combo meter: {percentage:.0f}% - Don't drop it before winter!",
+            f"🎮 ${current_amount}/${goal_amount} [{bar}]\n Server will ragequit in the autumn without support",
+            f"👾 ${current_amount}/${goal_amount} [{bar}]\n Final boss: Autumn Hosting Bills - ${goal_amount} to defeat",
+            f"🕹️ ${current_amount}/${goal_amount} [{bar}]\n Game Over in the autumn? Insert coin to continue",
+            f"🏁 ${current_amount}/${goal_amount} [{bar}]\n Racing against autumn - currently in last place",
+            f"🎯 ${current_amount}/${goal_amount} [{bar}]\n 360 no-scope the hosting bills before winter",
+            f"💣 ${current_amount}/${goal_amount} [{bar}]\n Defuse the autumn shutdown bomb: $400 required",
+            f"🏅 ${current_amount}/${goal_amount} [{bar}]\n Speedrun: Fund the server before winter%",
+            f"🎪 ${current_amount}/${goal_amount} [{bar}]\n This isn't pay-to-win, it's pay-to-exist",
+            f"🔥 ${current_amount}/${goal_amount} [{bar}]\n Combo meter: {percentage:.0f}% - Don't drop it before winter!",
             
             # Mixed/General sassy
-            f"😅 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Nervous laughter intensifies as winter approaches",
-            f"🎭 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • To be or not to be (online after autumn)",
-            f"📉 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Hosting costs rise, patron support... help!",
-            f"🎪 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Welcome to the 'Please Fund Me' circus!",
-            f"🌡️ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Server health: {percentage:.0f}% - Terminal by winter",
-            f"⏳ ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • The sands of time (and funding) run low",
-            f"🎨 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Painting a masterpiece called 'Winter Server Death'",
-            f"🍕 ${current_amount}/${goal_amount} [{bar}]\n •     If we don't get ${goal_amount} in monthly Patreon support by the end of autumn this tool is forced to close down\n • Skip one pizza, save a bot's life this autumn"
+            f"😅 ${current_amount}/${goal_amount} [{bar}]\n Nervous laughter intensifies as winter approaches",
+            f"🎭 ${current_amount}/${goal_amount} [{bar}]\n To be or not to be (online after autumn)",
+            f"📉 ${current_amount}/${goal_amount} [{bar}]\n Hosting costs rise, patron support... help!",
+            f"🎪 ${current_amount}/${goal_amount} [{bar}]\n Welcome to the 'Please Fund Me' circus!",
+            f"🌡️ ${current_amount}/${goal_amount} [{bar}]\n Server health: {percentage:.0f}% - Terminal by winter",
+            f"⏳ ${current_amount}/${goal_amount} [{bar}]\n The sands of time (and funding) run low",
+            f"🎨 ${current_amount}/${goal_amount} [{bar}]\n Painting a masterpiece called 'Winter Server Death'",
+            f"🍕 ${current_amount}/${goal_amount} [{bar}]\n Skip one pizza, save a bot's life this autumn"
         ]
         
         patreon_text = random.choice(patreon_messages)
@@ -282,6 +287,7 @@ class ShoutoutModule:
         combined_value = (
             f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})\n\n"
             f"**━━━━━━━━━━━━━━━━━━━━━**\n"
+            f"If we don't get ${goal_amount} in monthly Patreon support to cover hosting and other expenses by the end of October, this tool will be forced to close down\n"
             f"{patreon_text}\n"
             f"[**→ Support on Patreon**](https://patreon.com/stepanchizhov)"
         )
