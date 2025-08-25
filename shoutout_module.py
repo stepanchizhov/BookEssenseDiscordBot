@@ -206,7 +206,7 @@ class ShoutoutModule:
         bar = '█' * filled_length + '░' * (bar_length - filled_length)
         
         patreon_messages = [
-            f"💸 ${current_amount}/${goal_amount} [{bar}]\n{percentage:.0f}% • Help keep these tools alive past autumn!",
+            f"💸 ${current_amount}/${goal_amount} [{bar}]\n{percentage:.0f}% Help keep these tools alive past autumn!",
             f"🎯 ${current_amount}/${goal_amount} [{bar}]\n My hosting bills don't pay themselves, darling",
             f"⚡ ${current_amount}/${goal_amount} [{bar}]\n These servers run on money, not magic (sadly)",
             f"🔥 ${current_amount}/${goal_amount} [{bar}]\n Winter is coming... and so are the hosting bills",
