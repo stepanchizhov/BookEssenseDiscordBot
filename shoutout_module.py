@@ -198,7 +198,7 @@ class ShoutoutModule:
         promo = promo_messages[promo_index]
         
         # Create the Patreon goal message
-        current_amount = 105  # Update this manually
+        current_amount = 114  # Update this manually
         goal_amount = 400
         percentage = (current_amount / goal_amount) * 100
         bar_length = 10
