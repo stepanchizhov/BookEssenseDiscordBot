@@ -1605,7 +1605,7 @@ class BookClaimModule:
         
         # Create the Patreon goal message
         current_amount = 228  # Update this manually
-        goal_amount = 400
+        goal_amount = 300
         percentage = (current_amount / goal_amount) * 100
         bar_length = 10
         filled_length = int(bar_length * current_amount / goal_amount)
@@ -1637,14 +1637,14 @@ class BookClaimModule:
             f"🗡️ ${current_amount}/${goal_amount} [{bar}]\n Your coin pouch vs. the autumn deadline",
             f"🧝 ${current_amount}/${goal_amount} [{bar}]\n Even elves pay their hosting bills (probably)",
             f"🔮 ${current_amount}/${goal_amount} [{bar}]\n The crystal ball shows server death this autumn",
-            f"👑 ${current_amount}/${goal_amount} [{bar}]\n A kingdom for a server! (Or just $400)",
+            f"👑 ${current_amount}/${goal_amount} [{bar}]\n A kingdom for a server! (Or just $300)",
             
             # Sci-fi themed
             f"🚀 ${current_amount}/${goal_amount} [{bar}]\n Houston, we have a funding problem",
-            f"👽 ${current_amount}/${goal_amount} [{bar}]\n Even aliens think $400 is reasonable for hosting",
+            f"👽 ${current_amount}/${goal_amount} [{bar}]\n Even aliens think $300 is reasonable for hosting",
             f"🛸 ${current_amount}/${goal_amount} [{bar}]\n Warp drive offline. Reason: insufficient credits",
             f"🤖 ${current_amount}/${goal_amount} [{bar}]\n CRITICAL ERROR: Funding.exe will terminate in the autumn",
-            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Flux capacitor needs $400 to survive past autumn",
+            f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Flux capacitor needs $300 to survive past autumn",
             f"🌌 ${current_amount}/${goal_amount} [{bar}]\n In space, no one can hear servers die",
             f"🔬 ${current_amount}/${goal_amount} [{bar}]\n Scientific fact: Servers need money to exist",
             f"🛰️ ${current_amount}/${goal_amount} [{bar}]\n Ground control to Major Patron: please send funds",
@@ -1659,7 +1659,7 @@ class BookClaimModule:
             f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Mana: {percentage:.0f}% - Full depletion = autumn shutdown",
             f"🏆 ${current_amount}/${goal_amount} [{bar}]\n Achievement Locked: 'Survive Past Autumn'",
             f"💎 ${current_amount}/${goal_amount} [{bar}]\n [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
-            f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n Main Quest: Gather 400 Gold Before Autumn's End",
+            f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n Main Quest: Gather 300 Gold Before Autumn's End",
             f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n DPS: Donations Per Server-month needed!",
             f"🛡️ ${current_amount}/${goal_amount} [{bar}]\n Server Shield: {percentage:.0f}% - Breaks in the autumn",
             f"📈 ${current_amount}/${goal_amount} [{bar}]\n Stats: Funding {percentage:.0f}% | Time: Winter approaching",
@@ -1671,7 +1671,7 @@ class BookClaimModule:
             f"🕹️ ${current_amount}/${goal_amount} [{bar}]\n Game Over in the autumn? Insert coin to continue",
             f"🏁 ${current_amount}/${goal_amount} [{bar}]\n Racing against autumn - currently in last place",
             f"🎯 ${current_amount}/${goal_amount} [{bar}]\n 360 no-scope the hosting bills before winter",
-            f"💣 ${current_amount}/${goal_amount} [{bar}]\n Defuse the autumn shutdown bomb: $400 required",
+            f"💣 ${current_amount}/${goal_amount} [{bar}]\n Defuse the autumn shutdown bomb: $300 required",
             f"🏅 ${current_amount}/${goal_amount} [{bar}]\n Speedrun: Fund the server before winter%",
             f"🎪 ${current_amount}/${goal_amount} [{bar}]\n This isn't pay-to-win, it's pay-to-exist",
             f"🔥 ${current_amount}/${goal_amount} [{bar}]\n Combo meter: {percentage:.0f}% - Don't drop it before winter!",
