@@ -370,7 +370,36 @@ TAG_MAPPING = {
     'monster_taming': 'Monster Taming',
     'monster-taming': 'Monster Taming',
     'Monster Taming': 'Monster Taming',
-    'monstertaming': 'Monster Taming',    
+    'monstertaming': 'Monster Taming', 
+
+    'necromancy': 'Necromancy', 
+    'Necromancy': 'Necromancy', 
+
+    'no_harem': 'No Harem', 
+    'no-harem': 'No Harem', 
+    'noharem': 'No Harem', 
+    'No Harem': 'No Harem', 
+
+    'no_romance': 'No Romance', 
+    'no-romance': 'No Romance', 
+    'No Romance': 'No Romance', 
+    'noromance': 'No Romance', 
+
+    'pirates': 'Pirates', 
+    'Pirates': 'Pirates', 
+
+    'political_intrigue': 'Political Intrigue', 
+    'political-intrigue': 'Political Intrigue', 
+    'Political Intrigue': 'Political Intrigue', 
+    'politicalintrigue': 'Political Intrigue', 
+
+    'space_exploration': 'Space Exploration', 
+    'space-exploration': 'Space Exploration', 
+    'Space Exploration': 'Space Exploration', 
+    'spaceexploration': 'Space Exploration', 
+
+    'vampires': 'Vampires',    
+    'Vampires': 'Vampires',    
 
     # Technical Tags
     'ai_assisted': 'AI-Assisted Content',
@@ -2447,7 +2476,14 @@ def convert_display_to_url_format(display_name):  # FIXED: Single colon
 # Additional tags
         'Crafting': 'crafting',
         'Kingdom Building': 'kingdom_building', 
-        'Monster Taming': 'monster_taming'
+        'Monster Taming': 'monster_taming',
+        'Necromancy': 'necromancy', 
+    	'No Harem': 'no_harem', 
+    	'No Romance': 'no_romance', 
+    	'Pirates': 'pirates', 
+    	'Political Intrigue': 'political_intrigue', 
+    	'Space Exploration': 'space_exploration', 
+    	'Vampires': 'vampires'
     }
     
     # Check special cases first
@@ -4448,6 +4484,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
