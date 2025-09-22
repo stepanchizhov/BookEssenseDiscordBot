@@ -4124,7 +4124,8 @@ async def rr_rs_run(
             'sports', 'steampunk', 'strategy', 'strong_lead', 'summoned_hero',
             'super_heroes', 'supernatural', 'technologically_engineered',
             'time_travel', 'tragedy', 'urban_fantasy', 'villainous_lead',
-            'virtual_reality', 'war_and_military', 'wuxia', 'xianxia'
+            'virtual_reality', 'war_and_military', 'wuxia', 'xianxia',
+            'sensitive', 'sexuality', 'ai_assisted', 'ai_generated', 'graphic_violence', 'profanity'
         ]
         
         # Default tags to show if none specified
@@ -4484,6 +4485,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
