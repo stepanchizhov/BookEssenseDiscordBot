@@ -403,11 +403,46 @@ TAG_MAPPING = {
 
     # Technical Tags
     'ai_assisted': 'AI-Assisted Content',
+    'aiassisted': 'AI-Assisted Content',
+    'ai-assisted': 'AI-Assisted Content',
+    'AI Assisted': 'AI-Assisted Content',
+    'AI-Assisted': 'AI-Assisted Content',
+    'ai_assisted_content': 'AI-Assisted Content',
+    'aiassistedcontent': 'AI-Assisted Content',
+    'ai-assisted-content': 'AI-Assisted Content',
+    'AI Assisted Content': 'AI-Assisted Content',
+    'AI-Assisted Content': 'AI-Assisted Content',
+
     'ai_generated': 'AI-Generated Content',
+    'aigenerated': 'AI-Generated Content',
+    'ai-generated': 'AI-Generated Content',
+    'AI Generated': 'AI-Generated Content',
+    'AI-Generated': 'AI-Generated Content',
+    'ai_generated_content': 'AI-Generated Content',
+    'aigeneratedcontent': 'AI-Generated Content',
+    'ai-generated-content': 'AI-Generated Content',
+    'AI Generated Content': 'AI-Generated Content',
+    'AI-Generated Content': 'AI-Generated Content',
+
     'graphic_violence': 'Graphic Violence',
+    'graphic-violence': 'Graphic Violence',
+    'graphicviolence': 'Graphic Violence',
+    'Graphic Violence': 'Graphic Violence',
+
     'profanity': 'Profanity',
+    'Profanity': 'Profanity',
+
     'sensitive': 'Sensitive Content',
+    'sensitive_content': 'Sensitive Content',
+    'sensitive-content': 'Sensitive Content',
+    'sensitivecontent': 'Sensitive Content',
+    'Sensitive Content': 'Sensitive Content',
+
     'sexuality': 'Sexual Content', 
+    'sexual_content': 'Sexual Content',
+    'sexual-content': 'Sexual Content',
+    'sexualcontent': 'Sexual Content',
+    'Sexual Content': 'Sexual Content',
 }
 
 # Get unique display names for the choices
@@ -4485,6 +4520,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
