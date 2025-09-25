@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 from shoutout_module import ShoutoutModule
 from book_claim_module import BookClaimModule
+from rising_stars_prediction import RisingStarsPrediction
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -38,6 +39,289 @@ logger.info(f"[STARTUP] WP Bot Token value: {WP_BOT_TOKEN[:10]}..." if WP_BOT_TO
 # Initialize bot with command prefix (even though we'll use slash commands)
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+async def get_rs_prediction_analysis(book_input: str, discord_username: str, session):
+    """
+    Get Rising Stars prediction analysis for a book
+    Integrates with rising_stars_prediction.py module
+    """
+    try:
+        # First, get the basic book data and eligibility check from WordPress API
+        data = {
+            'book_input': book_input,
+            'discord_username': discord_username,
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/rising-stars-prediction"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'RR-Discord-Bot/1.0'
+        }
+        
+        logger.info(f"[RS-PREDICTION] Fetching RS data for book: {book_input}")
+        
+        async with session.post(url, json=data, headers=headers, timeout=30) as response:
+            if response.status != 200:
+                logger.error(f"[RS-PREDICTION] API error: {response.status}")
+                return None
+            
+            rs_data = await response.json()
+            
+            if not rs_data.get('success') or not rs_data.get('eligible'):
+                logger.info(f"[RS-PREDICTION] Book not eligible: {rs_data.get('reason', 'Unknown')}")
+                return rs_data
+            
+            # If eligible and premium user, enhance with local predictions
+            if rs_data.get('is_premium'):
+                # Create RisingStarsPrediction instance for enhanced analysis
+                # Note: This would need database access in production
+                # For now, we'll use the data from API
+                enhanced_data = enhance_rs_predictions(rs_data)
+                return enhanced_data
+            
+            return rs_data
+            
+    except Exception as e:
+        logger.error(f"[RS-PREDICTION] Error fetching data: {e}")
+        return None
+
+
+def enhance_rs_predictions(rs_data: dict) -> dict:
+    """
+    Enhance RS predictions with local analysis using rising_stars_prediction.py
+    """
+    try:
+        growth_metrics = rs_data.get('growth_metrics', {})
+        
+        # Extract daily growth data
+        daily_growth = growth_metrics.get('daily_growth', [])
+        week_growth = growth_metrics.get('week_growth', 0)
+        recent_avg = growth_metrics.get('recent_avg_growth', 0)
+        
+        # Calculate enhanced predictions based on the algorithm
+        enhanced_predictions = calculate_enhanced_predictions(
+            week_growth, 
+            recent_avg,
+            daily_growth
+        )
+        
+        # Add enhanced predictions to response
+        rs_data['enhanced_predictions'] = enhanced_predictions
+        
+        # Calculate growth trajectory
+        trajectory = analyze_growth_trajectory(daily_growth)
+        rs_data['growth_trajectory'] = trajectory
+        
+        # Add specific recommendations
+        recommendations = generate_specific_recommendations(
+            recent_avg,
+            week_growth,
+            rs_data.get('book_info', {})
+        )
+        rs_data['specific_recommendations'] = recommendations
+        
+    except Exception as e:
+        logger.error(f"[RS-PREDICTION] Error enhancing predictions: {e}")
+    
+    return rs_data
+
+
+def calculate_enhanced_predictions(week_growth: int, recent_avg: float, daily_growth: list) -> dict:
+    """
+    Calculate enhanced predictions using the documented algorithm
+    """
+    # Estimate Day 0 growth (RS entry boost)
+    estimated_day0 = recent_avg * 2.5
+    
+    # Calculate acceleration
+    if len(daily_growth) >= 7:
+        early_growth = sum(d['growth'] for d in daily_growth[:3]) / 3
+        recent_growth = sum(d['growth'] for d in daily_growth[-3:]) / 3
+        acceleration = recent_growth - early_growth
+    else:
+        acceleration = 0
+    
+    predictions = {
+        'estimated_day0_growth': round(estimated_day0),
+        'acceleration_factor': round(acceleration, 1),
+        'growth_phase': '',
+        'position_estimate': '',
+        'confidence_score': 0
+    }
+    
+    # Determine growth phase based on benchmarks
+    if week_growth >= 550:
+        predictions['growth_phase'] = 'Explosive'
+        predictions['position_estimate'] = '1-3'
+        predictions['confidence_score'] = 85 if acceleration > 20 else 70
+    elif week_growth >= 300:
+        predictions['growth_phase'] = 'Strong'
+        predictions['position_estimate'] = '2-5'
+        predictions['confidence_score'] = 75 if acceleration > 10 else 60
+    elif week_growth >= 230:
+        predictions['growth_phase'] = 'Solid'
+        predictions['position_estimate'] = '4-7'
+        predictions['confidence_score'] = 70 if acceleration > 5 else 55
+    elif week_growth >= 160:
+        predictions['growth_phase'] = 'Building'
+        predictions['position_estimate'] = '6-10'
+        predictions['confidence_score'] = 60 if acceleration > 0 else 45
+    elif week_growth >= 100:
+        predictions['growth_phase'] = 'Emerging'
+        predictions['position_estimate'] = '8-15'
+        predictions['confidence_score'] = 50 if acceleration > 0 else 35
+    else:
+        predictions['growth_phase'] = 'Early Stage'
+        predictions['position_estimate'] = '10-20'
+        predictions['confidence_score'] = 30
+    
+    # Adjust for acceleration
+    if acceleration > 30:
+        predictions['acceleration_bonus'] = 'Very High - Position likely 2-3 spots better'
+    elif acceleration > 15:
+        predictions['acceleration_bonus'] = 'High - Position likely 1-2 spots better'
+    elif acceleration < -10:
+        predictions['acceleration_penalty'] = 'Declining - Position likely 1-2 spots worse'
+    
+    return predictions
+
+
+def analyze_growth_trajectory(daily_growth: list) -> dict:
+    """
+    Analyze the growth trajectory pattern
+    """
+    if len(daily_growth) < 3:
+        return {'pattern': 'Insufficient Data', 'trend': 'Unknown'}
+    
+    # Calculate moving averages
+    recent_3day = sum(d['growth'] for d in daily_growth[-3:]) / 3
+    recent_7day = sum(d['growth'] for d in daily_growth[-7:]) / 7 if len(daily_growth) >= 7 else recent_3day
+    
+    trajectory = {
+        'recent_3day_avg': round(recent_3day, 1),
+        'recent_7day_avg': round(recent_7day, 1),
+        'pattern': '',
+        'trend': '',
+        'volatility': 'Low'
+    }
+    
+    # Determine pattern
+    if recent_3day > recent_7day * 1.5:
+        trajectory['pattern'] = 'Accelerating'
+        trajectory['trend'] = 'Strong Upward'
+    elif recent_3day > recent_7day * 1.2:
+        trajectory['pattern'] = 'Growing'
+        trajectory['trend'] = 'Upward'
+    elif recent_3day < recent_7day * 0.8:
+        trajectory['pattern'] = 'Declining'
+        trajectory['trend'] = 'Downward'
+    else:
+        trajectory['pattern'] = 'Stable'
+        trajectory['trend'] = 'Flat'
+    
+    # Calculate volatility
+    if len(daily_growth) >= 5:
+        growth_values = [d['growth'] for d in daily_growth[-5:]]
+        std_dev = (sum((x - recent_3day) ** 2 for x in growth_values) / 5) ** 0.5
+        if std_dev > recent_3day * 0.5:
+            trajectory['volatility'] = 'High'
+        elif std_dev > recent_3day * 0.3:
+            trajectory['volatility'] = 'Medium'
+    
+    return trajectory
+
+
+def generate_specific_recommendations(recent_avg: float, week_growth: int, book_info: dict) -> list:
+    """
+    Generate specific, actionable recommendations
+    """
+    recommendations = []
+    
+    # Time-based recommendations
+    current_day = datetime.now().strftime('%A')
+    if current_day in ['Monday', 'Tuesday']:
+        recommendations.append({
+            'type': 'timing',
+            'priority': 'high',
+            'text': '📅 Early week - Perfect time to schedule shoutouts for Thursday/Friday boost'
+        })
+    elif current_day in ['Wednesday', 'Thursday']:
+        recommendations.append({
+            'type': 'timing',
+            'priority': 'urgent',
+            'text': '⚡ Mid-week - Launch ads NOW for weekend RS entry (2-3 day approval)'
+        })
+    
+    # Growth-based recommendations
+    if recent_avg < 10:
+        recommendations.append({
+            'type': 'growth',
+            'priority': 'critical',
+            'text': '🚨 Need immediate growth boost: Schedule 2-3 ads + 3-5 shoutouts this week'
+        })
+        recommendations.append({
+            'type': 'content',
+            'priority': 'high',
+            'text': '📝 Post chapters at peak times: 6-9 PM EST for maximum visibility'
+        })
+    elif recent_avg < 25:
+        recommendations.append({
+            'type': 'growth',
+            'priority': 'high',
+            'text': '📈 Moderate boost needed: 1-2 ads + 2-3 shoutouts recommended'
+        })
+    elif recent_avg < 50:
+        recommendations.append({
+            'type': 'growth',
+            'priority': 'medium',
+            'text': '✅ Good growth! Maintain momentum with 1 ad + 1-2 shoutouts'
+        })
+    else:
+        recommendations.append({
+            'type': 'growth',
+            'priority': 'low',
+            'text': '🔥 Excellent growth! Focus on quality and consistency'
+        })
+    
+    # Chapter-based recommendations
+    chapters = book_info.get('chapters', 0)
+    if chapters < 15:
+        recommendations.append({
+            'type': 'content',
+            'priority': 'high',
+            'text': f'📚 Only {chapters} chapters - Need 15+ for better RS performance'
+        })
+    elif chapters < 25:
+        recommendations.append({
+            'type': 'content',
+            'priority': 'medium',
+            'text': f'📖 {chapters} chapters good, but 25+ optimal for Top 7 potential'
+        })
+    
+    # Specific marketing channel recommendations
+    genres = book_info.get('genres', [])
+    if genres:
+        if 'LitRPG' in genres or 'GameLit' in genres:
+            recommendations.append({
+                'type': 'marketing',
+                'priority': 'medium',
+                'text': '🎮 LitRPG detected - Facebook groups highly effective for this genre'
+            })
+        if 'Romance' in genres:
+            recommendations.append({
+                'type': 'marketing',
+                'priority': 'medium',
+                'text': '💕 Romance detected - Instagram and TikTok promotions work well'
+            })
+        if 'Progression' in genres:
+            recommendations.append({
+                'type': 'marketing',
+                'priority': 'medium',
+                'text': '📊 Progression detected - Reddit r/ProgressionFantasy great for exposure'
+            })
+    
+    return recommendations
 
 # Comprehensive tag mapping - maps all variations to the canonical display name
 TAG_MAPPING = {
@@ -2588,19 +2872,22 @@ async def tags(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# Updated chart commands with default 'all' parameter
+# Complete /rr-followers command implementation with RS prediction
+# This preserves ALL original features while adding new RS functionality
+
 @bot.tree.command(name="rr-followers", description="Show followers over time chart for a Royal Road book")
 @discord.app_commands.describe(
     book_input="Book ID or Royal Road URL",
-    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'"
+    days="Days to show: number (30), 'all', date (2024-01-01), or range (2024-01-01:2024-02-01). Default: 'all'",
+    rs_prediction="Show Rising Stars prediction analysis (optional, default: False)"
 )
-async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "all"):
-    """Generate and send a followers over time chart - DEFAULT TO 'all' TIME"""
+async def rr_followers(interaction: discord.Interaction, book_input: str, days: str = "all", rs_prediction: bool = False):
+    """Generate and send a followers over time chart - DEFAULT TO 'all' TIME with optional RS prediction"""
     global command_counter
     command_counter += 1
     
     logger.info(f"\n[RR-FOLLOWERS] Command called by {interaction.user}")
-    logger.info(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}'")
+    logger.info(f"[RR-FOLLOWERS] Book input: '{book_input}', Days: '{days}', RS Prediction: {rs_prediction}")
     
     await interaction.response.defer()
     
@@ -2637,6 +2924,25 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         # CRITICAL: Use data exactly as returned from API - NO FILTERING
         filtered_data = chart_data  # API already filtered everything
         
+        # Check for Rising Stars potential (if not explicitly requested)
+        rs_eligible = False
+        rs_data = None
+        
+        if rs_prediction:
+            # Full RS prediction requested
+            discord_username = f"{interaction.user.name}#{interaction.user.discriminator}"
+            logger.info(f"[RR-FOLLOWERS] Fetching RS prediction for user: {discord_username}")
+            rs_data = await get_rs_prediction_data(book_input.strip(), discord_username, session)
+            if rs_data:
+                logger.info(f"[RR-FOLLOWERS] RS prediction data received, eligible: {rs_data.get('eligible')}")
+        else:
+            # Quick eligibility check (don't fetch full data)
+            logger.info(f"[RR-FOLLOWERS] Checking RS eligibility for quick hint")
+            rs_check = await check_rs_eligibility(book_input.strip(), session)
+            if rs_check and rs_check.get('eligible'):
+                rs_eligible = True
+                logger.info(f"[RR-FOLLOWERS] Book is RS eligible, will show hint")
+        
         # Create chart image with interpolation
         chart_buffer = create_chart_image(filtered_data, 'followers', book_title, days_param)
         
@@ -2650,6 +2956,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         # Create Discord file and embed
         file = discord.File(chart_buffer, filename=f"followers_chart_{book_id}.png")
         
+        # Build the main embed with ALL original features
         embed = discord.Embed(
             title="📈 Followers Over Time",
             description=f"**[{book_title}]({book_url})**\nBook ID: {book_id}",
@@ -2657,7 +2964,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
         )
         embed.set_image(url=f"attachment://followers_chart_{book_id}.png")
         
-        # Add stats if available
+        # Add stats if available (ORIGINAL FEATURE)
         if filtered_data.get('followers'):
             latest_followers = filtered_data['followers'][-1] if filtered_data['followers'] else 0
             embed.add_field(name="Current Followers", value=f"{latest_followers:,}", inline=True)
@@ -2668,19 +2975,42 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
                 change_text = f"+{change:,}" if change >= 0 else f"{change:,}"
                 embed.add_field(name="Change", value=change_text, inline=True)
         
-        # Use the filter description from the API
+        # Use the filter description from the API (ORIGINAL FEATURE - PERIOD)
         period_text = data_info.get('filter_applied', 'Unknown period')
         embed.add_field(name="Period", value=period_text, inline=True)
         
-        # Add data note about chart features
+        # Add RS prediction or hint if applicable (NEW FEATURE)
+        if rs_prediction and rs_data and rs_data.get('eligible'):
+            # Full RS prediction was requested and book is eligible
+            logger.info(f"[RR-FOLLOWERS] Adding RS prediction to embed")
+            embed = add_rs_prediction_to_embed(embed, rs_data, interaction.user)
+        elif rs_eligible and not rs_prediction:
+            # Book is eligible but prediction not requested - show hint
+            logger.info(f"[RR-FOLLOWERS] Adding RS hint to embed")
+            embed.add_field(
+                name="🌟 Rising Stars Potential Detected!",
+                value=(
+                    "Your book shows potential for Rising Stars!\n"
+                    "Run `/rr-followers` with `rs_prediction:True` for detailed analysis."
+                ),
+                inline=False
+            )
+        
+        # Add data note about chart features (ORIGINAL FEATURE)
         embed.add_field(
             name="📊 Chart Features",
-            value="• Chart starts from the first meaningful data point\n• Points connected to show trends over time\n• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)",
+            value=(
+                "• Chart starts from the first meaningful data point\n"
+                "• Points connected to show trends over time\n"
+                "• Want to add your historical data? Visit [Stepan Chizhov's Discord](https://discord.gg/xvw9vbvrwj)"
+            ),
             inline=False
         )
         
+        # Add promotional field (ORIGINAL FEATURE)
         embed = add_promotional_field(embed)
-            
+        
+        # Set footer (ORIGINAL FEATURE)
         embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics\n(starting with the 12th of June 2025)\nTo use the bot, start typing /rr-views or /rr-followers")
         
         await interaction.followup.send(embed=embed, file=file)
@@ -2698,6 +3028,226 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
             )
         except:
             pass
+
+
+async def check_rs_eligibility(book_input: str, session):
+    """Quick RS eligibility check - returns only eligibility status"""
+    try:
+        data = {
+            'book_input': book_input,
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/rising-stars-prediction"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'RR-Discord-Bot/1.0'
+        }
+        
+        logger.info(f"[RS-CHECK] Checking eligibility for book: {book_input}")
+        
+        async with session.post(url, json=data, headers=headers, timeout=10) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info(f"[RS-CHECK] Eligibility result: {result.get('eligible')}")
+                return result
+            else:
+                logger.error(f"[RS-CHECK] API error: {response.status}")
+                return None
+    except Exception as e:
+        logger.error(f"[RS-CHECK] Exception: {e}")
+        return None
+
+
+async def get_rs_prediction_data(book_input: str, discord_username: str, session):
+    """Get full RS prediction data with user tier check"""
+    try:
+        data = {
+            'book_input': book_input,
+            'discord_username': discord_username,
+            'bot_token': WP_BOT_TOKEN
+        }
+        
+        url = f"{WP_API_URL}/wp-json/rr-analytics/v1/rising-stars-prediction"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'RR-Discord-Bot/1.0'
+        }
+        
+        logger.info(f"[RS-PREDICTION] Fetching full RS data for book: {book_input}")
+        
+        async with session.post(url, json=data, headers=headers, timeout=30) as response:
+            if response.status == 200:
+                result = await response.json()
+                logger.info(f"[RS-PREDICTION] Data received, eligible: {result.get('eligible')}, premium: {result.get('is_premium')}")
+                return result
+            else:
+                logger.error(f"[RS-PREDICTION] API error: {response.status}")
+                return None
+    except Exception as e:
+        logger.error(f"[RS-PREDICTION] Exception: {e}")
+        return None
+
+
+def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discord.User) -> discord.Embed:
+    """Add Rising Stars prediction information to embed while preserving all other fields"""
+    
+    if not rs_data.get('success') or not rs_data.get('eligible'):
+        return embed
+    
+    is_premium = rs_data.get('is_premium', False)
+    growth_metrics = rs_data.get('growth_metrics', {})
+    
+    # Add separator for RS section
+    embed.add_field(
+        name="━━━━━━━━━━━━━━━━━━━━",
+        value="**🌟 RISING STARS ANALYSIS 🌟**",
+        inline=False
+    )
+    
+    if not is_premium:
+        # FREE USER - Basic disclaimer and tips
+        recent_avg = growth_metrics.get('recent_avg_growth', 0)
+        
+        # Growth assessment
+        if recent_avg >= 10:
+            growth_status = "✅ **Strong growth detected!**"
+            urgency = "Your book may reach Rising Stars soon."
+        elif recent_avg >= 5:
+            growth_status = "📈 **Moderate growth detected**"
+            urgency = "With marketing boost, RS achievable in 1-2 weeks."
+        else:
+            growth_status = "🌱 **Building momentum**"
+            urgency = "Need 10+ followers/day for RS potential."
+        
+        embed.add_field(
+            name="📊 Growth Status",
+            value=f"{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 Quick Tips",
+            value=(
+                "• Start reaching out to shoutout partners now\n"
+                "• Consider scheduling ads (2-3 days approval)\n"
+                "• Post at peak times (6-9 PM EST)\n\n"
+                "⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*"
+            ),
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🔓 Want Detailed Predictions?",
+            value=(
+                "Get personalized RS predictions including:\n"
+                "• Estimated peak positions\n"
+                "• Required views for Top 3/7/25\n"
+                "• Marketing timeline\n\n"
+                "**[Support on Patreon](https://www.patreon.com/stepanchizhov)**"
+            ),
+            inline=False
+        )
+    else:
+        # PREMIUM USER - Detailed analysis
+        predictions = rs_data.get('predictions', {})
+        required_views = rs_data.get('required_views', {})
+        marketing_recs = rs_data.get('marketing_recommendations', {})
+        
+        # Current growth status
+        recent_avg = growth_metrics.get('recent_avg_growth', 0)
+        week_growth = growth_metrics.get('week_growth', 0)
+        
+        embed.add_field(
+            name="📊 Current Growth Metrics",
+            value=(
+                f"**Daily Average:** {recent_avg:.1f} followers/day\n"
+                f"**Weekly Growth:** {week_growth} followers\n"
+                f"**Current Followers:** {growth_metrics.get('current_followers', 0):,}"
+            ),
+            inline=True
+        )
+        
+        # Position predictions
+        if predictions:
+            position_text = f"**Range:** #{predictions.get('estimated_position_range', 'Unknown')}\n"
+            position_text += f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n\n"
+            
+            probs = predictions.get('position_probabilities', {})
+            if probs:
+                position_text += "**Probabilities:**\n"
+                for pos, prob in probs.items():
+                    if prob > 0:
+                        position_text += f"• {pos}: {prob}%\n"
+            
+            embed.add_field(
+                name="🎯 Peak Position Prediction",
+                value=position_text,
+                inline=True
+            )
+        
+        # Timeline estimate
+        timeline = rs_data.get('estimated_timeline', 'Unknown')
+        embed.add_field(
+            name="⏰ Estimated Timeline",
+            value=timeline,
+            inline=True
+        )
+        
+        # Required views for targets (condensed)
+        if required_views:
+            views_text = ""
+            for target in ['top_3', 'top_7', 'top_25']:
+                if target in required_views:
+                    reqs = required_views[target]
+                    target_name = target.replace('_', ' ').title()
+                    views_text += f"**{target_name}:** {reqs['views_needed']:,} views\n"
+            
+            embed.add_field(
+                name="📈 Day 0 Requirements",
+                value=views_text,
+                inline=False
+            )
+        
+        # Marketing recommendations (condensed)
+        if marketing_recs:
+            # Find most relevant target
+            achievable = []
+            for target, rec in marketing_recs.items():
+                if rec.get('gap', 0) == 0:
+                    achievable.append(target.replace('_', ' ').title())
+            
+            if achievable:
+                rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
+            else:
+                # Show next achievable target
+                for target in ['top_25', 'top_10', 'top_7', 'top_3']:
+                    if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
+                        rec = marketing_recs[target]
+                        rec_text = (
+                            f"**Target: {target.replace('_', ' ').title()}**\n"
+                            f"• Need +{rec['gap']:.0f} followers/day\n"
+                            f"• {rec['ads_recommended']} ads recommended\n"
+                            f"• {rec['shoutouts_recommended']} shoutouts needed"
+                        )
+                        break
+            
+            embed.add_field(
+                name="🎯 Recommendations",
+                value=rec_text + "\n\n⚠️ *Ads carry financial risk. Not financial advice.*",
+                inline=False
+            )
+        
+        # Shoutout search URL
+        search_url = rs_data.get('shoutout_search_url')
+        if search_url:
+            embed.add_field(
+                name="🤝 Find Shoutout Partners",
+                value=f"[**Search for matching books**]({search_url})",
+                inline=False
+            )
+    
+    return embed
 
 @bot.tree.command(name="rr-views", description="Show views over time chart for a Royal Road book")
 @discord.app_commands.describe(
@@ -4520,3 +5070,4 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
