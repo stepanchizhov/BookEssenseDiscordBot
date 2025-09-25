@@ -3203,7 +3203,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     views_text += f"**{target_name}:** {reqs['views_needed']:,} views\n"
             
             embed.add_field(
-                name="📈 Day 0 Requirements",
+                name="📈 Day 0 Requirements (this section is still being tweaked)",
                 value=views_text,
                 inline=False
             )
@@ -5069,5 +5069,6 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
