@@ -3216,20 +3216,20 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                 if rec.get('gap', 0) == 0:
                     achievable.append(target.replace('_', ' ').title())
             
-        #if achievable:
-        #    rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
-        #else:
-            # Show next achievable target
-            for target in ['top_25', 'top_10', 'top_7', 'top_3']:
-                if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
-                    rec = marketing_recs[target]
-                    rec_text = (
-                        f"**Target: {target.replace('_', ' ').title()}**\n"
-                        f"• Need +{rec['gap']:.0f} followers/day\n"
-                        f"• {rec['ads_recommended']} ads recommended\n"
-                        f"• {rec['shoutouts_recommended']} shoutouts needed"
-                    )
-                    break
+            if achievable:
+                rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
+            else:
+                # Show next achievable target
+                for target in ['top_25', 'top_10', 'top_7', 'top_3']:
+                    if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
+                        rec = marketing_recs[target]
+                        rec_text = (
+                            f"**Target: {target.replace('_', ' ').title()}**\n"
+                            f"• Need +{rec['gap']:.0f} followers/day\n"
+                            f"• {rec['ads_recommended']} ads recommended\n"
+                            f"• {rec['shoutouts_recommended']} shoutouts needed"
+                        )
+                        break
                     
             embed.add_field(
                 name="🎯 Recommendations",
@@ -5069,6 +5069,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
