@@ -3216,24 +3216,24 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                 if rec.get('gap', 0) == 0:
                     achievable.append(target.replace('_', ' ').title())
             
-            if achievable:
-                rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
-            else:
-                # Show next achievable target
-                for target in ['top_25', 'top_10', 'top_7', 'top_3']:
-                    if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
-                        rec = marketing_recs[target]
-                        rec_text = (
-                            f"**Target: {target.replace('_', ' ').title()}**\n"
-                            f"• Need +{rec['gap']:.0f} followers/day\n"
-                            f"• {rec['ads_recommended']} ads recommended\n"
-                            f"• {rec['shoutouts_recommended']} shoutouts needed"
-                        )
-                        break
-            
+        #if achievable:
+        #    rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
+        #else:
+            # Show next achievable target
+            for target in ['top_25', 'top_10', 'top_7', 'top_3']:
+                if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
+                    rec = marketing_recs[target]
+                    rec_text = (
+                        f"**Target: {target.replace('_', ' ').title()}**\n"
+                        f"• Need +{rec['gap']:.0f} followers/day\n"
+                        f"• {rec['ads_recommended']} ads recommended\n"
+                        f"• {rec['shoutouts_recommended']} shoutouts needed"
+                    )
+                    break
+                    
             embed.add_field(
                 name="🎯 Recommendations",
-                value=rec_text + "\n\n⚠️ *Ads carry financial risk. Not financial advice.*",
+                value=rec_text + "\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n",
                 inline=False
             )
         
@@ -3242,7 +3242,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         if search_url:
             embed.add_field(
                 name="🤝 Find Shoutout Partners",
-                value=f"[**Search for matching books**]({search_url})",
+                value=f"[**Search for matching books**]({search_url})\n(Please be mindful, not all authors want to do shoutouts\n)",
                 inline=False
             )
     
@@ -5069,6 +5069,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
