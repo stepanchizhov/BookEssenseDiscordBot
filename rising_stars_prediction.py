@@ -148,6 +148,346 @@ class RisingStarsPrediction:
         
         return True, "Eligible for Rising Stars prediction"
     
+def add_detailed_rs_prediction(embed: discord.Embed, rs_data: Dict) -> discord.Embed:
+    """
+    Add detailed Rising Stars prediction information to an embed
+    """
+    if not rs_data.get('eligible'):
+        return embed
+    
+    is_premium = rs_data.get('is_premium', False)
+    
+    # Add separator
+    embed.add_field(
+        name="━━━━━━━━━━━━━━━━━━━━",
+        value="**🌟 RISING STARS ANALYSIS 🌟**",
+        inline=False
+    )
+    
+    if not is_premium:
+        # Free tier - basic information
+        embed = add_free_tier_rs_info(embed, rs_data)
+    else:
+        # Premium tier - detailed analysis
+        embed = add_premium_tier_rs_info(embed, rs_data)
+    
+    return embed
+
+
+def add_free_tier_rs_info(embed: discord.Embed, rs_data: Dict) -> discord.Embed:
+    """
+    Add free tier RS information to embed
+    """
+    growth_metrics = rs_data.get('growth_metrics', {})
+    recent_avg = growth_metrics.get('recent_avg_growth', 0)
+    
+    # Basic growth assessment
+    if recent_avg >= 10:
+        growth_status = "✅ **Strong growth detected!**"
+        urgency = "Your book may reach Rising Stars soon."
+    elif recent_avg >= 5:
+        growth_status = "📈 **Moderate growth detected**"
+        urgency = "With marketing boost, RS is achievable within 1-2 weeks."
+    else:
+        growth_status = "🌱 **Building momentum**"
+        urgency = "Focus on growth - need 10+ followers/day for RS potential."
+    
+    embed.add_field(
+        name="📊 Growth Status",
+        value=f"{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}",
+        inline=False
+    )
+    
+    # Action items for free users
+    embed.add_field(
+        name="💡 Immediate Action Items",
+        value=(
+            "**1.** 🤝 Reach out to shoutout partners NOW\n"
+            "   • Similar books in your genre\n"
+            "   • 2-3 days notice needed\n\n"
+            "**2.** 💰 Consider scheduling ads\n"
+            "   • 2-3 days approval time\n"
+            "   • Budget $10-30 per ad\n\n"
+            "**3.** 📅 Post consistently\n"
+            "   • Peak times: 6-9 PM EST\n"
+            "   • Weekend releases get more views"
+        ),
+        inline=False
+    )
+    
+    # Risk disclaimer
+    embed.add_field(
+        name="⚠️ Important Disclaimer",
+        value=(
+            "*Ads are a financial risk with no guaranteed returns. "
+            "This analysis is not financial advice. "
+            "Success depends on many factors including content quality, "
+            "timing, and reader engagement.*"
+        ),
+        inline=False
+    )
+    
+    # Upgrade prompt
+    embed.add_field(
+        name="🔓 Unlock Full Analysis",
+        value=(
+            "**Premium features include:**\n"
+            "• 🎯 Peak position predictions (Top 3/7/25)\n"
+            "• 📈 Probability percentages for each tier\n"
+            "• 📊 Required views/followers calculations\n"
+            "• 🎨 Customized marketing timeline\n"
+            "• 🔍 Niche-matched shoutout partner finder\n"
+            "• ⏰ Specific timeline estimates\n\n"
+            "**[Support on Patreon](https://www.patreon.com/stepanchizhov)**"
+        ),
+        inline=False
+    )
+    
+    return embed
+
+    def add_premium_tier_rs_info(embed: discord.Embed, rs_data: Dict) -> discord.Embed:
+        """
+        Add premium tier detailed RS analysis to embed
+        """
+        growth_metrics = rs_data.get('growth_metrics', {})
+        predictions = rs_data.get('predictions', {})
+        enhanced = rs_data.get('enhanced_predictions', {})
+        trajectory = rs_data.get('growth_trajectory', {})
+        
+        # Current metrics with trajectory
+        metrics_text = (
+            f"**Daily Average:** {growth_metrics.get('recent_avg_growth', 0):.1f} followers/day\n"
+            f"**Weekly Total:** {growth_metrics.get('week_growth', 0)} followers\n"
+            f"**Current Base:** {growth_metrics.get('current_followers', 0):,} followers"
+        )
+        
+        if trajectory:
+            metrics_text += f"\n\n**Trajectory:** {trajectory.get('pattern', 'Unknown')}"
+            metrics_text += f"\n**Trend:** {trajectory.get('trend', 'Unknown')}"
+            metrics_text += f"\n**Volatility:** {trajectory.get('volatility', 'Unknown')}"
+        
+        embed.add_field(
+            name="📊 Current Growth Metrics",
+            value=metrics_text,
+            inline=True
+        )
+        
+        # Position predictions with confidence
+        if predictions:
+            pred_text = (
+                f"**Estimated Peak:** #{predictions.get('estimated_position_range', 'Unknown')}\n"
+                f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n"
+            )
+            
+            if enhanced:
+                pred_text += f"\n**Growth Phase:** {enhanced.get('growth_phase', 'Unknown')}"
+                pred_text += f"\n**Day 0 Estimate:** +{enhanced.get('estimated_day0_growth', 0)} followers"
+                
+                if 'acceleration_bonus' in enhanced:
+                    pred_text += f"\n🚀 {enhanced['acceleration_bonus']}"
+                elif 'acceleration_penalty' in enhanced:
+                    pred_text += f"\n⚠️ {enhanced['acceleration_penalty']}"
+            
+            embed.add_field(
+                name="🎯 Peak Position Analysis",
+                value=pred_text,
+                inline=True
+            )
+        
+        # Timeline estimate
+        timeline = rs_data.get('estimated_timeline', predictions.get('timeline', 'Unknown'))
+        embed.add_field(
+            name="⏰ RS Timeline",
+            value=f"**{timeline}**",
+            inline=True
+        )
+        
+        # Probability breakdown
+        if predictions.get('position_probabilities'):
+            prob_text = ""
+            probs = predictions['position_probabilities']
+            
+            # Sort by position order
+            position_order = ['#1', '#2-3', '#4-5', '#6-7', 'Below #7']
+            for pos in position_order:
+                if pos in probs and probs[pos] > 0:
+                    # Add visual bar
+                    bar_length = int(probs[pos] / 10)
+                    bar = "█" * bar_length + "░" * (10 - bar_length)
+                    prob_text += f"**{pos}:** {bar} {probs[pos]}%\n"
+            
+            embed.add_field(
+                name="📊 Position Probabilities",
+                value=prob_text or "No probability data available",
+                inline=False
+            )
+        
+        # Required metrics for targets
+        required_views = rs_data.get('required_views', {})
+        if required_views:
+            # Focus on achievable targets based on current growth
+            current_avg = growth_metrics.get('recent_avg_growth', 0)
+            
+            targets_text = ""
+            if current_avg < 20:
+                # Show Top 25 and Top 7
+                for target in ['top_25', 'top_7']:
+                    if target in required_views:
+                        data = required_views[target]
+                        name = "Top 25" if target == 'top_25' else "Top 7"
+                        targets_text += f"**{name} Requirements:**\n"
+                        targets_text += f"• Views: {data['views_needed']:,}\n"
+                        targets_text += f"• Followers: {data['followers_needed']:,}\n\n"
+            else:
+                # Show Top 7 and Top 3
+                for target in ['top_7', 'top_3']:
+                    if target in required_views:
+                        data = required_views[target]
+                        name = "Top 7" if target == 'top_7' else "Top 3"
+                        targets_text += f"**{name} Requirements:**\n"
+                        targets_text += f"• Views: {data['views_needed']:,}\n"
+                        targets_text += f"• Followers: {data['followers_needed']:,}\n\n"
+            
+            if targets_text:
+                embed.add_field(
+                    name="📈 Day 0 Target Requirements",
+                    value=targets_text.strip(),
+                    inline=False
+                )
+        
+        # Specific recommendations
+        recommendations = rs_data.get('specific_recommendations', [])
+        marketing = rs_data.get('marketing_recommendations', {})
+        
+        if recommendations:
+            # Group by priority
+            urgent = [r for r in recommendations if r.get('priority') == 'urgent']
+            high = [r for r in recommendations if r.get('priority') == 'high']
+            medium = [r for r in recommendations if r.get('priority') == 'medium']
+            
+            rec_text = ""
+            if urgent:
+                rec_text += "**🚨 URGENT:**\n"
+                for r in urgent[:2]:
+                    rec_text += f"{r['text']}\n"
+                rec_text += "\n"
+            
+            if high:
+                rec_text += "**⚡ High Priority:**\n"
+                for r in high[:2]:
+                    rec_text += f"{r['text']}\n"
+                rec_text += "\n"
+            
+            if medium and len(rec_text) < 800:  # Discord limit
+                rec_text += "**📝 Also Consider:**\n"
+                for r in medium[:2]:
+                    rec_text += f"{r['text']}\n"
+            
+            if rec_text:
+                embed.add_field(
+                    name="🎯 Personalized Action Plan",
+                    value=rec_text.strip(),
+                    inline=False
+                )
+        elif marketing:
+            # Use basic marketing recommendations
+            current_avg = growth_metrics.get('recent_avg_growth', 0)
+            
+            # Find the most relevant target
+            if current_avg < 15:
+                target_data = marketing.get('top_25', {})
+                target_name = "Top 25"
+            elif current_avg < 30:
+                target_data = marketing.get('top_10', {})
+                target_name = "Top 10"
+            else:
+                target_data = marketing.get('top_7', {})
+                target_name = "Top 7"
+            
+            if target_data.get('gap', 0) > 0:
+                rec_text = (
+                    f"**Target: {target_name}**\n"
+                    f"• Need +{target_data['gap']:.0f} followers/day\n"
+                    f"• {target_data.get('ads_recommended', 0)} ads recommended\n"
+                    f"• {target_data.get('shoutouts_recommended', 0)} shoutouts needed\n"
+                    f"• Est. ad budget: {target_data.get('estimated_cost', {}).get('ads', '$10-30')}"
+                )
+            else:
+                rec_text = f"✅ Current growth sufficient for {target_name}!\nMaintain consistency."
+            
+            embed.add_field(
+                name="📋 Marketing Requirements",
+                value=rec_text,
+                inline=False
+            )
+        
+        # Shoutout partner finder
+        search_url = rs_data.get('shoutout_search_url')
+        if search_url:
+            embed.add_field(
+                name="🤝 Find Shoutout Partners",
+                value=(
+                    f"[**🔍 Search Matching Books**]({search_url})\n"
+                    "*Books with similar genres and reader base*\n"
+                    "*Sorted by engagement for best matches*"
+                ),
+                inline=False
+            )
+        
+        # Genre RS performance
+        genre_rs = rs_data.get('genre_rs_appearances', [])
+        if genre_rs:
+            genre_text = "**Current Rankings:**\n"
+            for i, appearance in enumerate(genre_rs[:5]):  # Top 5
+                tag = appearance['rs_tag'].replace('_', ' ').title()
+                genre_text += f"• **{tag}:** #{appearance['best_position']} "
+                genre_text += f"({appearance['appearances']}x)\n"
+            
+            embed.add_field(
+                name="🏆 Genre Rising Stars",
+                value=genre_text,
+                inline=True
+            )
+        
+        # Risk disclaimer (always include)
+        embed.add_field(
+            name="⚠️ Disclaimer",
+            value=(
+                "*Marketing involves financial risk. Results not guaranteed. "
+                "This is analytical data, not financial advice.*"
+            ),
+            inline=False
+        )
+        
+        return embed
+    
+    
+    def create_rs_summary_field(rs_data: Dict) -> Optional[Dict]:
+        """
+        Create a summary field for RS prediction (used in quick checks)
+        """
+        if not rs_data or not rs_data.get('eligible'):
+            return None
+        
+        growth_metrics = rs_data.get('growth_metrics', {})
+        recent_avg = growth_metrics.get('recent_avg_growth', 0)
+        
+        if recent_avg >= 10:
+            icon = "🔥"
+            status = "High RS Potential"
+        elif recent_avg >= 5:
+            icon = "📈"
+            status = "Moderate RS Potential"
+        else:
+            icon = "🌱"
+            status = "Building RS Potential"
+        
+        return {
+            'name': f"{icon} Rising Stars Alert",
+            'value': f"**{status}** - Use `rs_prediction:True` for full analysis",
+            'inline': False
+        }
+    
     def predict_position(self, week_growth: int, day0_growth: int = None) -> Dict:
         """Predict potential RS position based on growth patterns"""
         
