@@ -2991,7 +2991,7 @@ async def rr_followers(interaction: discord.Interaction, book_input: str, days: 
                 name="🌟 Rising Stars Potential Detected!",
                 value=(
                     "Your book shows potential for Rising Stars!\n"
-                    "Run `/rr-followers` with `rs_prediction:True` for detailed analysis."
+                    "Run `/rr-followers` with `rs_prediction:True` for detailed analysis.\n"
                 ),
                 inline=False
             )
@@ -3129,10 +3129,8 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         embed.add_field(
             name="💡 Quick Tips",
             value=(
-                "• Start reaching out to shoutout partners now\n"
-                "• Consider scheduling ads (2-3 days approval)\n"
-                "• Post at peak times (6-9 PM EST)\n\n"
-                "⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*"
+                "• If you haven't started yet, arrange shoutouts now\n"
+                "• Consider scheduling ads on Royal Road (1-2 days approval)"
             ),
             inline=False
         )
@@ -3143,8 +3141,10 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                 "Get personalized RS predictions including:\n"
                 "• Estimated peak positions\n"
                 "• Required views for Top 3/7/25\n"
-                "• Marketing timeline\n\n"
-                "**[Support on Patreon](https://www.patreon.com/stepanchizhov)**"
+                "• Marketing timeline\n"
+                "**[Support the RR Toolkit on Patreon to get access!](https://www.patreon.com/stepanchizhov)**\n\n"
+                "⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n"
+                "━━━━━━━━━━━━━━━━━━━━"
             ),
             inline=False
         )
@@ -3161,9 +3161,8 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         embed.add_field(
             name="📊 Current Growth Metrics",
             value=(
-                f"**Daily Average:** {recent_avg:.1f} followers/day\n"
-                f"**Weekly Growth:** {week_growth} followers\n"
-                f"**Current Followers:** {growth_metrics.get('current_followers', 0):,}"
+                f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n"
+                f"**Weekly Growth:** {week_growth} followers"
             ),
             inline=True
         )
@@ -3171,7 +3170,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         # Position predictions
         if predictions:
             position_text = f"**Range:** #{predictions.get('estimated_position_range', 'Unknown')}\n"
-            position_text += f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n\n"
+            position_text += f"**Probability:** {predictions.get('confidence', 'Low').title()}\n\n"
             
             probs = predictions.get('position_probabilities', {})
             if probs:
@@ -5070,4 +5069,5 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
