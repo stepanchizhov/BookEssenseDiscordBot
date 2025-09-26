@@ -3221,7 +3221,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             else:
                 # Show ALL achievable targets (with gap < 50)
                 rec_texts = []
-                for target in ['top_25', 'top_10', 'top_7', 'top_3']:
+                for target in ['top_50', 'top_25', 'top_10', 'top_7', 'top_3', 'top_1']:
                     if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
                         rec = marketing_recs[target]
                         target_text = (
@@ -5085,6 +5085,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
