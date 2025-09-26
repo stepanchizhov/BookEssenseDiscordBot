@@ -3202,7 +3202,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             )
         
         # Timeline estimate
-        timeline = rs_data.get('estimated_timeline', 'Unknown') + f"\n\n{growth_status}\n{urgency}"
+        timeline = f"{growth_status}\n{urgency}\n\n" + rs_data.get('estimated_timeline', 'Unknown')
         embed.add_field(
             name="⏰ Estimated Timeline",
             value=timeline,
@@ -3251,14 +3251,14 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                             f"• {((rec['gap'] / 4) + recent_avg):.0f} new followers on day +1\n"
                             f"• {((rec['gap'] / 2) + recent_avg):.0f} new followers on day +2\n"
                             f"• At least {((rec['gap']) + recent_avg):.0f} new followers on Day 0 (main RS)\n"
-                            f"• Continuous growth needed after\n\n"
+                            f"• Continuous growth needed after\n"
                             f"**Ads:** {rec['ads_recommended']} recommended\n"
                             f"and/or\n"
                             f"**Shoutouts\*:**\n"
                             f"Day 1: {rec['shoutouts_recommended']}, "
                             f"Day 2: {rec['shoutouts_recommended'] * 2}, "
                             f"Day 3: {rec['shoutouts_recommended'] * 3}, "
-                            f"Day 4: {rec['shoutouts_recommended'] * 5}..."
+                            f"Day 4: {rec['shoutouts_recommended'] * 5}...\n"
                         )
                         
                         # Add as individual field with target name as title
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
