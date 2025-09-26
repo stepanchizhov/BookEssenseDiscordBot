@@ -3202,9 +3202,9 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             )
         
         # Timeline estimate
-        timeline = f"{growth_status}\n{urgency}\n\n" + rs_data.get('estimated_timeline', 'Unknown')
+        timeline = f"{urgency}\n\n⏰ Estimated Timeline\n" + rs_data.get('estimated_timeline', 'Unknown')
         embed.add_field(
-            name="⏰ Estimated Timeline",
+            name=growth_status, 
             value=timeline,
             inline=True
         )
@@ -3258,7 +3258,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                             f"Day 1: {rec['shoutouts_recommended']}, "
                             f"Day 2: {rec['shoutouts_recommended'] * 2}, "
                             f"Day 3: {rec['shoutouts_recommended'] * 3}, "
-                            f"Day 4: {rec['shoutouts_recommended'] * 5}...\n"
+                            f"Day 4: {rec['shoutouts_recommended'] * 5}...\n\n"
                         )
                         
                         # Add as individual field with target name as title
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
