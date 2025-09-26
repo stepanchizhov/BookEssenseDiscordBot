@@ -3125,10 +3125,12 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
     
         embed.add_field(
             name="📊 Growth Status",
-            value=f"{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}",
+            value=f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n**7-Day Daily Average:** {(week_growth / 7):.1f} followers/day\n**Weekly Growth:** {week_growth} followers\n{growth_status}\n{urgency}",
             inline=False
         )
-        
+                f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n"
+                f"**7-Day Daily Average:** {(week_growth / 7):.1f} followers/day\n"
+                f"**Weekly Growth:** {week_growth} followers"        
         embed.add_field(
             name="💡 Quick Tips",
             value=(
@@ -3143,10 +3145,10 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             value=(
                 "Get personalized RS predictions including:\n"
                 "• Estimated peak positions\n"
-                "• Required views for Top 3/7/25\n"
+                "• Required followership growth for Top 3/7/25\n"
                 "• Marketing timeline\n"
                 "**[Support the RR Toolkit on Patreon to get access!](https://www.patreon.com/stepanchizhov)**\n\n"
-                "⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n"
+                "⚠️ *Ads are a financial risk with no guaranteed returns\nNot financial advice\nResults vary depending on CTR*\n"
                 "━━━━━━━━━━━━━━━━━━━━"
             ),
             inline=False
@@ -5116,6 +5118,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
