@@ -3227,18 +3227,19 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         rec = marketing_recs[target]
                         target_text = (
                             f"**Target: {target.replace('_', ' ').title()}**\n"
-                            f"• Need at least:\n"
-                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
-                            f"+{(rec['gap'] * 2) + recent_avg:.0f} followers on day 2\n"
-                            f"+{(rec['gap'] * 4) + recent_avg:.0f} followers on day 3\n"
-                            f"And continuous growth after that to achieve the target\n"
-                            f"• Ads recommended: {rec['ads_recommended']}\n"
+                            f"Need at least:\n"
+#                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
+                            f"+{rec['gap'] * 1} followers on day 1\n"
+                            f"+{rec['gap'] * 2} followers on day 2\n"
+                            f"+{rec['gap'] * 4} followers on day 3\n"
+                            f"And continuous growth after that to achieve the target\n\n"
+                            f"Ads recommended: {rec['ads_recommended']}\n"
                             f"and/or\n"
-                            f"• Shoutouts recommended:\n"
-                            f"Day 1:{rec['shoutouts_recommended']}\n"
-                            f"Day 2:{rec['shoutouts_recommended'] * 2}\n"
-                            f"Day 3:{rec['shoutouts_recommended'] * 3}\n"
-                            f"Day 4:{rec['shoutouts_recommended'] * 5}\n"
+                            f"Shoutouts recommended:\n"
+                            f"Day 1: {rec['shoutouts_recommended']}\n"
+                            f"Day 2: {rec['shoutouts_recommended'] * 2}\n"
+                            f"Day 3: {rec['shoutouts_recommended'] * 3}\n"
+                            f"Day 4: {rec['shoutouts_recommended'] * 5}\n"
                             f"[...]\n"
                         )
                         rec_texts.append(target_text)
@@ -5086,6 +5087,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
