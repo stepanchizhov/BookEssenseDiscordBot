@@ -3248,8 +3248,8 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         # Create the target text for this specific target
                         target_text = (
                             f"Need at least:\n"
-                            f"• {((rec['gap'] / 4) + recent_avg):.0f} new followers on day 1\n"
-                            f"• {((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
+                            f"• {((rec['gap'] / 4) + recent_avg):.0f} new followers on day +1\n"
+                            f"• {((rec['gap'] / 2) + recent_avg):.0f} new followers on day +2\n"
                             f"• {((rec['gap']) + recent_avg):.0f} new followers on Day 0 (main RS)\n"
                             f"Continuous growth needed after\n\n"
                             f"**Ads:** {rec['ads_recommended']} recommended\n"
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
