@@ -3128,9 +3128,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             value=f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n**7-Day Daily Average:** {(week_growth / 7):.1f} followers/day\n**Weekly Growth:** {week_growth} followers\n{growth_status}\n{urgency}",
             inline=False
         )
-                f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n"
-                f"**7-Day Daily Average:** {(week_growth / 7):.1f} followers/day\n"
-                f"**Weekly Growth:** {week_growth} followers"        
+  
         embed.add_field(
             name="💡 Quick Tips",
             value=(
@@ -5118,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
