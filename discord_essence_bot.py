@@ -3229,9 +3229,9 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                             f"**Target: {target.replace('_', ' ').title()}**\n"
                             f"Need at least:\n"
 #                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
-                            f"+{rec['gap'] * 1} followers on day 1\n"
-                            f"+{rec['gap'] * 2} followers on day 2\n"
-                            f"+{rec['gap'] * 4} followers on day 3\n"
+                            f"+{rec['gap'] / 3:.0f} new followers on day 1\n"
+                            f"+{rec['gap'] / 2:.0f} new followers on day 2\n"
+                            f"+{rec['gap']:.0f} new followers on day 3\n"
                             f"And continuous growth after that to achieve the target\n\n"
                             f"Ads recommended: {rec['ads_recommended']}\n"
                             f"and/or\n"
@@ -5087,6 +5087,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
