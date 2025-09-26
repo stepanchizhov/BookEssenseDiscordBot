@@ -3226,7 +3226,10 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         rec = marketing_recs[target]
                         target_text = (
                             f"**Target: {target.replace('_', ' ').title()}**\n"
-                            f"• Need +{rec['gap']:.0f} followers/day\n"
+                            f"• Need at least {(rec['gap'] * 1) + recent_avg:.0f} followers on day +1\n"
+                            f"{(rec['gap'] * 2) + recent_avg:.0f} followers on day +2\n"
+                            f"{(rec['gap'] * 4) + recent_avg:.0f} followers on day +3\n"
+                            f"And continuous growth after that to achieve the target\n"
                             f"• Ads recommended: {rec['ads_recommended']}\n"
                             f"• Shoutouts recommended: {rec['shoutouts_recommended']}"
                         )
@@ -5075,6 +5078,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
