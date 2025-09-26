@@ -3233,43 +3233,55 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     achievable.append(target.replace('_', ' ').title())
             
             if achievable:
-                rec_text = f"✅ Current growth sufficient for: {', '.join(achievable)}"
+                embed.add_field(
+                    name="✅ Current Growth Status",
+                    value=f"Current growth sufficient for: {', '.join(achievable)}",
+                    inline=False
+                )
             else:
-                # Show ALL achievable targets (with gap < 50)
-                rec_texts = []
+                # Add each achievable target as a separate field
+                targets_added = 0
                 for target in ['top_25', 'top_10', 'top_7', 'top_3']:
-#                for target in ['top_50', 'top_25', 'top_10', 'top_7', 'top_3', 'top_1']:
                     if target in marketing_recs and marketing_recs[target].get('gap', 999) < 50:
                         rec = marketing_recs[target]
+                        
+                        # Create the target text for this specific target
                         target_text = (
-                            f"**Target: {target.replace('_', ' ').title()}**\n"
                             f"Need at least:\n"
-#                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
-                            f"{((rec['gap'] / 4) + recent_avg):.0f} new followers on day 1\n"
-                            f"{((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
-                            f"{((rec['gap']) + recent_avg):.0f} new followers on Day 0 on the main RS \n"
-                            f"And continuous growth after that to achieve the target\n\n"
-                            f"Ads recommended: {rec['ads_recommended']}\n"
-                            f"and/or\n"
-                            f"Shoutouts recommended\*:\n"
-                            f"Day 1: {rec['shoutouts_recommended']}\n"
-                            f"Day 2: {rec['shoutouts_recommended'] * 2}\n"
-                            f"Day 3: {rec['shoutouts_recommended'] * 3}\n"
-                            f"Day 4: {rec['shoutouts_recommended'] * 5}\n"
-                            f"[...]\n"
+                            f"• {((rec['gap'] / 4) + recent_avg):.0f} new followers on day 1\n"
+                            f"• {((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
+                            f"• {((rec['gap']) + recent_avg):.0f} new followers on Day 0 (main RS)\n"
+                            f"Continuous growth needed after\n\n"
+                            f"**Ads:** {rec['ads_recommended']} recommended\n"
+                            f"**OR Shoutouts:*\n"
+                            f"Day 1: {rec['shoutouts_recommended']}, "
+                            f"Day 2: {rec['shoutouts_recommended'] * 2}, "
+                            f"Day 3: {rec['shoutouts_recommended'] * 3}, "
+                            f"Day 4: {rec['shoutouts_recommended'] * 5}..."
                         )
-                        rec_texts.append(target_text)
+                        
+                        # Add as individual field with target name as title
+                        embed.add_field(
+                            name=f"🎯 Target: {target.replace('_', ' ').title()}",
+                            value=target_text,
+                            inline=False
+                        )
+                        targets_added += 1
                 
-                if rec_texts:
-                    rec_text = "\n".join(rec_texts)  # Join all recommendations with newline
+                # If no targets were added, show the "no achievable targets" message
+                if targets_added == 0:
+                    embed.add_field(
+                        name="🎯 Recommendations",
+                        value="No easily achievable targets (all gaps > 50 followers/day)",
+                        inline=False
+                    )
                 else:
-                    rec_text = "No easily achievable targets (all gaps > 50 followers/day)"
-                    
-            embed.add_field(
-                name="🎯 Recommendations",
-                value=rec_text + "\n*Shoutouts recommendations are given for swaps with books with 1,000 followers and/or 1,000 average views per chapter\nAdjust the quanitites depending on your networking capabilities/preferences",
-                inline=False
-            )
+                    # Add the footnote about shoutouts as a separate field
+                    embed.add_field(
+                        name="ℹ️ Note",
+                        value="*Shoutouts recommendations are for swaps with books with 1,000+ followers/average views\nAdjust quantities based on your networking capabilities",
+                        inline=False
+                    )
         
         # Shoutout search URL
         search_url = rs_data.get('shoutout_search_url')
@@ -5103,6 +5115,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
