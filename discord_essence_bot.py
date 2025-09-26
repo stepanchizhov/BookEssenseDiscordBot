@@ -3104,22 +3104,25 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         value="**🌟 RISING STARS ANALYSIS 🌟**",
         inline=False
     )
+
+    # Current growth status
+    week_growth = growth_metrics.get('week_growth', 0)
+    recent_avg = growth_metrics.get('recent_avg_growth', 0)
+    
+    # Growth assessment
+    if recent_avg >= 10:
+        growth_status = "✅ **Strong growth detected!**"
+        urgency = "Your book may reach Rising Stars soon."
+    elif recent_avg >= 5:
+        growth_status = "📈 **Moderate growth detected**"
+        urgency = "With marketing boost, RS achievable in 1-2 weeks."
+    else:
+        growth_status = "🌱 **Building momentum**"
+        urgency = "Need 10+ followers/day for RS potential."
     
     if not is_premium:
         # FREE USER - Basic disclaimer and tips
-        recent_avg = growth_metrics.get('recent_avg_growth', 0)
-        
-        # Growth assessment
-        if recent_avg >= 10:
-            growth_status = "✅ **Strong growth detected!**"
-            urgency = "Your book may reach Rising Stars soon."
-        elif recent_avg >= 5:
-            growth_status = "📈 **Moderate growth detected**"
-            urgency = "With marketing boost, RS achievable in 1-2 weeks."
-        else:
-            growth_status = "🌱 **Building momentum**"
-            urgency = "Need 10+ followers/day for RS potential."
-        
+    
         embed.add_field(
             name="📊 Growth Status",
             value=f"{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}",
@@ -3154,14 +3157,11 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         required_views = rs_data.get('required_views', {})
         marketing_recs = rs_data.get('marketing_recommendations', {})
         
-        # Current growth status
-        recent_avg = growth_metrics.get('recent_avg_growth', 0)
-        week_growth = growth_metrics.get('week_growth', 0)
-        
         embed.add_field(
             name="📊 Current Growth Metrics",
             value=(
                 f"**3-Day Daily Average:** {recent_avg:.1f} followers/day\n"
+                f"**7-Day Daily Average:** {(week_growth / 7):.1f} followers/day\n"
                 f"**Weekly Growth:** {week_growth} followers"
             ),
             inline=True
@@ -3169,15 +3169,31 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         
         # Position predictions
         if predictions:
-            position_text = f"**Range:** #{predictions.get('estimated_position_range', 'Unknown')}\n"
-            position_text += f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n\n"
+            position_text = f"**Range:** #{predictions.get('estimated_position_range', 'Unknown')}\n\n"
+#            position_text += f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n\n"
             
             probs = predictions.get('position_probabilities', {})
             if probs:
                 position_text += "**Probabilities:**\n"
                 for pos, prob in probs.items():
                     if prob > 0:
-                        position_text += f"• {pos}: {prob}%\n"
+                        # Determine probability label
+                        if prob <= 5:
+                            label = "Remote Chance"
+                        elif prob <= 20:
+                            label = "Highly Unlikely"
+                        elif prob <= 35:
+                            label = "Unlikely"
+                        elif prob <= 50:
+                            label = "Realistic Possibility"
+                        elif prob <= 75:
+                            label = "Likely"
+                        elif prob <= 90:
+                            label = "Highly Likely"
+                        else:
+                            label = "Almost Certain"
+                        
+                        position_text += f"• {pos}: {label} ({prob}%)\n"
             
             embed.add_field(
                 name="🎯 Peak Position Prediction",
@@ -3186,7 +3202,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             )
         
         # Timeline estimate
-        timeline = rs_data.get('estimated_timeline', 'Unknown')
+        timeline = rs_data.get('estimated_timeline', 'Unknown') + "\n{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}"
         embed.add_field(
             name="⏰ Estimated Timeline",
             value=timeline,
@@ -3231,11 +3247,11 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
 #                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
                             f"{((rec['gap'] / 4) + recent_avg):.0f} new followers on day 1\n"
                             f"{((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
-                            f"{((rec['gap']) + recent_avg):.0f} on Day 0 on the main RS \n"
+                            f"{((rec['gap']) + recent_avg):.0f} new followers on Day 0 on the main RS \n"
                             f"And continuous growth after that to achieve the target\n\n"
                             f"Ads recommended: {rec['ads_recommended']}\n"
                             f"and/or\n"
-                            f"Shoutouts recommended*:\n"
+                            f"Shoutouts recommended\*:\n"
                             f"Day 1: {rec['shoutouts_recommended']}\n"
                             f"Day 2: {rec['shoutouts_recommended'] * 2}\n"
                             f"Day 3: {rec['shoutouts_recommended'] * 3}\n"
@@ -5087,6 +5103,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
