@@ -3194,19 +3194,19 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         )
         
         # Required views for targets (condensed)
-        if required_views:
-            views_text = ""
-            for target in ['top_3', 'top_7', 'top_25']:
-                if target in required_views:
-                    reqs = required_views[target]
-                    target_name = target.replace('_', ' ').title()
-                    views_text += f"**{target_name}:** {reqs['views_needed']:,} views\n"
-            
-            embed.add_field(
-                name="📈 Day 0 Requirements (this section is still being tweaked)",
-                value=views_text,
-                inline=False
-            )
+        #if required_views:
+        #    views_text = ""
+        #    for target in ['top_3', 'top_7', 'top_25']:
+        #        if target in required_views:
+        #            reqs = required_views[target]
+        #            target_name = target.replace('_', ' ').title()
+        #            views_text += f"**{target_name}:** {reqs['views_needed']:,} views\n"
+        #    
+        #    embed.add_field(
+        #        name="📈 Main RS Day 0 Guidelines (this section is still being tweaked)",
+        #        value=views_text,
+        #        inline=False
+        #    )
         
         # Marketing recommendations (condensed)
         if marketing_recs:
@@ -3231,11 +3231,11 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
 #                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
                             f"{((rec['gap'] / 4) + recent_avg):.0f} new followers on day 1\n"
                             f"{((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
-                            f"{((rec['gap']) + recent_avg):.0f} on the first day on the main RS 3\n"
+                            f"{((rec['gap']) + recent_avg):.0f} on Day 0 on the main RS \n"
                             f"And continuous growth after that to achieve the target\n\n"
                             f"Ads recommended: {rec['ads_recommended']}\n"
                             f"and/or\n"
-                            f"Shoutouts recommended:\n"
+                            f"Shoutouts recommended*:\n"
                             f"Day 1: {rec['shoutouts_recommended']}\n"
                             f"Day 2: {rec['shoutouts_recommended'] * 2}\n"
                             f"Day 3: {rec['shoutouts_recommended'] * 3}\n"
@@ -3251,7 +3251,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     
             embed.add_field(
                 name="🎯 Recommendations",
-                value=rec_text + "\nShoutouts recommendations are given for books with 1,000 followers and/or 1,000 average views per chapter\nAdjust depending on your networking capabilities",
+                value=rec_text + "\n*Shoutouts recommendations are given for swaps with books with 1,000 followers and/or 1,000 average views per chapter\nAdjust the quanitites depending on your networking capabilities/preferences",
                 inline=False
             )
         
@@ -5087,6 +5087,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
