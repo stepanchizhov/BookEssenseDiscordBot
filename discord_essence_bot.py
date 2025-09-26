@@ -3227,19 +3227,19 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         target_text = (
                             f"**Target: {target.replace('_', ' ').title()}**\n"
                             f"• Need +{rec['gap']:.0f} followers/day\n"
-                            f"• {rec['ads_recommended']} ads recommended\n"
-                            f"• {rec['shoutouts_recommended']} shoutouts needed"
+                            f"• Ads recommended: {rec['ads_recommended']}\n"
+                            f"• Shoutouts recommended: {rec['shoutouts_recommended']}"
                         )
                         rec_texts.append(target_text)
                 
                 if rec_texts:
-                    rec_text = "\n\n".join(rec_texts)  # Join all recommendations with double newline
+                    rec_text = "\n".join(rec_texts)  # Join all recommendations with newline
                 else:
                     rec_text = "No easily achievable targets (all gaps > 50 followers/day)"
                     
             embed.add_field(
                 name="🎯 Recommendations",
-                value=rec_text + "\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n",
+                value=rec_text,
                 inline=False
             )
         
@@ -3248,7 +3248,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         if search_url:
             embed.add_field(
                 name="🤝 Find Shoutout Partners",
-                value=f"[**Search for matching books**]({search_url})\n(Please be mindful, not all authors want to do shoutouts\n)",
+                value=f"[**Search for matching books**]({search_url})\nPlease be mindful:\nNot all authors want to do shoutouts\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n",
                 inline=False
             )
     
@@ -5075,6 +5075,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
