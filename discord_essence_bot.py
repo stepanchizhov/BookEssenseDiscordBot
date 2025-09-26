@@ -3226,12 +3226,19 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         rec = marketing_recs[target]
                         target_text = (
                             f"**Target: {target.replace('_', ' ').title()}**\n"
-                            f"• Need at least {(rec['gap'] * 1) + recent_avg:.0f} followers on day +1\n"
-                            f"{(rec['gap'] * 2) + recent_avg:.0f} followers on day +2\n"
-                            f"{(rec['gap'] * 4) + recent_avg:.0f} followers on day +3\n"
+                            f"• Need at least:\n"
+                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
+                            f"+{(rec['gap'] * 2) + recent_avg:.0f} followers on day 2\n"
+                            f"+{(rec['gap'] * 4) + recent_avg:.0f} followers on day 3\n"
                             f"And continuous growth after that to achieve the target\n"
                             f"• Ads recommended: {rec['ads_recommended']}\n"
-                            f"• Shoutouts recommended: {rec['shoutouts_recommended']}"
+                            f"and/or\n"
+                            f"• Shoutouts recommended:\n"
+                            f"Day 1:{rec['shoutouts_recommended']}\n"
+                            f"Day 2:{rec['shoutouts_recommended'] * 2}\n"
+                            f"Day 3:{rec['shoutouts_recommended'] * 3}\n"
+                            f"Day 4:{rec['shoutouts_recommended'] * 5}\n"
+                            f"[...]\n"
                         )
                         rec_texts.append(target_text)
                 
@@ -3242,7 +3249,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     
             embed.add_field(
                 name="🎯 Recommendations",
-                value=rec_text,
+                value=rec_text + "\nShoutouts recommendations are given for books with 1,000 followers and/or 1,000 average views per rchapter\adjust depending on your networking capabilities",
                 inline=False
             )
         
@@ -3251,7 +3258,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         if search_url:
             embed.add_field(
                 name="🤝 Find Shoutout Partners",
-                value=f"[**Search for matching niche genre books**]({search_url})\nPlease be mindful:\nNot all authors want to do shoutouts\n\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n━━━━━━━━━━━━━━━━━━━━━\n",
+                value=f"[**Search for matching niche genre books**]({search_url})\nPlease be mindful:\nNot all authors want to do shoutouts\n\n⚠️ *Ads are a financial risk with no guaranteed returns\nNot financial advice\nResults vary depending on CTR*\n━━━━━━━━━━━━━━━━━━━━━\n",
                 inline=False
             )
     
@@ -5078,6 +5085,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
