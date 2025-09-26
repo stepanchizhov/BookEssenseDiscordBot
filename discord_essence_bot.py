@@ -3248,7 +3248,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         if search_url:
             embed.add_field(
                 name="🤝 Find Shoutout Partners",
-                value=f"[**Search for matching books**]({search_url})\nPlease be mindful:\nNot all authors want to do shoutouts\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n",
+                value=f"[**Search for matching niche genre books**]({search_url})\nPlease be mindful:\nNot all authors want to do shoutouts\n\n⚠️ *Ads are a financial risk with no guaranteed returns. Not financial advice.*\n━━━━━━━━━━━━━━━━━━━━━\n",
                 inline=False
             )
     
@@ -5075,6 +5075,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
