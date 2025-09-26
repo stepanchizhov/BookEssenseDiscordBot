@@ -3193,7 +3193,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                         else:
                             label = "Almost Certain"
                         
-                        position_text += f"• {pos}: {label} ({prob}%)\n"
+                        position_text += f"• {pos}: {label}\n"
             
             embed.add_field(
                 name="🎯 Peak Position Prediction",
@@ -3202,7 +3202,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
             )
         
         # Timeline estimate
-        timeline = rs_data.get('estimated_timeline', 'Unknown') + "\n{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}"
+        timeline = rs_data.get('estimated_timeline', 'Unknown') + f"\n{growth_status}\nCurrent: {recent_avg:.1f} followers/day\n{urgency}"
         embed.add_field(
             name="⏰ Estimated Timeline",
             value=timeline,
@@ -3253,7 +3253,8 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                             f"• {((rec['gap']) + recent_avg):.0f} new followers on Day 0 (main RS)\n"
                             f"Continuous growth needed after\n\n"
                             f"**Ads:** {rec['ads_recommended']} recommended\n"
-                            f"**OR Shoutouts:*\n"
+                            f"and/or*\n"
+                            f"**Shoutouts\*:**\n"
                             f"Day 1: {rec['shoutouts_recommended']}, "
                             f"Day 2: {rec['shoutouts_recommended'] * 2}, "
                             f"Day 3: {rec['shoutouts_recommended'] * 3}, "
@@ -3279,7 +3280,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     # Add the footnote about shoutouts as a separate field
                     embed.add_field(
                         name="ℹ️ Note",
-                        value="*Shoutouts recommendations are for swaps with books with 1,000+ followers/average views\nAdjust quantities based on your networking capabilities",
+                        value="*Shoutouts recommendations are for swaps with books with 1,000+ followers/average views\nAdjust quantities based on your networking capabilities and preferences",
                         inline=False
                     )
         
@@ -5115,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
