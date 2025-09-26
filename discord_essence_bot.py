@@ -3170,7 +3170,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
         # Position predictions
         if predictions:
             position_text = f"**Range:** #{predictions.get('estimated_position_range', 'Unknown')}\n"
-            position_text += f"**Probability:** {predictions.get('confidence', 'Low').title()}\n\n"
+            position_text += f"**Confidence:** {predictions.get('confidence', 'Low').title()}\n\n"
             
             probs = predictions.get('position_probabilities', {})
             if probs:
@@ -3229,9 +3229,9 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                             f"**Target: {target.replace('_', ' ').title()}**\n"
                             f"Need at least:\n"
 #                            f"+{(rec['gap'] * 1) + recent_avg:.0f} followers on day 1\n"
-                            f"+{rec['gap'] / 3:.0f} new followers on day 1\n"
-                            f"+{rec['gap'] / 2:.0f} new followers on day 2\n"
-                            f"+{rec['gap']:.0f} new followers on day 3\n"
+                            f"{((rec['gap'] / 3) + recent_avg):.0f} new followers on day 1\n"
+                            f"{((rec['gap'] / 2) + recent_avg):.0f} new followers on day 2\n"
+                            f"{((rec['gap']) + recent_avg):.0f} new followers on day 3\n"
                             f"And continuous growth after that to achieve the target\n\n"
                             f"Ads recommended: {rec['ads_recommended']}\n"
                             f"and/or\n"
@@ -5087,6 +5087,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
