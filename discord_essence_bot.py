@@ -3280,7 +3280,7 @@ def add_rs_prediction_to_embed(embed: discord.Embed, rs_data: dict, user: discor
                     # Add the footnote about shoutouts as a separate field
                     embed.add_field(
                         name="ℹ️ Note",
-                        value="*Shoutouts recommendations are calculated for the baseline of ongoing books with 1,000+ followers/average views\nAdjust quantities based on your networking capabilities and preferences",
+                        value="*Shoutouts recommendations are calculated for the baseline of ongoing books with 1,000+ followers/average views\nAdjust quantities based on your networking capabilities and preferences\nResults may very depending on the season, genre and other parameters",
                         inline=False
                     )
         
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
