@@ -796,7 +796,7 @@ def get_promotional_field(force_show=False):
     promo = promo_messages[promo_index]
     
     # Create the Patreon goal message
-    current_amount = 258  # Update this manually
+    current_amount = 260  # Update this manually
     goal_amount = 300
     percentage = (current_amount / goal_amount) * 100
     bar_length = 10
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
