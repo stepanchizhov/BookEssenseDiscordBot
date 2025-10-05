@@ -796,8 +796,8 @@ def get_promotional_field(force_show=False):
     promo = promo_messages[promo_index]
     
     # Create the Patreon goal message
-    current_amount = 440  # Update this manually
-    goal_amount = 300
+    current_amount = 35  # Update this manually
+    goal_amount = 70
     percentage = (current_amount / goal_amount) * 100
     bar_length = 10
     filled_length = int(bar_length * current_amount / goal_amount)
@@ -829,14 +829,14 @@ def get_promotional_field(force_show=False):
         f"🗡️ ${current_amount}/${goal_amount} [{bar}]\n Your coin pouch vs. the autumn deadline",
         f"🧝 ${current_amount}/${goal_amount} [{bar}]\n Even elves pay their hosting bills (probably)",
         f"🔮 ${current_amount}/${goal_amount} [{bar}]\n The crystal ball shows server death this autumn",
-        f"👑 ${current_amount}/${goal_amount} [{bar}]\n A kingdom for a server! (Or just $300)",
+        f"👑 ${current_amount}/${goal_amount} [{bar}]\n A kingdom for a server! (Or just 70 patrons)",
         
         # Sci-fi themed
         f"🚀 ${current_amount}/${goal_amount} [{bar}]\n Houston, we have a funding problem",
-        f"👽 ${current_amount}/${goal_amount} [{bar}]\n Even aliens think $300 is reasonable for hosting",
+        f"👽 ${current_amount}/${goal_amount} [{bar}]\n Even aliens think 70 patrons can sustainable support our hosting",
         f"🛸 ${current_amount}/${goal_amount} [{bar}]\n Warp drive offline. Reason: insufficient credits",
         f"🤖 ${current_amount}/${goal_amount} [{bar}]\n CRITICAL ERROR: Funding.exe will terminate in the autumn",
-        f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Flux capacitor needs $300 to survive past autumn",
+        f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Flux capacitor needs 70 patrons to survive past autumn",
         f"🌌 ${current_amount}/${goal_amount} [{bar}]\n In space, no one can hear servers die",
         f"🔬 ${current_amount}/${goal_amount} [{bar}]\n Scientific fact: Servers need money to exist",
         f"🛰️ ${current_amount}/${goal_amount} [{bar}]\n Ground control to Major Patron: please send funds",
@@ -851,7 +851,7 @@ def get_promotional_field(force_show=False):
         f"⚡ ${current_amount}/${goal_amount} [{bar}]\n Mana: {percentage:.0f}% - Full depletion = autumn shutdown",
         f"🏆 ${current_amount}/${goal_amount} [{bar}]\n Achievement Locked: 'Survive Past Autumn'",
         f"💎 ${current_amount}/${goal_amount} [{bar}]\n [LEGENDARY QUEST] Prevent the Autumn Server Apocalypse",
-        f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n Main Quest: Gather 300 Gold Before Autumn's End",
+        f"🗺️ ${current_amount}/${goal_amount} [{bar}]\n Main Quest: Gather 70 Patrons Before Autumn's End",
         f"⚔️ ${current_amount}/${goal_amount} [{bar}]\n DPS: Donations Per Server-month needed!",
         f"🛡️ ${current_amount}/${goal_amount} [{bar}]\n Server Shield: {percentage:.0f}% - Breaks in the autumn",
         f"📈 ${current_amount}/${goal_amount} [{bar}]\n Stats: Funding {percentage:.0f}% | Time: Winter approaching",
@@ -863,7 +863,7 @@ def get_promotional_field(force_show=False):
         f"🕹️ ${current_amount}/${goal_amount} [{bar}]\n Game Over in the autumn? Insert coin to continue",
         f"🏁 ${current_amount}/${goal_amount} [{bar}]\n Racing against autumn - currently in last place",
         f"🎯 ${current_amount}/${goal_amount} [{bar}]\n 360 no-scope the hosting bills before winter",
-        f"💣 ${current_amount}/${goal_amount} [{bar}]\n Defuse the autumn shutdown bomb: $300 required",
+        f"💣 ${current_amount}/${goal_amount} [{bar}]\n Defuse the autumn shutdown bomb: 70 patrons required",
         f"🏅 ${current_amount}/${goal_amount} [{bar}]\n Speedrun: Fund the server before winter%",
         f"🎪 ${current_amount}/${goal_amount} [{bar}]\n This isn't pay-to-win, it's pay-to-exist",
         f"🔥 ${current_amount}/${goal_amount} [{bar}]\n Combo meter: {percentage:.0f}% - Don't drop it before winter!",
@@ -885,9 +885,9 @@ def get_promotional_field(force_show=False):
     combined_value = (
         f"{promo['text']}\n[**{promo['link_text']}**]({promo['url']})\n\n"
         f"**━━━━━━━━━━━━━━━━━━━━━**\n"
-        f"If we don't get ${goal_amount} in monthly Patreon support to cover hosting and other expenses by the end of October, this tool will be forced to close down\n"
+        f"We achieved our extended goal (yay!), but currently, only two generous patrons cover more than a half of all contributions. We aren't out of the woods yet! We need to have {goal_amount} patrons to make the tool sustainable by the end of November. Please consider joining even at the lowest tier!\n"
         f"{patreon_text}\n"
-        f"[**→ Support on Patreon**](https://patreon.com/stepanchizhov)"
+        f"[**→ Support on Patreon**](https://patreon.com/stepanchizhov/membership)"
     )
     
     return {
@@ -5116,6 +5116,7 @@ if __name__ == "__main__":
     
     logger.info(f"[STARTUP] Starting bot...")
     bot.run(BOT_TOKEN)
+
 
 
 
