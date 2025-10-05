@@ -25,6 +25,7 @@ from others_also_liked_module import OthersAlsoLikedModule
 from rs_analysis_module import RSAnalysisModule
 from promotional_utils import get_promotional_field, add_promotional_field
 from shared_utils import tag_autocomplete, TAG_MAPPING, UNIQUE_TAGS
+from ptw_module import PopularThisWeekModule
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -95,6 +96,12 @@ async def on_ready():
             bot, session, WP_API_URL, WP_BOT_TOKEN
         )
         logger.info("✓ Book claim module initialized")
+
+        ptw_module = PopularThisWeekModule(
+            bot, session, WP_API_URL, WP_BOT_TOKEN,
+            add_promotional_field_func=add_promotional_field
+        )
+        logger.info("✓ Popular This Week module initialized")
         
         # Chart commands module
         chart_module = ChartCommandsModule(
@@ -454,3 +461,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
