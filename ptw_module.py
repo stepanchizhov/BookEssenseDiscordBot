@@ -276,7 +276,7 @@ class PopularThisWeekModule:
         # Create embed
         embed = discord.Embed(
             title=f"🔥 Popular This Week - {tag_display}",
-            description=f"Top {min(count, len(books))} books by views in the last 7 days",
+            description=f"Top {min(count, len(books))} books by views in the last 7 days (stubbed books excluded)",
             color=0xFF6B35  # Orange color for popularity
         )
         
@@ -292,7 +292,7 @@ class PopularThisWeekModule:
         except:
             pass
         
-        # If context book was requested, add its detailed comparison info
+        # If context book was requested, add its summary info
         if context_book_id and context_info:
             context_lines = []
             
@@ -306,42 +306,23 @@ class PopularThisWeekModule:
                 context_lines.append("**Current Position:** Not on this PTW list")
             
             if context_info.get('weekly_views') is not None:
-                context_lines.append(f"**Your Weekly Views:** {context_info['weekly_views']:,}")
-            
-            # Add comparison with ALL books on the list if the book is on the list
-            if context_info.get('position') and books:
-                my_views = context_info['weekly_views']
-                context_lines.append("\n**📊 Comparison with all positions:**")
-                
-                for book in books[:10]:  # Show comparison with top 10
-                    pos = book.get('position', 0)
-                    book_views = book.get('weekly_views', 0)
-                    diff = book_views - my_views
-                    
-                    if pos == context_info.get('position'):
-                        continue  # Skip self
-                    
-                    if pos < context_info.get('position'):
-                        # Books above
-                        if diff > 0:
-                            context_lines.append(f"#{pos}: Need +{abs(diff):,} views to reach")
-                        else:
-                            context_lines.append(f"#{pos}: Already {abs(diff):,} views ahead!")
-                    else:
-                        # Books below
-                        if diff < 0:
-                            context_lines.append(f"#{pos}: Leading by {abs(diff):,} views")
-                        else:
-                            context_lines.append(f"#{pos}: Behind by {abs(diff):,} views")
+                context_lines.append(f"**Requested Book's Weekly Views:** {context_info['weekly_views']:,}")
             
             embed.add_field(
-                name="📖 Your Book Analysis",
+                name="📖 Requested Book",
                 value="\n".join(context_lines),
                 inline=False
             )
         
-        # Add books list
+        # Add books list with inline comparisons
         if books:
+            # Get context book views for comparison if available
+            my_views = None
+            my_position = None
+            if context_book_id and context_info:
+                my_views = context_info.get('weekly_views')
+                my_position = context_info.get('position')
+            
             # Split into multiple fields if necessary (Discord limit is 1024 chars per field)
             book_entries = []
             for i, book in enumerate(books[:count], 1):
@@ -361,13 +342,24 @@ class PopularThisWeekModule:
                 book_url = f"https://www.royalroad.com/fiction/{book_id}"
                 weekly_views = book.get('weekly_views', 0)
                 
-                # Build the entry with ID included
-                if context_book_id and str(book_id) == str(context_book_id):
-                    entry = f"{position} **→** [{book_title}]({book_url}) (ID: {book_id})\n   **{weekly_views:,} views** ← Your book"
-                else:
-                    entry = f"{position} [{book_title}]({book_url}) (ID: {book_id})\n   **{weekly_views:,} views**"
+                # Build the entry
+                entry_lines = [f"{position} [{book_title}]({book_url}) (ID: {book_id})"]
                 
-                book_entries.append(entry)
+                # Add views and comparison on the same line if context book is provided
+                if my_views is not None and my_position and i != my_position:
+                    diff = weekly_views - my_views
+                    if diff > 0:
+                        entry_lines.append(f"   **{weekly_views:,} views** (+{diff:,} ahead)")
+                    else:
+                        entry_lines.append(f"   **{weekly_views:,} views** ({diff:,} behind)")
+                else:
+                    # Mark if it's the user's book
+                    if context_book_id and str(book_id) == str(context_book_id):
+                        entry_lines.append(f"   **{weekly_views:,} views** ← Requested book")
+                    else:
+                        entry_lines.append(f"   **{weekly_views:,} views**")
+                
+                book_entries.append("\n".join(entry_lines))
             
             # Add books in batches to respect Discord's field limits
             current_batch = []
@@ -410,8 +402,7 @@ class PopularThisWeekModule:
             name="ℹ️ About Popular This Week",
             value=(
                 "• Updates multiple times daily\n"
-                "• Based on total views in the last 7 days\n"
-                "• Maximum 20 books per tag list\n"
+                "• Shows maximum 20 books per tag list\n"
                 "• Use `/rr-ptw-check [book]` to see appearance history"
             ),
             inline=False
