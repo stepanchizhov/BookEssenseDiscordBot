@@ -259,141 +259,162 @@ class PopularThisWeekModule:
                 pass
     
     def create_ptw_list_embed(
-        self,
-        data: Dict[str, Any],
-        count: int,
-        context_book_id: Optional[str],
-        tag: str
-    ) -> discord.Embed:
-        """Create embed for PTW list display"""
-        books = data.get('books', [])
-        context_info = data.get('context_info', {})
-        timestamp = data.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        
-        # Format tag display
-        tag_display = self.format_tag_display(tag)
-        
-        # Create embed
-        embed = discord.Embed(
-            title=f"🔥 Popular This Week - {tag_display}",
-            description=f"Top {min(count, len(books))} books by views in the last 7 days",
-            color=0xFF6B35  # Orange color for popularity
-        )
-        
-        # Add timestamp info
-        try:
-            timestamp_dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
-            formatted_time = timestamp_dt.strftime('%b %d, %Y at %I:%M %p UTC')
-            embed.add_field(
-                name="📅 Last Updated",
-                value=formatted_time,
-                inline=False
+            self,
+            data: Dict[str, Any],
+            count: int,
+            context_book_id: Optional[str],
+            tag: str
+        ) -> discord.Embed:
+            """Create embed for PTW list display"""
+            books = data.get('books', [])
+            context_info = data.get('context_info', {})
+            timestamp = data.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            
+            # Format tag display
+            tag_display = self.format_tag_display(tag)
+            
+            # Create embed
+            embed = discord.Embed(
+                title=f"🔥 Popular This Week - {tag_display}",
+                description=f"Top {min(count, len(books))} books by views in the last 7 days",
+                color=0xFF6B35  # Orange color for popularity
             )
-        except:
-            pass
-        
-        # If context book was requested, add its info
-        if context_book_id and context_info:
-            context_lines = []
             
-            if context_info.get('position'):
-                context_lines.append(f"**Position:** #{context_info['position']}")
-            else:
-                context_lines.append("**Position:** Not on this PTW list")
+            # Add timestamp info
+            try:
+                timestamp_dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+                formatted_time = timestamp_dt.strftime('%b %d, %Y at %I:%M %p UTC')
+                embed.add_field(
+                    name="📅 Last Updated",
+                    value=formatted_time,
+                    inline=False
+                )
+            except:
+                pass
             
-            if context_info.get('weekly_views'):
-                context_lines.append(f"**Weekly Views:** {context_info['weekly_views']:,}")
-            
-            if context_info.get('title'):
-                book_url = f"https://www.royalroad.com/fiction/{context_book_id}"
-                context_lines.append(f"**Book:** [{context_info['title']}]({book_url})")
-            
-            embed.add_field(
-                name="📖 Context Book",
-                value="\n".join(context_lines),
-                inline=False
-            )
-        
-        # Add books list
-        if books:
-            # Split into multiple fields if necessary (Discord limit is 1024 chars per field)
-            book_entries = []
-            for i, book in enumerate(books[:count], 1):
-                # Format position with medals for top 3
-                if i == 1:
-                    position = "🥇"
-                elif i == 2:
-                    position = "🥈"
-                elif i == 3:
-                    position = "🥉"
+            # If context book was requested, add its detailed comparison info
+            if context_book_id and context_info:
+                context_lines = []
+                
+                if context_info.get('title'):
+                    book_url = f"https://www.royalroad.com/fiction/{context_book_id}"
+                    context_lines.append(f"**Book:** [{context_info['title']}]({book_url})")
+                
+                if context_info.get('position'):
+                    context_lines.append(f"**Current Position:** #{context_info['position']}")
                 else:
-                    position = f"**#{i}**"
+                    context_lines.append("**Current Position:** Not on this PTW list")
                 
-                # Create book entry with link and ID
-                book_id = book.get('book_id', 'Unknown')
-                book_title = book.get('title', 'Unknown Title')
-                book_url = f"https://www.royalroad.com/fiction/{book_id}"
-                weekly_views = book.get('weekly_views', 0)
+                if context_info.get('weekly_views'):
+                    context_lines.append(f"**Weekly Views:** {context_info['weekly_views']:,}")
                 
-                # Highlight context book if it's in the list
-                if context_book_id and str(book_id) == str(context_book_id):
-                    entry = f"{position} **→** [{book_title}]({book_url}) (ID: {book_id})\n   **{weekly_views:,} views** ← Your book"
-                else:
-                    entry = f"{position} [{book_title}]({book_url}) (ID: {book_id})\n   **{weekly_views:,} views**"
+                # Add comparison with books above and below
+                if context_info.get('book_above'):
+                    above = context_info['book_above']
+                    diff = above['view_difference']
+                    if diff > 0:
+                        context_lines.append(f"\n📈 **To reach #{above['position']}:** Need +{abs(diff):,} more views")
+                        context_lines.append(f"   _{above['title']}: {above['weekly_views']:,} views_")
+                    else:
+                        context_lines.append(f"\n📈 **Gap to #{above['position']}:** Already ahead by {abs(diff):,} views!")
+                        context_lines.append(f"   _{above['title']}: {above['weekly_views']:,} views_")
                 
-                book_entries.append(entry)
+                if context_info.get('book_below'):
+                    below = context_info['book_below']
+                    diff = below['view_difference']
+                    if diff > 0:
+                        context_lines.append(f"\n📉 **Lead over #{below['position']}:** +{diff:,} views ahead")
+                        context_lines.append(f"   _{below['title']}: {below['weekly_views']:,} views_")
+                    else:
+                        context_lines.append(f"\n📉 **Behind #{below['position']}:** -{abs(diff):,} views behind")
+                        context_lines.append(f"   _{below['title']}: {below['weekly_views']:,} views_")
+                
+                embed.add_field(
+                    name="📖 Your Book Analysis",
+                    value="\n".join(context_lines),
+                    inline=False
+                )
             
-            # Add books in batches to respect Discord's field limits
-            current_batch = []
-            current_length = 0
-            field_count = 1
-            
-            for entry in book_entries:
-                if current_length + len(entry) + 2 > 1024:  # +2 for newlines
-                    # Send current batch
+            # Add books list
+            if books:
+                # Split into multiple fields if necessary (Discord limit is 1024 chars per field)
+                book_entries = []
+                for i, book in enumerate(books[:count], 1):
+                    # Format position with medals for top 3
+                    if i == 1:
+                        position = "🥇"
+                    elif i == 2:
+                        position = "🥈"
+                    elif i == 3:
+                        position = "🥉"
+                    else:
+                        position = f"**#{i}**"
+                    
+                    # Create book entry with link and ID
+                    book_id = book.get('book_id', 'Unknown')
+                    book_title = book.get('title', 'Unknown Title')
+                    book_url = f"https://www.royalroad.com/fiction/{book_id}"
+                    weekly_views = book.get('weekly_views', 0)
+                    
+                    # Highlight context book if it's in the list
+                    if context_book_id and str(book_id) == str(context_book_id):
+                        entry = f"{position} **→** [{book_title}]({book_url})\n   **{weekly_views:,} views** ← Your book"
+                    else:
+                        entry = f"{position} [{book_title}]({book_url})\n   **{weekly_views:,} views**"
+                    
+                    book_entries.append(entry)
+                
+                # Add books in batches to respect Discord's field limits
+                current_batch = []
+                current_length = 0
+                field_count = 1
+                
+                for entry in book_entries:
+                    if current_length + len(entry) + 2 > 1024:  # +2 for newlines
+                        # Send current batch
+                        field_name = "📚 Books" if field_count == 1 else f"📚 Books (continued)"
+                        embed.add_field(
+                            name=field_name,
+                            value="\n\n".join(current_batch),
+                            inline=False
+                        )
+                        current_batch = [entry]
+                        current_length = len(entry)
+                        field_count += 1
+                    else:
+                        current_batch.append(entry)
+                        current_length += len(entry) + 2
+                
+                # Add remaining batch
+                if current_batch:
                     field_name = "📚 Books" if field_count == 1 else f"📚 Books (continued)"
                     embed.add_field(
                         name=field_name,
                         value="\n\n".join(current_batch),
                         inline=False
                     )
-                    current_batch = [entry]
-                    current_length = len(entry)
-                    field_count += 1
-                else:
-                    current_batch.append(entry)
-                    current_length += len(entry) + 2
-            
-            # Add remaining batch
-            if current_batch:
-                field_name = "📚 Books" if field_count == 1 else f"📚 Books (continued)"
+            else:
                 embed.add_field(
-                    name=field_name,
-                    value="\n\n".join(current_batch),
+                    name="📚 No Data",
+                    value="No books found for this PTW list.",
                     inline=False
                 )
-        else:
+            
+            # Add note about the list
             embed.add_field(
-                name="📚 No Data",
-                value="No books found for this PTW list.",
+                name="ℹ️ About Popular This Week",
+                value=(
+                    "• Updates multiple times daily\n"
+                    "• Based on total views in the last 7 days\n"
+                    "• Maximum 20 books per tag list\n"
+                    "• Use `/rr-ptw-check [book]` to see appearance history"
+                ),
                 inline=False
             )
-        
-        # Add note about the list
-        embed.add_field(
-            name="ℹ️ About Popular This Week",
-            value=(
-                "• Updates multiple times daily\n"
-                "• Based on total views in the last 7 days\n"
-                "• Maximum 20 books per tag list\n"
-                "• Use `/rr-ptw-check [book]` to see appearance history"
-            ),
-            inline=False
-        )
-        
-        embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics • Popular This Week tracker")
-        
-        return embed
+            
+            embed.set_footer(text="Data from Stepan Chizhov's Royal Road Analytics • Popular This Week tracker")
+            
+            return embed
     
     def create_ptw_check_embed(
         self,
