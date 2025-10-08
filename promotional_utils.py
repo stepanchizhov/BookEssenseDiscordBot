@@ -61,7 +61,7 @@ def get_promotional_field(force_show: bool = False) -> Optional[Dict[str, Any]]:
     promo = promo_messages[promo_index]
     
     # Create the Patreon goal message
-    current_amount = 36  # Update this manually
+    current_amount = 37  # Update this manually
     goal_amount = 70
     percentage = (current_amount / goal_amount) * 100
     bar_length = 10
